@@ -48,7 +48,7 @@ def layout_write_allowed(is_admin: bool, installer_active: bool) -> bool:
     return bool(is_admin and installer_active)
 
 
-def _card(value: Any) -> dict[str, Any] | None:
+def _card(value: Any, *, partial: bool = False) -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
     card_type = str(value.get("type", "module")).lower()
@@ -80,6 +80,9 @@ def _card(value: Any) -> dict[str, Any] | None:
     # A visible card must retain an accessible identity.
     if result["visible"] and not (result["show_icon"] or result["show_title"]):
         result["show_title"] = True
+    if partial:
+        allowed = set(DEFAULT_CARD) | {"icon"}
+        return {key: result[key] for key in allowed if key in value and key in result}
     return result
 
 
@@ -99,7 +102,7 @@ def normalize_layout(value: Any) -> dict[str, Any]:
             cards: dict[str, Any] = {}
             for card_id, raw_card in list(raw_view.items())[:1000]:
                 card_id = str(card_id).lower()
-                card = _card(raw_card)
+                card = _card(raw_card, partial=context != "base")
                 if CARD_ID_RE.fullmatch(card_id) and card is not None:
                     cards[card_id] = card
             if cards:

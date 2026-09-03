@@ -108,6 +108,12 @@ class LayoutTests(unittest.TestCase):
         self.assertIn("home:status", reset["base"]["home"])
         self.assertNotIn("lights", reset["mobile"])
 
+    def test_device_override_keeps_only_explicit_fields(self):
+        value = layout.normalize_layout({
+            "mobile": {"home": {"home:status": {"type": "status", "size": "m"}}}
+        })
+        self.assertEqual(value["mobile"]["home"]["home:status"], {"type": "status", "size": "m"})
+
     def test_invalid_scope_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "invalid_layout_scope"):
             layout.update_layout_view({}, "desktop", "home", {})

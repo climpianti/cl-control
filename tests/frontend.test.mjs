@@ -20,6 +20,7 @@ import {
   effectiveLayout,
   layoutDeviceContext,
   layoutCardCapabilities,
+  layoutOverrides,
   normalizeLayoutCard,
   reorderLayoutCards,
 } from "../cl-control-runtime.mjs";
@@ -65,6 +66,8 @@ assert.deepEqual(reorderLayoutCards(generatedLayout, "home:module:climate", "hom
 assert.equal(normalizeLayoutCard({ show_icon: false, show_title: false }).show_title, true);
 assert.deepEqual(layoutCardCapabilities("light").sizes, ["s", "m"]);
 assert.equal(normalizeLayoutCard({ size: "xl", shape: "wide" }, "light").size, "s");
+const mobileOverrides = layoutOverrides(mobileLayout, effectiveLayout(inheritedLayout, "base", "home", generatedLayout));
+assert.deepEqual(mobileOverrides.find(card => card.id === "home:module:lights"), { id: "home:module:lights", type: "module", order: 1, size: "s" });
 
 const installerEntity = classifyEntity(
   "sensor.integration_diagnostics",

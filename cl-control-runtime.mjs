@@ -78,6 +78,18 @@ export function reorderLayoutCards(cards, movedId, targetId) {
   return result.map((card, order) => ({ ...card, order }));
 }
 
+export function layoutOverrides(cards, inheritedCards) {
+  const inherited = new Map((inheritedCards || []).map(card => [card.id, card]));
+  return (cards || []).map(card => {
+    const base = inherited.get(card.id) || {};
+    const override = { id: card.id, type: card.type };
+    for (const key of ["order", "size", "span", "shape", "icon", "icon_size", "icon_container", "show_icon", "show_title", "show_state", "show_secondary", "visible"]) {
+      if (card[key] !== base[key]) override[key] = card[key];
+    }
+    return override;
+  }).filter(card => Object.keys(card).length > 2);
+}
+
 export function colorWheelSelection(clientX, clientY, rect, options = {}) {
   const width = Number(rect?.width) || 0;
   const height = Number(rect?.height) || 0;

@@ -17,6 +17,7 @@ import {
   emptyLayout,
   layoutDeviceContext,
   layoutCardCapabilities,
+  layoutOverrides,
   reorderLayoutCards,
   structuredCloneSafe,
 } from './cl-control-runtime.mjs?v=3.3.0-dev';
@@ -573,7 +574,7 @@ class CLControlPanel extends HTMLElement {
   }
   _startLayoutEditor(preview=false){if(!this._installerOn())return;this._layoutEditor={active:true,preview,context:'base',view:'home',device:'auto',drafts:new Map(),dirty:false,drag:null};this._switchPage('home');this._renderHome();}
   _cancelLayoutEditor(){this._layoutEditor={active:false,preview:false,context:'base',view:'home',device:'auto',drafts:new Map(),dirty:false,drag:null};this._previewExperience=null;this._renderData();}
-  async _saveLayoutDraft(){const e=this._layoutEditor;if(!e.drafts.size)return;try{let layout=this._config.layout;for(const[key,cards]of e.drafts){const separator=key.indexOf(':'),context=key.slice(0,separator),view=key.slice(separator+1),payload=Object.fromEntries(cards.map(({id,...card})=>[id,card]));layout=await this._hass.callWS({type:'cl_control/layout/set',context,view,cards:payload});}this._config.layout=layout;e.dirty=false;e.drafts.clear();this._toast('Layout salvato.','success');e.view==='home'?this._renderHome():this._renderLights();}catch(err){console.error('[cl_control] layout save failed',err);this._toast('Salvataggio layout non riuscito.','error');}}
+  async _saveLayoutDraft(){const e=this._layoutEditor;if(!e.drafts.size)return;try{let layout=this._config.layout;for(const[key,cards]of e.drafts){const separator=key.indexOf(':'),context=key.slice(0,separator),view=key.slice(separator+1),generated=cards.map(({id,type,order})=>({id,type,order})),stored=context==='base'?cards:layoutOverrides(cards,effectiveLayout(layout,'base',view,generated)),payload=Object.fromEntries(stored.map(({id,...card})=>[id,card]));layout=await this._hass.callWS({type:'cl_control/layout/set',context,view,cards:payload});}this._config.layout=layout;e.dirty=false;e.drafts.clear();this._toast('Layout salvato.','success');e.view==='home'?this._renderHome():this._renderLights();}catch(err){console.error('[cl_control] layout save failed',err);this._toast('Salvataggio layout non riuscito.','error');}}
   async _resetLayout(){const result=await this._openDialog({title:'Ripristina layout automatico',description:'Rimuove gli override della vista e del contesto selezionati.',confirmLabel:'RIPRISTINA'});if(!result)return;try{const layout=await this._hass.callWS({type:'cl_control/layout/reset',context:this._layoutEditor.context||'base',view:this._layoutEditor.view||'home'});this._config.layout=layout;this._layoutEditor.drafts.clear();this._toast('Layout automatico ripristinato.','success');this._renderData();}catch(err){this._toast('Ripristino non riuscito.','error');}}
 
   _bindStatic(){this.shadowRoot.getElementById('refresh').addEventListener('click',()=>{this._registriesLoaded=false;this._loadRegistries();this._renderData();});}
