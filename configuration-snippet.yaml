@@ -1,0 +1,18 @@
+# CL Control 2.1 - configuration.yaml
+cl_control:
+  assistance: !include cl_control/assistance.yaml
+  branding: !include cl_control/branding.yaml
+  frontend: !include cl_control/frontend.yaml
+  discovery: !include cl_control/discovery.yaml
+  installer: !include cl_control/installer.yaml
+  customer_ui: !include cl_control/customer_ui.yaml
+  security: !include cl_control/security.yaml
+  site: !include cl_control/site.yaml
+
+panel_custom:
+  - name: cl-control-panel
+    url_path: cl-control
+    sidebar_title: CL Control
+    sidebar_icon: mdi:home-automation
+    module_url: /local/cl_control/cl-control-panel.js?v=3.2.3
+    require_admin: false

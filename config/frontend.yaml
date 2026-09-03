@@ -1,0 +1,5 @@
+schema_version: 1
+panel_url: "/cl-control"
+asset_base: "/local/cl_control"
+cache_version: "3.2.3"
+show_version: true

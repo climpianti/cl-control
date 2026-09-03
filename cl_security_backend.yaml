@@ -1,0 +1,9 @@
+# CL Control 2.1
+#
+# File di compatibilita: non contiene piu script con PIN.
+# I comandi partizione e l'esclusione zone sono gestiti direttamente dal
+# custom component tramite WebSocket autenticati, rate limiting e whitelist.
+# Il PIN non viene inoltrato ai servizi Home Assistant e non entra nei trace.
+#
+# Questo file puo essere lasciato fuori da /config/packages.
+{}

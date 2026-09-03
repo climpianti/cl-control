@@ -1,0 +1,12 @@
+"""Per-installation site defaults."""
+
+DEFAULT_CONFIG = {
+    "schema_version": 1,
+    "site_name": "Casa",
+    "customer": "",
+    "support": {
+        "phone": "",
+        "whatsapp": "",
+        "message": "Buongiorno, richiedo assistenza per il mio impianto.",
+    },
+}

@@ -1,0 +1,61 @@
+"""Customer UI defaults and persisted runtime defaults."""
+
+DEFAULT_CONFIG = {
+    "schema_version": 1,
+    "default_theme": "cl_blue",
+    "default_page": "home",
+    "experience": {
+        "default_level": "standard",
+        "levels": ["essential", "standard", "pro"],
+        "allow_user_override": False,
+    },
+    "modules": [
+        "lights",
+        "covers",
+        "climate",
+        "energy",
+        "security",
+        "cameras",
+        "support",
+    ],
+    "labels": {
+        "home": "Home",
+        "lights": "Luci",
+        "covers": "Tapparelle",
+        "climate": "Clima",
+        "energy": "Energia",
+        "security": "Sicurezza",
+        "cameras": "Telecamere",
+        "favorites": "Preferiti",
+        "support": "Assistenza",
+        "installer": "Installatore",
+    },
+}
+
+DEFAULT_RUNTIME = {
+    "theme": "cl_blue",
+    "hidden": [],
+    "favorites": [],
+    "aliases": {},
+    "switch_types": {},
+    "area_order": [],
+    "entity_order": [],
+    "home_order": [
+        "lights",
+        "covers",
+        "climate",
+        "energy",
+        "security",
+        "cameras",
+        "support",
+    ],
+    "energy": {},
+    "area_switches": {},
+    "ui": {"density": "normal"},
+    "experience_level": "standard",
+    "module_levels": {},
+    "entity_levels": {},
+    "section_levels": {},
+    "card_levels": {},
+    "user_levels": {},
+}

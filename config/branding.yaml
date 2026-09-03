@@ -1,0 +1,192 @@
+schema_version: 1
+brand_name: "CL Control"
+company_name: "CL Impianti"
+product_name: "CL Control"
+tagline: "Home & Building Control"
+
+assets:
+  logo: "/local/cl_control/logo.png"
+  logo_compact: "/local/cl_control/logo.png"
+  favicon: "/local/cl_control-brand/favicon.ico"
+
+colors:
+  primary: "#19BAFF"
+  secondary: "#164C78"
+  accent: "#32E394"
+  background: "#061324"
+  surface: "#123852"
+  surface_alt: "#071D34"
+  text: "#F4F9FF"
+  muted: "#8FA9C5"
+  warning: "#FFD05C"
+  danger: "#FF5B69"
+  line: "rgba(140, 201, 255, 0.18)"
+  light_default_rgb: "255, 208, 92"
+
+typography:
+  font_family: "Inter, system-ui, -apple-system, Segoe UI, sans-serif"
+  font_url: ""
+
+design_tokens:
+  spacing:
+    xs: "4px"
+    sm: "8px"
+    md: "12px"
+    lg: "16px"
+    xl: "24px"
+    xxl: "32px"
+  radius:
+    sm: "8px"
+    md: "12px"
+    lg: "18px"
+    xl: "24px"
+    pill: "999px"
+  shadow:
+    low: "0 4px 14px rgba(0, 0, 0, 0.12)"
+    medium: "0 12px 30px rgba(0, 0, 0, 0.18)"
+    high: "0 20px 48px rgba(0, 0, 0, 0.24)"
+  icon_size:
+    sm: "18px"
+    md: "22px"
+    lg: "28px"
+  typography_scale:
+    micro: "10px"
+    caption: "12px"
+    label: "13px"
+    body_small: "14px"
+    body: "15px"
+    section: "17px"
+    heading: "20px"
+    page: "26px"
+    title: "24px"
+    display: "32px"
+  font_weight:
+    regular: 400
+    medium: 500
+    semibold: 600
+    bold: 700
+  component_size:
+    content_max_width: "1280px"
+    logo: "72px"
+    logo_compact: "52px"
+    logo_desktop: "58px"
+    camera_height: "200px"
+    navigation_max_width: "960px"
+    navigation_item_width: "82px"
+    panel_bottom_space: "96px"
+    flow_node_min_height: "96px"
+    header: "58px"
+    bottom_nav: "64px"
+    nav_rail: "80px"
+    sidebar: "224px"
+    nav_item: "52px"
+    tile_icon: "42px"
+    status_icon: "42px"
+    status: "68px"
+    quick_tile: "88px"
+    toggle_dot: "18px"
+    installer_max_width: "1120px"
+    dialog_max_width: "520px"
+    bottom_sheet_max_width: "620px"
+    thermostat_min_height: "190px"
+    color_picker_max: "220px"
+    choice_list_max_height: "240px"
+    toast_max_width: "520px"
+  touch_target: "44px"
+  breakpoints:
+    phone: 480
+    tablet: 768
+    desktop: 1200
+  motion:
+    fast: "120ms"
+    normal: "180ms"
+    slow: "280ms"
+    flow: "1.4s"
+    skeleton: "1.2s"
+    easing: "cubic-bezier(0.2, 0, 0, 1)"
+  state:
+    active: "#32E394"
+    disabled: "#71859A"
+    warning: "#FFD05C"
+    error: "#FF5B69"
+  opacity:
+    subtle: 0.08
+    soft: 0.14
+    medium: 0.35
+    strong: 0.70
+    disabled: 0.48
+  effect:
+    blur_nav: "18px"
+    blur_dialog: "8px"
+    focus_ring: "2px solid var(--cl-primary)"
+  color_picker:
+    default_hue: 38
+    saturation: "86%"
+    lightness: "56%"
+    wheel: "conic-gradient(hsl(0 90% 55%), hsl(60 90% 55%), hsl(120 80% 45%), hsl(180 85% 45%), hsl(240 90% 60%), hsl(300 85% 55%), hsl(360 90% 55%))"
+    mask: "radial-gradient(circle, transparent 0 34%, black 36%)"
+
+themes:
+  - id: "auto"
+    name: "Auto"
+    description: "Segue il dispositivo"
+    mode: "auto"
+    colors: {}
+  - id: "light"
+    name: "Light"
+    description: "Chiaro essenziale"
+    mode: "light"
+    colors:
+      background: "#F4F8FB"
+      surface: "#FFFFFF"
+      surface_alt: "#E8F1F7"
+      text: "#17364A"
+      muted: "#617D91"
+      line: "rgba(42, 119, 170, 0.18)"
+      primary: "#087FB8"
+      secondary: "#D2EDF9"
+      accent: "#108B62"
+  - id: "dark"
+    name: "Dark"
+    description: "Scuro neutro"
+    mode: "dark"
+    colors:
+      background: "#0B1118"
+      surface: "#18222D"
+      surface_alt: "#101923"
+      text: "#F4F7FA"
+      muted: "#9AAABA"
+      line: "rgba(190, 211, 230, 0.16)"
+  - id: "cl_blue"
+    name: "CL Blue"
+    description: "Blu professionale"
+    mode: "dark"
+    colors: {}
+  - id: "night"
+    name: "Night"
+    description: "Comfort notturno"
+    mode: "dark"
+    colors:
+      background: "#030914"
+      surface: "#0B1728"
+      surface_alt: "#07111F"
+      text: "#DCE8F4"
+      muted: "#8195AA"
+      primary: "#5AB6E8"
+      accent: "#5BC59A"
+      line: "rgba(120, 170, 210, 0.14)"
+  - id: "contrast"
+    name: "Contrast"
+    description: "Contrasto elevato"
+    mode: "dark"
+    colors:
+      background: "#000000"
+      surface: "#101010"
+      surface_alt: "#1B1B1B"
+      text: "#FFFFFF"
+      muted: "#D8D8D8"
+      primary: "#59D6FF"
+      accent: "#62FFB2"
+      warning: "#FFE066"
+      danger: "#FF737D"
+      line: "rgba(255, 255, 255, 0.38)"

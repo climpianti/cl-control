@@ -1,0 +1,83 @@
+# Secrets and environment files
+secrets.yaml
+**/secrets.yaml
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa*
+id_ed25519*
+
+# Home Assistant runtime data and customer-specific copies
+.storage/
+deps/
+tts/
+home-assistant_v2.db*
+*.db
+*.sqlite
+*.sqlite3
+demo/
+demo-copy/
+demo_copies/
+home-assistant-demo/
+
+# Backups and checkpoints
+backups/
+**/backups/
+checkpoints/
+_cl_control_checkpoints/
+**/_cl_control_checkpoints/
+*.bak
+*.backup
+*.dump
+
+# Logs and diagnostics
+*.log
+*.log.*
+crash-*.txt
+debug-*.txt
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node and generated browser-test output
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+test-results/
+playwright-report/
+screenshots/
+videos/
+audit-output/
+visual-audit-output/
+*_visual_audit_*/
+*.webm
+*.mp4
+
+# Codex, patch and installer scratch files
+.codex-*
+*.patch
+.installer-v3.txt
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
