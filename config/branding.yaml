@@ -92,6 +92,11 @@ design_tokens:
     color_picker_max: "220px"
     choice_list_max_height: "240px"
     toast_max_width: "520px"
+    layout_min_column: "168px"
+    layout_editor_bar: "64px"
+    layout_preview_mobile: "390px"
+    layout_preview_tablet: "820px"
+    layout_preview_wall: "1200px"
   touch_target: "44px"
   breakpoints:
     phone: 480

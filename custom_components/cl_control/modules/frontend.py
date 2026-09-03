@@ -1,6 +1,6 @@
 """Frontend module defaults."""
 
-ASSET_VERSION = "3.2.3"
+ASSET_VERSION = "3.3.0-dev"
 
 DEFAULT_CONFIG = {
     "schema_version": 1,

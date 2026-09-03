@@ -39,7 +39,7 @@ DEFAULT_CONFIG = {
         },
         "icon_size": {"sm": "18px", "md": "22px", "lg": "28px"},
         "typography_scale": {"micro": "8px", "caption": "9px", "label": "10px", "body_small": "11px", "body": "12px", "heading": "15px", "title": "20px", "display": "30px"},
-        "component_size": {"content_max_width": "1040px", "logo": "72px", "camera_height": "200px", "navigation_max_width": "960px", "navigation_item_width": "82px", "panel_bottom_space": "96px", "flow_node_min_height": "96px"},
+        "component_size": {"content_max_width": "1040px", "logo": "72px", "camera_height": "200px", "navigation_max_width": "960px", "navigation_item_width": "82px", "panel_bottom_space": "96px", "flow_node_min_height": "96px", "layout_min_column": "168px", "layout_editor_bar": "64px", "layout_preview_mobile": "390px", "layout_preview_tablet": "820px", "layout_preview_wall": "1200px"},
         "touch_target": "44px",
         "breakpoints": {"phone": 480, "tablet": 768, "desktop": 1200},
         "motion": {"fast": "120ms", "normal": "180ms", "slow": "280ms", "flow": "1.4s", "easing": "cubic-bezier(0.2, 0, 0, 1)"},

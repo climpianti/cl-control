@@ -24,7 +24,7 @@ from .storage import RuntimeStore
 from .websocket import async_register_commands
 
 _LOGGER = logging.getLogger(__name__)
-VERSION = "3.2.3"
+VERSION = "3.3.0-dev"
 
 
 def _limiter(config: dict) -> PinRateLimiter:

@@ -23,6 +23,7 @@ ai_provider = importlib.import_module("cl_control.modules.ai_provider")
 assistance_gateway = importlib.import_module("cl_control.modules.assistance_gateway")
 installer = importlib.import_module("cl_control.modules.installer")
 security = importlib.import_module("cl_control.modules.security")
+layout = importlib.import_module("cl_control.modules.layout")
 
 
 class MigrationTests(unittest.TestCase):
@@ -42,7 +43,7 @@ class MigrationTests(unittest.TestCase):
         settings = models.normalize_settings(
             {"installer": {"pin": "1234"}, "security": {"pin": "9876"}}
         )
-        bootstrap = models.build_bootstrap(settings, {}, "3.2.3")
+        bootstrap = models.build_bootstrap(settings, {}, "3.3.0-dev")
         rendered = repr(bootstrap)
         self.assertNotIn("1234", rendered)
         self.assertNotIn("9876", rendered)
@@ -60,6 +61,56 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(
             migrated["assistance"]["requests"][0]["ticket_id"], "CLA-ONE"
         )
+
+    def test_legacy_runtime_receives_empty_versioned_layout(self):
+        migrated = models.migrate_runtime_config({"favorites": ["light.cucina"]})
+        self.assertEqual(migrated["customer_ui"]["layout"], layout.empty_layout())
+
+
+class LayoutTests(unittest.TestCase):
+    def test_customers_are_read_only_and_admin_needs_installer_session(self):
+        self.assertFalse(layout.layout_write_allowed(False, False))
+        self.assertFalse(layout.layout_write_allowed(False, True))
+        self.assertFalse(layout.layout_write_allowed(True, False))
+        self.assertTrue(layout.layout_write_allowed(True, True))
+
+    def test_validation_discards_unknowns_and_clamps_capabilities(self):
+        normalized = layout.normalize_layout({
+            "layout_schema_version": 999,
+            "base": {"home": {
+                "home:module:lights": {
+                    "type": "light", "order": "4", "size": "xl", "span": 99,
+                    "shape": "wide", "icon": "javascript:bad", "show_icon": False,
+                    "show_title": False, "secret": "ignored",
+                },
+                "../bad": {"type": "module"},
+            }, "unknown": {"x": {}}},
+            "desktop": {"home": {}},
+        })
+        card = normalized["base"]["home"]["home:module:lights"]
+        self.assertEqual(normalized["layout_schema_version"], 1)
+        self.assertEqual(card["size"], "s")
+        self.assertEqual(card["span"], 4)
+        self.assertEqual(card["shape"], "compact")
+        self.assertTrue(card["show_title"])
+        self.assertNotIn("icon", card)
+        self.assertNotIn("secret", card)
+        self.assertNotIn("desktop", normalized)
+
+    def test_update_and_scoped_reset_preserve_other_views(self):
+        value = layout.update_layout_view({}, "base", "home", {
+            "home:status": {"type": "status", "order": 1, "size": "l"}
+        })
+        value = layout.update_layout_view(value, "mobile", "lights", {
+            "lights:entity:light.cucina": {"type": "light", "order": 2}
+        })
+        reset = layout.reset_layout(value, "mobile", "lights")
+        self.assertIn("home:status", reset["base"]["home"])
+        self.assertNotIn("lights", reset["mobile"])
+
+    def test_invalid_scope_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "invalid_layout_scope"):
+            layout.update_layout_view({}, "desktop", "home", {})
 
 
 class RateLimitTests(unittest.TestCase):

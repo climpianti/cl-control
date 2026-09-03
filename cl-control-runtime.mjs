@@ -5,7 +5,78 @@ export const EXPERIENCE_RANK = Object.freeze({
   installer: 3,
 });
 
-export const CL_CONTROL_ASSET_VERSION = "3.2.3";
+export const CL_CONTROL_ASSET_VERSION = "3.3.0-dev";
+
+export const LAYOUT_SCHEMA_VERSION = 1;
+export const LAYOUT_CONTEXTS = Object.freeze(["base", "mobile", "tablet", "wall"]);
+export const LAYOUT_VIEWS = Object.freeze(["home", "lights", "covers", "climate", "energy", "security", "cameras", "support"]);
+
+export function emptyLayout() {
+  return { layout_schema_version: LAYOUT_SCHEMA_VERSION, base: {}, mobile: {}, tablet: {}, wall: {} };
+}
+
+export function layoutDeviceContext(width, requested = "auto") {
+  if (["mobile", "tablet", "wall"].includes(requested)) return requested;
+  const value = Number(width) || 0;
+  if (value && value < 768) return "mobile";
+  if (value && value < 1200) return "tablet";
+  return "base";
+}
+
+const LAYOUT_DEFAULT_CARD = Object.freeze({
+  type: "module", order: 0, size: "m", span: 1, shape: "rectangle",
+  icon_size: "m", icon_container: "soft", show_icon: true, show_title: true,
+  show_state: true, show_secondary: true, visible: true,
+});
+export const LAYOUT_CARD_CAPABILITIES = Object.freeze({
+  module: { sizes: ["s", "m", "l"], shapes: ["compact", "rectangle", "square"] },
+  status: { sizes: ["m", "l"], shapes: ["compact", "rectangle"] },
+  favorites: { sizes: ["m", "l", "xl"], shapes: ["compact", "rectangle"] },
+  light: { sizes: ["s", "m"], shapes: ["compact", "rectangle", "square"] },
+  switch: { sizes: ["s", "m"], shapes: ["compact", "rectangle", "square"] },
+  thermostat: { sizes: ["m", "l"], shapes: ["rectangle", "square"] },
+  camera: { sizes: ["m", "l", "xl"], shapes: ["rectangle", "wide"] },
+  energy: { sizes: ["l", "xl"], shapes: ["rectangle", "wide"] },
+  security: { sizes: ["m", "l"], shapes: ["compact", "rectangle"] },
+  assistance: { sizes: ["m", "l"], shapes: ["compact", "rectangle"] },
+});
+
+export function layoutCardCapabilities(type) {
+  return LAYOUT_CARD_CAPABILITIES[type] || LAYOUT_CARD_CAPABILITIES.module;
+}
+
+export function normalizeLayoutCard(value = {}, type = "module") {
+  const next = { ...LAYOUT_DEFAULT_CARD, ...(value && typeof value === "object" ? value : {}), type };
+  const capabilities = layoutCardCapabilities(type);
+  next.order = Math.max(-10000, Math.min(10000, Number.parseInt(next.order, 10) || 0));
+  next.span = Math.max(1, Math.min(4, Number.parseInt(next.span, 10) || 1));
+  if (!capabilities.sizes.includes(next.size)) next.size = capabilities.sizes[0];
+  if (!capabilities.shapes.includes(next.shape)) next.shape = capabilities.shapes[0];
+  if (!["s", "m", "l"].includes(next.icon_size)) next.icon_size = "m";
+  if (!["none", "soft", "solid"].includes(next.icon_container)) next.icon_container = "soft";
+  for (const key of ["show_icon", "show_title", "show_state", "show_secondary", "visible"]) next[key] = next[key] !== false;
+  if (next.visible && !next.show_icon && !next.show_title) next.show_title = true;
+  return next;
+}
+
+export function effectiveLayout(layout, context, view, generatedCards = []) {
+  const safe = layout && typeof layout === "object" ? layout : emptyLayout();
+  const base = safe.base?.[view] || {};
+  const override = context !== "base" ? safe[context]?.[view] || {} : {};
+  return generatedCards.map((card, generatedOrder) => {
+    const type = card.type || "module";
+    const value = normalizeLayoutCard({ order: generatedOrder, ...card, ...(base[card.id] || {}), ...(override[card.id] || {}) }, type);
+    return { ...value, id: card.id };
+  }).filter(card => card.visible).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+}
+
+export function reorderLayoutCards(cards, movedId, targetId) {
+  const result = cards.map(card => ({ ...card }));
+  const from = result.findIndex(card => card.id === movedId), to = result.findIndex(card => card.id === targetId);
+  if (from < 0 || to < 0 || from === to) return result;
+  const [moved] = result.splice(from, 1); result.splice(to, 0, moved);
+  return result.map((card, order) => ({ ...card, order }));
+}
 
 export function colorWheelSelection(clientX, clientY, rect, options = {}) {
   const width = Number(rect?.width) || 0;
@@ -26,7 +97,7 @@ export function colorWheelSelection(clientX, clientY, rect, options = {}) {
 
 export const FALLBACK_BOOTSTRAP = Object.freeze({
   schema_version: 1,
-  version: "3.2.3",
+  version: "3.3.0-dev",
   branding: {
     brand_name: "Control",
     company_name: "",
@@ -61,7 +132,7 @@ export const FALLBACK_BOOTSTRAP = Object.freeze({
       icon_size: { sm: "18px", md: "22px", lg: "28px" },
       typography_scale: { micro: "10px", caption: "12px", label: "13px", body_small: "14px", body: "15px", section: "17px", heading: "20px", page: "26px", title: "24px", display: "32px" },
       font_weight: { regular: 400, medium: 500, semibold: 600, bold: 700 },
-      component_size: { content_max_width: "1280px", logo: "72px", logo_compact: "52px", logo_desktop: "58px", camera_height: "200px", navigation_max_width: "960px", navigation_item_width: "82px", panel_bottom_space: "96px", flow_node_min_height: "96px", header: "58px", bottom_nav: "64px", nav_rail: "80px", sidebar: "224px", nav_item: "52px", tile_icon: "42px", status_icon: "42px", status: "68px", quick_tile: "88px", toggle_dot: "18px", installer_max_width: "1120px", dialog_max_width: "520px", toast_max_width: "520px", bottom_sheet_max_width: "620px", thermostat_min_height: "190px", color_picker_max: "220px", choice_list_max_height: "240px" },
+      component_size: { content_max_width: "1280px", logo: "72px", logo_compact: "52px", logo_desktop: "58px", camera_height: "200px", navigation_max_width: "960px", navigation_item_width: "82px", panel_bottom_space: "96px", flow_node_min_height: "96px", header: "58px", bottom_nav: "64px", nav_rail: "80px", sidebar: "224px", nav_item: "52px", tile_icon: "42px", status_icon: "42px", status: "68px", quick_tile: "88px", toggle_dot: "18px", installer_max_width: "1120px", dialog_max_width: "520px", toast_max_width: "520px", bottom_sheet_max_width: "620px", thermostat_min_height: "190px", color_picker_max: "220px", choice_list_max_height: "240px", layout_min_column: "168px", layout_editor_bar: "64px", layout_preview_mobile: "390px", layout_preview_tablet: "820px", layout_preview_wall: "1200px" },
       touch_target: "44px",
       breakpoints: { phone: 480, tablet: 768, desktop: 1200 },
       motion: {
@@ -222,6 +293,11 @@ export function buildDesignTokens(bootstrap, themeId) {
     "--cl-thermostat-min-height": tokens.component_size?.thermostat_min_height,
     "--cl-color-picker-max": tokens.component_size?.color_picker_max,
     "--cl-choice-list-max-height": tokens.component_size?.choice_list_max_height,
+    "--cl-layout-min-column": tokens.component_size?.layout_min_column,
+    "--cl-layout-editor-bar": tokens.component_size?.layout_editor_bar,
+    "--cl-layout-preview-mobile": tokens.component_size?.layout_preview_mobile,
+    "--cl-layout-preview-tablet": tokens.component_size?.layout_preview_tablet,
+    "--cl-layout-preview-wall": tokens.component_size?.layout_preview_wall,
     "--cl-touch-target": tokens.touch_target,
     "--cl-motion-fast": tokens.motion?.fast,
     "--cl-motion-normal": tokens.motion?.normal,

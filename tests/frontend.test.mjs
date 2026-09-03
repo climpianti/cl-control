@@ -16,6 +16,12 @@ import {
   selectMobileNavigation,
   unreachableNavigationItems,
   visibleAtExperience,
+  emptyLayout,
+  effectiveLayout,
+  layoutDeviceContext,
+  layoutCardCapabilities,
+  normalizeLayoutCard,
+  reorderLayoutCards,
 } from "../cl-control-runtime.mjs";
 import { buildUi3Styles, icon } from "../cl-control-ui3.mjs";
 
@@ -33,6 +39,32 @@ assert.ok(tokens["--cl-font-page"]);
 assert.ok(tokens["--cl-focus-ring"]);
 assert.ok(tokens["--cl-color-wheel"]);
 assert.ok(tokens["--cl-color-picker-max"]);
+assert.ok(tokens["--cl-layout-min-column"]);
+
+const generatedLayout = [
+  { id: "home:status", type: "status" },
+  { id: "home:module:lights", type: "module" },
+  { id: "home:module:climate", type: "module" },
+];
+const inheritedLayout = emptyLayout();
+inheritedLayout.base.home = {
+  "home:module:lights": { order: 9, size: "l", show_secondary: false },
+};
+inheritedLayout.mobile.home = {
+  "home:module:lights": { order: 1, size: "s" },
+};
+const mobileLayout = effectiveLayout(inheritedLayout, "mobile", "home", generatedLayout);
+assert.equal(mobileLayout.find(card => card.id === "home:module:lights").size, "s");
+assert.equal(mobileLayout.find(card => card.id === "home:module:lights").show_secondary, false);
+assert.equal(effectiveLayout(inheritedLayout, "tablet", "home", generatedLayout).find(card => card.id === "home:module:lights").size, "l");
+assert.equal(layoutDeviceContext(390), "mobile");
+assert.equal(layoutDeviceContext(820), "tablet");
+assert.equal(layoutDeviceContext(1200), "base");
+assert.equal(layoutDeviceContext(1200, "wall"), "wall");
+assert.deepEqual(reorderLayoutCards(generatedLayout, "home:module:climate", "home:status").map(card => card.id), ["home:module:climate", "home:status", "home:module:lights"]);
+assert.equal(normalizeLayoutCard({ show_icon: false, show_title: false }).show_title, true);
+assert.deepEqual(layoutCardCapabilities("light").sizes, ["s", "m"]);
+assert.equal(normalizeLayoutCard({ size: "xl", shape: "wide" }, "light").size, "s");
 
 const installerEntity = classifyEntity(
   "sensor.integration_diagnostics",
@@ -127,6 +159,14 @@ assert.doesNotMatch(panelSource, /<select[^>]+name="(?:area|module|type|subtype|
 assert.match(panelSource, /Luci/);
 assert.match(panelSource, /Aperture/);
 assert.match(panelSource, /Assistenza/);
+assert.match(panelSource, /cl_control\/layout\/set/);
+assert.match(panelSource, /cl_control\/layout\/reset/);
+assert.match(panelSource, /data-layout-drag/);
+assert.match(panelSource, /pointerdown/);
+assert.match(panelSource, /Modifiche non salvate/);
+assert.match(panelSource, /Anteprima cliente/);
+assert.match(ui3Styles, /layoutDragHandle\{touch-action:none/);
+assert.match(ui3Styles, /layout-preview-mobile|layoutPreview/);
 
 assert.doesNotMatch(panelSource, /CL Impianti/);
 assert.doesNotMatch(panelSource, /CL Control/);
@@ -153,7 +193,7 @@ assert.match(moduleChoice, /name="module"/);
 assert.match(moduleChoice, />Luci</);
 assert.doesNotMatch(moduleChoice, /\$\{/);
 
-assert.equal(CL_CONTROL_ASSET_VERSION, "3.2.3");
+assert.equal(CL_CONTROL_ASSET_VERSION, "3.3.0-dev");
 
 const wheelRect = { left: 0, top: 0, width: 200, height: 200 };
 assert.equal(colorWheelSelection(100, 10, wheelRect).hue, 0);

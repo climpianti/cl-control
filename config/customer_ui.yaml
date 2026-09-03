@@ -1,4 +1,5 @@
 schema_version: 1
+layout_schema_version: 1
 default_theme: "cl_blue"
 default_page: "home"
 modules:

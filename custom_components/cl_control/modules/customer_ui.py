@@ -2,6 +2,7 @@
 
 DEFAULT_CONFIG = {
     "schema_version": 1,
+    "layout_schema_version": 1,
     "default_theme": "cl_blue",
     "default_page": "home",
     "experience": {
@@ -58,4 +59,5 @@ DEFAULT_RUNTIME = {
     "section_levels": {},
     "card_levels": {},
     "user_levels": {},
+    "layout": {"layout_schema_version": 1, "base": {}, "mobile": {}, "tablet": {}, "wall": {}},
 }

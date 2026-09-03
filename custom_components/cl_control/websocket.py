@@ -41,6 +41,7 @@ from .modules.security import (
     build_security_whitelist,
     validate_risco_zone_pair,
 )
+from .modules.layout import LAYOUT_CONTEXTS, LAYOUT_VIEWS, layout_write_allowed, reset_layout, update_layout_view
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,6 +115,53 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         data[DATA_RUNTIME] = runtime
         await data[DATA_STORE].async_save(runtime)
         connection.send_result(msg["id"], runtime_to_frontend(runtime))
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "cl_control/layout/set",
+            vol.Required("context"): vol.In(LAYOUT_CONTEXTS),
+            vol.Required("view"): vol.In(LAYOUT_VIEWS),
+            vol.Required("cards"): dict,
+        }
+    )
+    @websocket_api.async_response
+    async def ws_set_layout(hass, connection, msg):
+        if not _require_admin(connection, msg):
+            return
+        data = _data(hass)
+        if not layout_write_allowed(True, data[DATA_INSTALLER_SESSIONS].active(_user_key(connection))):
+            connection.send_error(msg["id"], "unauthorized", "Modalita installatore non attiva")
+            return
+        runtime = migrate_runtime_config(data[DATA_RUNTIME])
+        runtime["customer_ui"]["layout"] = update_layout_view(
+            runtime["customer_ui"].get("layout"), msg["context"], msg["view"], msg["cards"]
+        )
+        data[DATA_RUNTIME] = runtime
+        await data[DATA_STORE].async_save(runtime)
+        connection.send_result(msg["id"], runtime["customer_ui"]["layout"])
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "cl_control/layout/reset",
+            vol.Required("context"): vol.In(LAYOUT_CONTEXTS),
+            vol.Optional("view"): vol.In(LAYOUT_VIEWS),
+        }
+    )
+    @websocket_api.async_response
+    async def ws_reset_layout(hass, connection, msg):
+        if not _require_admin(connection, msg):
+            return
+        data = _data(hass)
+        if not layout_write_allowed(True, data[DATA_INSTALLER_SESSIONS].active(_user_key(connection))):
+            connection.send_error(msg["id"], "unauthorized", "Modalita installatore non attiva")
+            return
+        runtime = migrate_runtime_config(data[DATA_RUNTIME])
+        runtime["customer_ui"]["layout"] = reset_layout(
+            runtime["customer_ui"].get("layout"), msg["context"], msg.get("view")
+        )
+        data[DATA_RUNTIME] = runtime
+        await data[DATA_STORE].async_save(runtime)
+        connection.send_result(msg["id"], runtime["customer_ui"]["layout"])
 
     @websocket_api.websocket_command(
         {
@@ -504,6 +552,8 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         ws_get_bootstrap,
         ws_get_config,
         ws_set_config,
+        ws_set_layout,
+        ws_reset_layout,
         ws_set_favorites,
         ws_unlock_installer,
         ws_lock_installer,

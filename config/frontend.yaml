@@ -1,5 +1,5 @@
 schema_version: 1
 panel_url: "/cl-control"
 asset_base: "/local/cl_control"
-cache_version: "3.2.3"
+cache_version: "3.3.0-dev"
 show_version: true

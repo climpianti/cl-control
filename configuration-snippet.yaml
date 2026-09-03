@@ -14,5 +14,5 @@ panel_custom:
     url_path: cl-control
     sidebar_title: CL Control
     sidebar_icon: mdi:home-automation
-    module_url: /local/cl_control/cl-control-panel.js?v=3.2.3
+    module_url: /local/cl_control/cl-control-panel.js?v=3.3.0-dev
     require_admin: false

@@ -1,8 +1,8 @@
-CL CONTROL 3.2.3 - Home Assistant 2026.8+
+CL CONTROL 3.3.0-dev - Home Assistant 2026.8+
 ==========================================
 
-BASELINE STABILE 3.2.3
-Questa baseline include backend modulare, Customer UI 3.2.3, livelli esperienza,
+SVILUPPO UI 3.3 (baseline stabile: 3.2.3)
+Questo branch include backend modulare, Customer UI 3.3.0-dev, livelli esperienza,
 design system, Assistance opzionale e strumenti Installer protetti.
 
 NOTE DI MIGRAZIONE DALLA V2
@@ -55,7 +55,7 @@ INSTALLAZIONE NUOVA
        url_path: cl-control
        sidebar_title: CL Control
        sidebar_icon: local:cl-impianti
-       module_url: /local/cl_control/cl-control-panel.js?v=3.2.3
+       module_url: /local/cl_control/cl-control-panel.js?v=3.3.0-dev
        require_admin: false
 
 5. Riavvia Home Assistant. Il riavvio e necessario per caricare il custom component.
@@ -80,6 +80,13 @@ Da Installatore puoi impostare:
 - Numero telefono
 La pagina Assistenza apre direttamente WhatsApp con un messaggio precompilato.
 Il chatbot AI e visualizzato come funzione futura ma non invia dati a servizi esterni.
+
+LAYOUT DASHBOARD 3.3
+L'area Installatore offre un editor visuale per Home e Luci. Ogni modifica resta in
+bozza fino a Salva; Annulla non scrive nello storage. Gli override Base, Smartphone,
+Tablet e Wall panel ereditano dal layout generato. Le altre viste sono gia previste
+dallo schema versionato e verranno collegate senza creare dashboard duplicate.
+Solo un amministratore con sessione Installatore attiva puo salvare o ripristinare.
 
 NOTA
 La configurazione v2 e memorizzata localmente da Home Assistant tramite helpers.storage
