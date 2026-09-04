@@ -3,3 +3,5 @@ panel_url: "/cl-control"
 asset_base: "/local/cl_control"
 cache_version: "3.3.0-dev"
 show_version: true
+gestures:
+  slider_threshold_px: 10

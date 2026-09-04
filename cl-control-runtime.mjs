@@ -26,7 +26,7 @@ export function layoutDeviceContext(width, requested = "auto") {
 const LAYOUT_DEFAULT_CARD = Object.freeze({
   type: "module", order: 0, size: "m", span: 1, shape: "rectangle",
   icon_size: "m", icon_container: "soft", show_icon: true, show_title: true,
-  show_state: true, show_secondary: true, visible: true,
+  show_state: true, show_secondary: true, visible: true, favorite: false,
 });
 export const LAYOUT_CARD_CAPABILITIES = Object.freeze({
   module: { sizes: ["s", "m", "l"], shapes: ["compact", "rectangle", "square"] },
@@ -55,6 +55,7 @@ export function normalizeLayoutCard(value = {}, type = "module") {
   if (!["s", "m", "l"].includes(next.icon_size)) next.icon_size = "m";
   if (!["none", "soft", "solid"].includes(next.icon_container)) next.icon_container = "soft";
   for (const key of ["show_icon", "show_title", "show_state", "show_secondary", "visible"]) next[key] = next[key] !== false;
+  next.favorite = next.favorite === true;
   if (next.visible && !next.show_icon && !next.show_title) next.show_title = true;
   return next;
 }
@@ -83,7 +84,7 @@ export function layoutOverrides(cards, inheritedCards) {
   return (cards || []).map(card => {
     const base = inherited.get(card.id) || {};
     const override = { id: card.id, type: card.type };
-    for (const key of ["order", "size", "span", "shape", "icon", "icon_size", "icon_container", "show_icon", "show_title", "show_state", "show_secondary", "visible"]) {
+    for (const key of ["order", "size", "span", "shape", "icon", "icon_size", "icon_container", "show_icon", "show_title", "show_state", "show_secondary", "visible", "favorite"]) {
       if (card[key] !== base[key]) override[key] = card[key];
     }
     return override;
@@ -105,6 +106,29 @@ export function colorWheelSelection(clientX, clientY, rect, options = {}) {
   if (!options.allowOutside && (distance < radius * innerRatio || distance > radius)) return null;
   const hue = (Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360;
   return { hue: Math.round(hue) % 360, distance: Math.min(1, distance / radius) };
+}
+
+export function createSliderGesture(options = {}) {
+  const threshold = Math.max(1, Number(options.threshold) || 10);
+  let gesture = null;
+  return {
+    start(pointerId, x, y, value) { gesture = { pointerId, x: Number(x), y: Number(y), value: Number(value), mode: "pending", preview: Number(value) }; return { mode: "pending", value: gesture.value }; },
+    move(pointerId, x, y, value) { if (!gesture || gesture.pointerId !== pointerId) return { mode: "ignored" }; const dx = Number(x) - gesture.x, dy = Number(y) - gesture.y; if (gesture.mode === "pending" && Math.max(Math.abs(dx), Math.abs(dy)) >= threshold) gesture.mode = Math.abs(dx) > Math.abs(dy) ? "horizontal" : "vertical"; if (gesture.mode === "horizontal") gesture.preview = Number(value); return { mode: gesture.mode, value: gesture.mode === "horizontal" ? gesture.preview : gesture.value }; },
+    end(pointerId) { if (!gesture || gesture.pointerId !== pointerId) return { mode: "ignored", commit: false }; const result = { mode: gesture.mode, value: gesture.mode === "horizontal" ? gesture.preview : gesture.value, commit: gesture.mode === "horizontal" }; gesture = null; return result; },
+    cancel(pointerId) { if (!gesture || gesture.pointerId !== pointerId) return { mode: "ignored", commit: false }; const value = gesture.value; gesture = null; return { mode: "cancelled", value, commit: false }; },
+  };
+}
+
+export function bindIntentionalSlider(input, options = {}) {
+  if (!input) return () => {};
+  input.classList.add("intentionalSlider"); const machine = createSliderGesture({ threshold: options.threshold }); let active = null, suppressNative = false;
+  const valueAt = event => { const rect = input.getBoundingClientRect(), min = Number(input.min) || 0, max = Number(input.max) || 100, ratio = Math.max(0, Math.min(1, (Number(event.clientX) - rect.left) / Math.max(1, rect.width))), step = Number(input.step) || 1; return Math.round((min + ratio * (max - min)) / step) * step; };
+  const restore = value => { input.value = String(value); options.onPreview?.(Number(value)); };
+  const down = event => { if (options.disabled?.() || (event.button != null && event.button !== 0)) return; active = { pointerId: event.pointerId, initial: Number(input.value) }; machine.start(event.pointerId, event.clientX, event.clientY, active.initial); };
+  const move = event => { if (!active || active.pointerId !== event.pointerId) return; const result = machine.move(event.pointerId, event.clientX, event.clientY, valueAt(event)); if (result.mode === "horizontal") { event.preventDefault(); if (!active.captured) { input.setPointerCapture?.(event.pointerId); active.captured = true; } restore(result.value); } else restore(active.initial); };
+  const finish = (event, cancelled = false) => { if (!active || active.pointerId !== event.pointerId) return; const initial = active.initial, result = cancelled ? machine.cancel(event.pointerId) : machine.end(event.pointerId); if (active.captured) input.releasePointerCapture?.(event.pointerId); active = null; suppressNative = true; restore(result.commit ? result.value : initial); if (result.commit && !options.disabled?.()) options.onCommit?.(Number(result.value)); queueMicrotask(() => { suppressNative = false; if (!result.commit) restore(initial); }); };
+  const inputEvent = event => { if (active && (suppressNative || !active.captured)) { event.preventDefault(); restore(active.initial); } }; const change = event => { if (active || suppressNative) { event.preventDefault(); return; } if (event.detail === 0 && !options.disabled?.()) options.onCommit?.(Number(input.value)); };
+  input.addEventListener("pointerdown", down); input.addEventListener("pointermove", move); input.addEventListener("pointerup", event => finish(event)); input.addEventListener("pointercancel", event => finish(event, true)); input.addEventListener("input", inputEvent); input.addEventListener("change", change); return () => {};
 }
 
 export const FALLBACK_BOOTSTRAP = Object.freeze({
@@ -173,7 +197,7 @@ export const FALLBACK_BOOTSTRAP = Object.freeze({
     },
     themes: [{ id: "default", name: "Default", description: "", mode: "dark", colors: {} }],
   },
-  frontend: { show_version: true },
+  frontend: { show_version: true, gestures: { slider_threshold_px: 10 } },
   discovery: { experience_rules: {} },
   customer_ui: {
     default_theme: "default",
@@ -520,4 +544,25 @@ export function classifyCover(entityId, attributes = {}, metadata = {}, override
   const map = { window: ["window", "Finestra"], shutter: ["shutter", "Tapparella"], blind: ["blind", "Tenda/Veneziana"], shade: ["blind", "Tenda/Veneziana"], curtain: ["curtain", "Tenda"], door: ["door", "Porta"], garage: ["garage", "Garage/Basculante"], gate: ["gate", "Cancello"], awning: ["curtain", "Tenda"] };
   const [type, label] = map[raw] || ["generic", "Apertura"];
   return { type, label, confidence: override ? 1 : raw === "generic" ? 0.45 : 0.96, entity_id: entityId };
+}
+
+const ENVIRONMENT_CLASSES = Object.freeze({ temperature: "temperature", humidity: "humidity", carbon_dioxide: "co2", volatile_organic_compounds: "voc", volatile_organic_compounds_parts: "voc", pm1: "pm1", pm25: "pm25", pm10: "pm10", aqi: "aqi", air_quality: "air_quality_generic", atmospheric_pressure: "pressure", pressure: "pressure", radon: "radon", formaldehyde: "formaldehyde", carbon_monoxide: "co" });
+
+export function classifyEnvironmentSensor(entityId, attributes = {}, metadata = {}, override = {}) {
+  const domain = String(entityId || "").split(".", 1)[0], manualModule = String(override.module || "").toLowerCase(), manualType = String(override.subtype || "").toLowerCase(), threshold = Number(override.threshold ?? 0.75);
+  if (manualModule && manualModule !== "auto") return { module: manualModule, type: manualType && manualType !== "auto" ? manualType : "air_quality_generic", classification_confidence: 1, classification_reason: "installer_override", needs_review: false, customer_facing: manualModule === "environment", environment_candidate: manualModule === "environment" };
+  if (domain !== "sensor") return { module: "unassigned", type: "generic", classification_confidence: 0, classification_reason: "unsupported_domain", needs_review: false, customer_facing: false, environment_candidate: false };
+  const rawClass = String(manualType || attributes.device_class || metadata.original_device_class || metadata.device_class || "").toLowerCase(); let type = ENVIRONMENT_CLASSES[rawClass] || "";
+  const text = [entityId, attributes.friendly_name, metadata.name, metadata.original_name, metadata.device_name].filter(Boolean).join(" ").toLowerCase(), unit = String(attributes.unit_of_measurement || "").toLowerCase();
+  const patterns = [["co2", /\b(?:co2|carbon dioxide|anidride carbonica)\b/i], ["voc", /\b(?:voc|tvoc|volatile)\b/i], ["pm25", /\bpm\s*2[._,]?5\b/i], ["pm10", /\bpm\s*10\b/i], ["pm1", /\bpm\s*1\b/i], ["aqi", /\b(?:aqi|air quality|qualit[aà] aria)\b/i], ["radon", /\bradon\b/i], ["formaldehyde", /\b(?:formaldehyde|formaldeide|hcho)\b/i], ["humidity", /\b(?:humidity|umidit[aà])\b/i], ["pressure", /\b(?:pressure|pressione)\b/i], ["temperature", /\b(?:temperature|temperatura)\b/i]];
+  if (!type) type = patterns.find(([, pattern]) => pattern.test(text))?.[0] || "";
+  const strongUnit = /(?:ppm|ppb|µg\/m³|ug\/m3|bq\/m³|bq\/m3)/i.test(unit), candidate = Boolean(type), confidence = ENVIRONMENT_CLASSES[rawClass] ? 0.96 : candidate && strongUnit ? 0.88 : candidate ? 0.68 : 0.12, needsReview = candidate && confidence < threshold;
+  return { module: candidate ? "environment" : "unassigned", type: type || "generic", classification_confidence: confidence, classification_reason: ENVIRONMENT_CLASSES[rawClass] ? "device_class" : candidate ? "semantics_and_unit" : "not_environmental", needs_review: needsReview, customer_facing: candidate && !needsReview, environment_candidate: candidate };
+}
+
+export function environmentStatus(type, rawValue, thresholds = {}) {
+  const value = Number(rawValue); if (!Number.isFinite(value)) return { key: "unavailable", label: "Non disponibile" }; const rule = thresholds?.[type] || {};
+  if (Number.isFinite(Number(rule.high)) && value >= Number(rule.high)) return { key: "high", label: "Elevata" };
+  if ((Number.isFinite(Number(rule.warning_high)) && value >= Number(rule.warning_high)) || (Number.isFinite(Number(rule.warning_low)) && value <= Number(rule.warning_low))) return { key: "warning", label: "Da controllare" };
+  return { key: "good", label: "Buona" };
 }

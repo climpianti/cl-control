@@ -34,7 +34,7 @@ DEFAULT_CARD = {
     "type": "module", "order": 0, "size": "m", "span": 1,
     "shape": "rectangle", "icon_size": "m", "icon_container": "soft",
     "show_icon": True, "show_title": True, "show_state": True,
-    "show_secondary": True, "visible": True,
+    "show_secondary": True, "visible": True, "favorite": False,
 }
 
 
@@ -74,7 +74,7 @@ def _card(value: Any, *, partial: bool = False) -> dict[str, Any] | None:
     icon_value = str(value.get("icon", "")).lower()
     if icon_value and ICON_RE.fullmatch(icon_value):
         result["icon"] = icon_value
-    for key in ("show_icon", "show_title", "show_state", "show_secondary", "visible"):
+    for key in ("show_icon", "show_title", "show_state", "show_secondary", "visible", "favorite"):
         if key in value:
             result[key] = bool(value[key])
     # A visible card must retain an accessible identity.

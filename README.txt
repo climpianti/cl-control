@@ -88,6 +88,19 @@ Tablet e Wall panel ereditano dal layout generato. Le altre viste sono gia previ
 dallo schema versionato e verranno collegate senza creare dashboard duplicate.
 Solo un amministratore con sessione Installatore attiva puo salvare o ripristinare.
 
+GESTURE ANALOGICHE 3.3
+Gli slider condividono una soglia intenzionale configurabile in config/frontend.yaml.
+Un tap o uno scroll verticale non invia comandi; il valore viene regolato solo dopo
+un drag orizzontale e viene inviato una volta al rilascio. Questa regola vale anche
+per i futuri controlli percentuali aggiunti al pannello.
+
+AMBIENTE / QUALITA ARIA
+La vista Clima riconosce solo sensori ambientali con metadata attendibili o override
+Installer. I casi dubbi restano nella coda Da configurare e non sono mostrati al
+cliente. Le soglie di temperatura, umidita, CO2, VOC, particolato, AQI, radon,
+formaldeide e CO sono centralizzate in config/customer_ui.yaml; eventuali attributi
+warning_threshold/critical_threshold affidabili dell'entita hanno precedenza.
+
 NOTA
 La configurazione v2 e memorizzata localmente da Home Assistant tramite helpers.storage
 nello storage interno di HA. Non vengono usati token manuali e il pannello continua a

@@ -66,6 +66,23 @@ class MigrationTests(unittest.TestCase):
         migrated = models.migrate_runtime_config({"favorites": ["light.cucina"]})
         self.assertEqual(migrated["customer_ui"]["layout"], layout.empty_layout())
 
+    def test_installer_entity_overrides_survive_storage_and_bootstrap(self):
+        overrides = {
+            "aliases": {"sensor.co2_salone": "Aria salone"},
+            "switch_types": {"sensor.co2_salone": "tecnico"},
+            "favorites": ["sensor.co2_salone"],
+            "entity_modules": {"sensor.co2_salone": "environment"},
+            "entity_areas": {"sensor.co2_salone": "Salone"},
+            "entity_subtypes": {"sensor.co2_salone": "co2"},
+            "entity_visibility": {"sensor.co2_salone": True},
+            "entity_levels": {"sensor.co2_salone": "standard"},
+        }
+        migrated = models.migrate_runtime_config(overrides)
+        frontend = models.runtime_to_frontend(migrated)
+        for key, value in overrides.items():
+            self.assertEqual(migrated["customer_ui"][key], value)
+            self.assertEqual(frontend[key], value)
+
 
 class LayoutTests(unittest.TestCase):
     def test_customers_are_read_only_and_admin_needs_installer_session(self):
@@ -96,6 +113,13 @@ class LayoutTests(unittest.TestCase):
         self.assertNotIn("icon", card)
         self.assertNotIn("secret", card)
         self.assertNotIn("desktop", normalized)
+        self.assertFalse(card["favorite"])
+
+    def test_layout_favorite_is_validated(self):
+        normalized = layout.normalize_layout({"base": {"home": {
+            "home:module:climate": {"type": "module", "favorite": True}
+        }}})
+        self.assertTrue(normalized["base"]["home"]["home:module:climate"]["favorite"])
 
     def test_update_and_scoped_reset_preserve_other_views(self):
         value = layout.update_layout_view({}, "base", "home", {

@@ -8,4 +8,5 @@ DEFAULT_CONFIG = {
     "asset_base": "/local/cl_control",
     "cache_version": ASSET_VERSION,
     "show_version": True,
+    "gestures": {"slider_threshold_px": 10},
 }

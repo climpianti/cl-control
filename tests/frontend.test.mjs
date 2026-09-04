@@ -6,6 +6,9 @@ import {
   buildDesignTokens,
   classifyEntity,
   colorWheelSelection,
+  createSliderGesture,
+  classifyEnvironmentSensor,
+  environmentStatus,
   classifyCover,
   classifySecurityZone,
   classifySwitchModule,
@@ -68,6 +71,32 @@ assert.deepEqual(layoutCardCapabilities("light").sizes, ["s", "m"]);
 assert.equal(normalizeLayoutCard({ size: "xl", shape: "wide" }, "light").size, "s");
 const mobileOverrides = layoutOverrides(mobileLayout, effectiveLayout(inheritedLayout, "base", "home", generatedLayout));
 assert.deepEqual(mobileOverrides.find(card => card.id === "home:module:lights"), { id: "home:module:lights", type: "module", order: 1, size: "s" });
+assert.equal(normalizeLayoutCard({ favorite: true }).favorite, true);
+
+const slider = createSliderGesture({ threshold: 10 });
+slider.start(1, 20, 20, 40);
+assert.equal(slider.move(1, 24, 36, 60).mode, "vertical");
+assert.equal(slider.end(1).commit, false);
+slider.start(2, 20, 20, 40);
+assert.equal(slider.move(2, 35, 23, 60).mode, "horizontal");
+assert.deepEqual(slider.end(2), { mode: "horizontal", value: 60, commit: true });
+slider.start(3, 20, 20, 40);
+assert.equal(slider.end(3).commit, false, "track tap must not commit");
+slider.start(4, 20, 20, 40);
+assert.equal(slider.cancel(4).commit, false, "pointercancel must not commit");
+
+const co2 = classifyEnvironmentSensor("sensor.co2_salone", { device_class: "carbon_dioxide", unit_of_measurement: "ppm" });
+assert.equal(co2.module, "environment");
+assert.equal(co2.customer_facing, true);
+assert.equal(classifyEnvironmentSensor("sensor.home_power", { device_class: "power", unit_of_measurement: "W" }).environment_candidate, false);
+const uncertainAir = classifyEnvironmentSensor("sensor.qualita_aria", { friendly_name: "Qualità aria" }, {}, { threshold: 0.9 });
+assert.equal(uncertainAir.needs_review, true);
+assert.equal(uncertainAir.customer_facing, false);
+assert.equal(classifyEnvironmentSensor("sensor.generic", {}, {}, { module: "environment", subtype: "radon" }).classification_confidence, 1);
+for (const [id,deviceClass,type] of [["sensor.umidita","humidity","humidity"],["sensor.pm25","pm25","pm25"],["sensor.temperatura","temperature","temperature"]]) assert.equal(classifyEnvironmentSensor(id,{device_class:deviceClass}).type,type);
+assert.equal(environmentStatus("co2", 800, { co2: { warning_high: 1000, high: 1500 } }).key, "good");
+assert.equal(environmentStatus("co2", 1200, { co2: { warning_high: 1000, high: 1500 } }).key, "warning");
+assert.equal(environmentStatus("co2", 1600, { co2: { warning_high: 1000, high: 1500 } }).key, "high");
 
 const installerEntity = classifyEntity(
   "sensor.integration_diagnostics",
@@ -167,7 +196,10 @@ assert.match(panelSource, /cl_control\/layout\/reset/);
 assert.match(panelSource, /data-layout-drag/);
 assert.match(panelSource, /pointerdown/);
 assert.match(panelSource, /Modifiche non salvate/);
-assert.match(panelSource, /Anteprima cliente/);
+assert.match(panelSource, /Preview cliente/);
+assert.match(panelSource, /Stai modificando il layout/);
+assert.match(panelSource, /bindIntentionalSlider/);
+assert.match(panelSource, /Ambiente e qualità aria/);
 assert.match(ui3Styles, /layoutDragHandle\{touch-action:none/);
 assert.match(ui3Styles, /layout-preview-mobile|layoutPreview/);
 
