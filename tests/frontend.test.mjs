@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  CL_CONTROL_ASSET_VERSION,
   FALLBACK_BOOTSTRAP,
   buildDesignTokens,
   classifyEntity,
@@ -27,8 +26,8 @@ import {
   lightTurnOnPayload,
   normalizeLayoutCard,
   reorderLayoutCards,
-} from "../cl-control-runtime.mjs";
-import { buildUi3Styles, icon } from "../cl-control-ui3.mjs";
+} from "../custom_components/cl_control/frontend/cl-control-runtime.mjs";
+import { buildUi3Styles, icon } from "../custom_components/cl_control/frontend/cl-control-ui3.mjs";
 
 const merged = deepMerge({ a: { b: 1 }, keep: true }, { a: { c: 2 } });
 assert.deepEqual(merged, { a: { b: 1, c: 2 }, keep: true });
@@ -199,7 +198,7 @@ assert.match(ui3Styles, /@media\(min-width:1200px\)/);
 assert.match(ui3Styles, /\.clToggle/);
 assert.match(ui3Styles, /clToggleLoading/);
 
-const panelSource = readFileSync(new URL("../cl-control-panel.js", import.meta.url), "utf8");
+const panelSource = readFileSync(new URL("../custom_components/cl_control/frontend/cl-control-panel.js", import.meta.url), "utf8");
 const brandingSource = readFileSync(new URL("../config/branding.yaml", import.meta.url), "utf8");
 assert.doesNotMatch(panelSource, /\b(?:prompt|alert|confirm)\s*\(/);
 assert.doesNotMatch(panelSource, /Migrazione da|migrateLegacy|_legacyConfig/);
@@ -249,7 +248,7 @@ globalThis.customElements = {
   get() { return false; },
   define(_name, constructor) { PanelClass = constructor; },
 };
-await import("../cl-control-panel.js");
+await import("../custom_components/cl_control/frontend/cl-control-panel.js");
 const moduleChoice = PanelClass.prototype._choiceField.call(
   { _esc: String },
   "module",
@@ -261,7 +260,8 @@ assert.match(moduleChoice, /name="module"/);
 assert.match(moduleChoice, />Luci</);
 assert.doesNotMatch(moduleChoice, /\$\{/);
 
-assert.equal(CL_CONTROL_ASSET_VERSION, "3.3.0-dev");
+assert.doesNotMatch(panelSource, /\.mjs\?v=/);
+assert.match(panelSource, /this\._bootstrap\?\.version/);
 
 const wheelRect = { left: 0, top: 0, width: 200, height: 200 };
 assert.equal(colorWheelSelection(100, 10, wheelRect).hue, 0);

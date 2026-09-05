@@ -4,12 +4,12 @@ DEFAULT_CONFIG = {
     "schema_version": 1,
     "brand_name": "CL Control",
     "company_name": "CL Impianti",
-    "product_name": "Home Control",
+    "product_name": "CL Control",
     "tagline": "Home & Building Control",
     "assets": {
-        "logo": "/local/cl_control/logo.png",
-        "logo_compact": "/local/cl_control/logo.png",
-        "favicon": "/local/cl_control-brand/favicon.ico",
+        "logo": "frontend:logo.png",
+        "logo_compact": "frontend:logo.png",
+        "favicon": "",
     },
     "colors": {
         "primary": "#19BAFF",

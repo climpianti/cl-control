@@ -16,7 +16,9 @@ from .const import (
     DATA_SETTINGS,
     DATA_STORE,
     DOMAIN,
+    VERSION,
 )
+from .frontend import async_register_frontend, configure_internal_frontend
 from .modules.installer import InstallerSessions, PinRateLimiter
 from .modules.ai_provider import MockAIProvider
 from .modules.assistance_gateway import AssistanceGateway
@@ -24,7 +26,6 @@ from .storage import RuntimeStore
 from .websocket import async_register_commands
 
 _LOGGER = logging.getLogger(__name__)
-VERSION = "3.3.0-dev"
 
 
 def _limiter(config: dict) -> PinRateLimiter:
@@ -38,11 +39,10 @@ def _limiter(config: dict) -> PinRateLimiter:
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Load modular settings, migrate storage and register APIs."""
-    raw = config.get(DOMAIN)
-    if not raw:
+    if DOMAIN not in config:
         return True
 
-    settings = normalize_settings(raw)
+    settings = configure_internal_frontend(normalize_settings(config.get(DOMAIN)), VERSION)
     if not settings["installer"]["pin"]:
         _LOGGER.error(
             "CL Control requires installer.pin or the legacy installer_pin setting"
@@ -65,6 +65,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
             MockAIProvider(settings["assistance"]["model"]),
         ),
     }
+    await async_register_frontend(hass, settings, VERSION)
     async_register_commands(hass, VERSION)
     return True
 

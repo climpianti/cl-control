@@ -1,3 +1,4 @@
+// UI asset bundled with the CL Control custom integration.
 const ICONS = {
   home: '<path d="M3 11.5 12 4l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/>',
   lights: '<path d="M9 18h6M10 22h4M8.3 14.7a6 6 0 1 1 7.4 0c-.8.6-1.2 1.3-1.2 2.3h-5c0-1-.4-1.7-1.2-2.3Z"/>',

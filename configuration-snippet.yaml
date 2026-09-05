@@ -1,4 +1,5 @@
-# CL Control 2.1 - configuration.yaml
+# CL Control 3.3 distribution-ready - legacy modular configuration
+# The panel and frontend assets are registered automatically by the integration.
 cl_control:
   assistance: !include cl_control/assistance.yaml
   branding: !include cl_control/branding.yaml
@@ -8,11 +9,3 @@ cl_control:
   customer_ui: !include cl_control/customer_ui.yaml
   security: !include cl_control/security.yaml
   site: !include cl_control/site.yaml
-
-panel_custom:
-  - name: cl-control-panel
-    url_path: cl-control
-    sidebar_title: CL Control
-    sidebar_icon: mdi:home-automation
-    module_url: /local/cl_control/cl-control-panel.js?v=3.3.0-dev
-    require_admin: false

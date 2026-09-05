@@ -1,6 +1,5 @@
 import {
   FALLBACK_BOOTSTRAP,
-  CL_CONTROL_ASSET_VERSION,
   applyDesignTokens,
   classifySwitchModule,
   classifyCover,
@@ -25,8 +24,8 @@ import {
   lightTurnOnPayload,
   reorderLayoutCards,
   structuredCloneSafe,
-} from './cl-control-runtime.mjs?v=3.3.0-dev';
-import { buildUi3Styles, icon } from './cl-control-ui3.mjs?v=3.3.0-dev';
+} from './cl-control-runtime.mjs';
+import { buildUi3Styles, icon } from './cl-control-ui3.mjs';
 class CLControlPanel extends HTMLElement {
   constructor() {
     super();
@@ -842,7 +841,7 @@ class CLControlPanel extends HTMLElement {
     const areas=[...new Set([...this._entities('light',true),...this._switchLike(true)].map(e=>this._areaNameFor(e.entity_id)))];const configuredAreas=this._areaOrder();const orderedAreas=[...configuredAreas.filter(a=>areas.includes(a)),...areas.filter(a=>!configuredAreas.includes(a)).sort((a,b)=>a.localeCompare(b,'it'))];
     const homeLabels={lights:'Luci',covers:'Aperture',climate:'Clima',energy:'Energia',security:'Sicurezza',cameras:'Telecamere',support:'Assistenza'};const present=this._navItems().map(x=>x[0]).filter(x=>homeLabels[x]);const configuredHome=this._config?.home_order||[];const orderedHome=[...configuredHome.filter(x=>present.includes(x)),...present.filter(x=>!configuredHome.includes(x))];
     const energyRoles=[['solar','Produzione FV'],['home','Consumo casa'],['grid','Potenza rete'],['import','Prelievo rete'],['export','Immissione rete'],['battery','Stato batteria'],['battery_power','Potenza batteria']];
-    const s=this._config?.support||{};const version=this._esc(CL_CONTROL_ASSET_VERSION);const brand=this._bootstrap?.branding||{};
+    const s=this._config?.support||{};const version=this._esc(this._bootstrap?.version||this._panel?.config?.version||'');const brand=this._bootstrap?.branding||{};
     root.innerHTML=`<div class="installerSurface"><div class="homeHeader"><div><h1 class="pageTitle">Installatore</h1><p class="pageLead">Configurazione tecnica ${this._esc(s.site_name||'')}</p></div><button id="lockInstaller" class="btn danger">BLOCCA</button></div><div class="installerSections">
       <details class="installerSection" open><summary>Impianto <span class="pill ok">ONLINE</span></summary><div class="installerBody"><div class="installerGrid"><div class="entity"><div class="name">Entità rilevate</div><div class="temp">${all.length}</div></div><div class="entity"><div class="name">Entità nascoste</div><div class="temp">${this._hidden.size}</div></div></div></div></details>
       <details class="installerSection" open><summary>Discovery <span class="pill ${reviewAll.length?'warn':''}">${reviewAll.length} da configurare</span></summary><div class="installerBody"><p class="muted">Completa nome, classificazione, area e mapping tramite override dedicati.</p><div class="filterBar reviewFilters">${[['all','Tutti'],['nome','Nome'],['classification','Classificazione'],['area','Area'],['mapping','Mapping']].map(([id,label])=>`<button class="btn ${this._reviewFilter===id?'active':''}" data-review-filter="${id}">${label}</button>`).join('')}</div>${review.length?`<div class="reviewList">${review.slice(0,30).map(x=>`<button class="reviewRow" data-review-entity="${this._esc(x.id)}"><span class="reviewMain"><span class="name">${this._esc(this._displayName(x.id)||'Nome non configurato')}</span><span class="meta">${this._esc(x.module)} · confidence ${Math.round(x.classification.classification_confidence*100)}%</span><code>${this._esc(x.id)}</code></span><span class="reviewAside"><span class="reviewStatus">${x.reasons.map(reason=>({nome:'Nome',classification:'Classificazione',area:'Area',mapping:'Mapping'})[reason]).join(' · ')}</span><span class="reviewAction">Configura ›</span></span></button>`).join('')}</div>`:'<div class="empty">Nessuna classificazione da verificare.</div>'}<div class="sectionHead"><h2>Mappatura Energia</h2></div><div class="energyMapGrid">${energyRoles.map(([role,label])=>{const current=this._energyMap(role),candidates=this._energySensors(true).filter(e=>role!=='battery'||String(e.attributes?.unit_of_measurement||'')==='%'||String(e.attributes?.device_class||'')==='battery');return`<div class="energyMapItem" data-energy-item="${role}"><label>${label}</label><input class="energySearch" data-energy-search="${role}" placeholder="Automatico o entity_id" value="${this._esc(current||'')}" autocomplete="off"><div class="energyMatches" data-energy-matches="${role}">${candidates.slice(0,80).map(e=>`<button type="button" class="energyMatch" data-energy-choice="${role}" data-energy-id="${this._esc(e.entity_id)}"><b>${this._esc(this._displayName(e.entity_id))}</b><span>${this._esc(e.entity_id)}</span></button>`).join('')}</div><div class="energyMapActions"><button type="button" class="btn primary" data-energy-save="${role}">SALVA</button><button type="button" class="btn" data-energy-auto="${role}">AUTO</button></div></div>`}).join('')}</div></div></details>

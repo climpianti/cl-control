@@ -1,11 +1,10 @@
+// Runtime asset bundled with the CL Control custom integration.
 export const EXPERIENCE_RANK = Object.freeze({
   essential: 0,
   standard: 1,
   pro: 2,
   installer: 3,
 });
-
-export const CL_CONTROL_ASSET_VERSION = "3.3.0-dev";
 
 export const LAYOUT_SCHEMA_VERSION = 1;
 export const LAYOUT_CONTEXTS = Object.freeze(["base", "mobile", "tablet", "wall"]);
@@ -168,7 +167,7 @@ export function bindIntentionalSlider(input, options = {}) {
 
 export const FALLBACK_BOOTSTRAP = Object.freeze({
   schema_version: 1,
-  version: "3.3.0-dev",
+  version: "",
   branding: {
     brand_name: "Control",
     company_name: "",

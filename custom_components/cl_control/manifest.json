@@ -2,8 +2,11 @@
   "domain": "cl_control",
   "name": "CL Impianti Home Control",
   "version": "3.3.0-dev",
-  "documentation": "https://www.home-assistant.io/",
+  "documentation": "https://github.com/climpianti/cl-control/blob/main/README.md",
+  "issue_tracker": "https://github.com/climpianti/cl-control/issues",
   "iot_class": "local_push",
   "integration_type": "service",
-  "codeowners": []
+  "codeowners": ["@climpianti"],
+  "dependencies": ["frontend"],
+  "after_dependencies": ["panel_custom"]
 }
