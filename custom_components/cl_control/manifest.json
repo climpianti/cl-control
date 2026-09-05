@@ -1,12 +1,14 @@
 {
   "domain": "cl_control",
-  "name": "CL Impianti Home Control",
+  "name": "CL Control",
   "version": "3.3.0-dev",
   "documentation": "https://github.com/climpianti/cl-control/blob/main/README.md",
   "issue_tracker": "https://github.com/climpianti/cl-control/issues",
   "iot_class": "local_push",
   "integration_type": "service",
   "codeowners": ["@climpianti"],
+  "config_flow": true,
+  "single_config_entry": true,
   "dependencies": ["frontend"],
   "after_dependencies": ["panel_custom"]
 }

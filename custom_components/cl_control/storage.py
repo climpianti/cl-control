@@ -20,7 +20,9 @@ class RuntimeStore:
     async def async_load(self, site_defaults: dict[str, Any]) -> dict[str, Any]:
         saved = await self._store.async_load()
         runtime = migrate_runtime_config(saved)
-        runtime["site"] = deep_merge(site_defaults, runtime["site"])
+        # Site/Options are authoritative configuration; application-only fields
+        # remain in runtime storage and are never reset by a code update.
+        runtime["site"] = deep_merge(runtime["site"], site_defaults)
         if saved != runtime:
             await self._store.async_save(runtime)
         return runtime

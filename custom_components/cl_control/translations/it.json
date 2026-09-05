@@ -1,0 +1,135 @@
+{
+  "title": "CL Control",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Impianto",
+        "description": "Identifica questa installazione CL Control.",
+        "data": {
+          "site_name": "Nome impianto",
+          "customer_name": "Nome cliente"
+        }
+      },
+      "assistance": {
+        "title": "Assistenza",
+        "description": "Configura il contatto e il provider di assistenza. L’AI resta inattiva finché non viene abilitata separatamente.",
+        "data": {
+          "support_phone": "Numero assistenza CL Impianti",
+          "assistance_provider": "Provider assistenza"
+        }
+      },
+      "interface": {
+        "title": "Interfaccia",
+        "description": "Scegli il livello esperienza iniziale e il profilo grafico.",
+        "data": {
+          "experience_level": "Livello esperienza",
+          "branding_template": "Profilo branding"
+        }
+      },
+      "installer": {
+        "title": "Protezione Installer",
+        "description": "Scegli un PIN numerico usato solo da CL Control. Viene conservato come hash con salt.",
+        "data": {
+          "installer_pin": "PIN Installer",
+          "installer_pin_confirm": "Conferma PIN Installer"
+        }
+      },
+      "discovery": {
+        "title": "Discovery preliminare",
+        "description": "Trovate {entities} entità e {devices} dispositivi. In questa fase non viene eseguita alcuna classificazione né inviato alcun comando."
+      },
+      "summary": {
+        "title": "Riepilogo",
+        "description": "Impianto: {site_name}\nEsperienza: {experience_level}\nInventario: {entities} entità, {devices} dispositivi."
+      }
+    },
+    "error": {
+      "invalid_pin_format": "Usa un PIN numerico da 4 a 12 cifre.",
+      "pin_mismatch": "I due PIN non coincidono."
+    },
+    "abort": {
+      "single_instance_allowed": "CL Control è già configurato.",
+      "already_configured": "La configurazione legacy è già stata importata.",
+      "legacy_pin_missing": "La configurazione legacy non contiene un PIN Installer valido."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Impostazioni CL Control",
+        "menu_options": {
+          "general": "Impostazioni generali",
+          "installer": "Cambia PIN Installer"
+        }
+      },
+      "general": {
+        "title": "Impostazioni generali",
+        "data": {
+          "site_name": "Nome impianto",
+          "customer_name": "Nome cliente",
+          "support_phone": "Numero assistenza CL Impianti",
+          "assistance_provider": "Provider assistenza",
+          "experience_level": "Livello esperienza",
+          "branding_template": "Profilo branding",
+          "release_channel": "Canale aggiornamenti"
+        }
+      },
+      "installer": {
+        "title": "Cambia PIN Installer",
+        "description": "Il nuovo PIN viene conservato esclusivamente come hash con salt.",
+        "data": {
+          "current_installer_pin": "PIN Installer attuale",
+          "new_installer_pin": "Nuovo PIN Installer",
+          "new_installer_pin_confirm": "Conferma nuovo PIN Installer"
+        }
+      }
+    },
+    "error": {
+      "invalid_current_pin": "Il PIN Installer attuale non è corretto.",
+      "invalid_pin_format": "Usa un PIN numerico da 4 a 12 cifre.",
+      "pin_mismatch": "I due nuovi PIN non coincidono."
+    }
+  },
+  "selector": {
+    "assistance_provider": {
+      "options": {
+        "whatsapp": "WhatsApp",
+        "openai": "CL Assistance AI",
+        "hybrid": "Ibrido: AI + WhatsApp"
+      }
+    },
+    "experience_level": {
+      "options": {
+        "essential": "Essential",
+        "standard": "Standard",
+        "pro": "Pro"
+      }
+    },
+    "branding_template": {
+      "options": {
+        "cl_control": "CL Control"
+      }
+    },
+    "release_channel": {
+      "options": {
+        "stable": "Stabile",
+        "beta": "Beta",
+        "dev": "Sviluppo"
+      }
+    }
+  },
+  "issues": {
+    "legacy_yaml_present": {
+      "title": "Il vecchio YAML CL Control è ancora presente",
+      "description": "La configurazione YAML è stata importata e resta intatta per il rollback. Ora prevale la Config Entry; rimuovi il vecchio YAML solo dopo aver validato l’installazione."
+    },
+    "invalid_config_entry": {
+      "title": "Configurazione CL Control non valida",
+      "description": "La Config Entry CL Control è incompleta o non valida. Riconfigura o ripristina l’installazione prima di riprovare."
+    },
+    "installer_credential_missing": {
+      "title": "Credenziale Installer CL Control mancante",
+      "description": "L’hash del PIN Installer non è disponibile. CL Control ha interrotto il setup senza modificare lo storage cliente."
+    }
+  }
+}

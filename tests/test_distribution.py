@@ -43,6 +43,9 @@ def register_panel(hass, component_name, **kwargs):
 
 
 frontend_stub.async_register_built_in_panel = register_panel
+frontend_stub.async_remove_panel = lambda hass, route: hass.data.get(
+    frontend_stub.DATA_PANELS, {}
+).pop(route, None)
 components_stub = types.ModuleType("homeassistant.components")
 components_stub.frontend = frontend_stub
 http_stub = types.ModuleType("homeassistant.components.http")
@@ -58,7 +61,12 @@ sys.modules.setdefault("homeassistant.components.frontend", frontend_stub)
 sys.modules.setdefault("homeassistant.components.http", http_stub)
 sys.modules.setdefault("homeassistant.core", core_stub)
 
-spec = importlib.util.spec_from_file_location("cl_control_distribution_frontend", PACKAGE / "frontend.py")
+distribution_package = types.ModuleType("cl_control_distribution")
+distribution_package.__path__ = [str(PACKAGE)]
+sys.modules.setdefault("cl_control_distribution", distribution_package)
+spec = importlib.util.spec_from_file_location(
+    "cl_control_distribution.frontend", PACKAGE / "frontend.py"
+)
 distribution = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
 spec.loader.exec_module(distribution)
@@ -145,6 +153,21 @@ class DistributionTests(unittest.IsolatedAsyncioTestCase):
             "/cl_control_static/3.3.0-dev/cl-control-panel.js",
         )
 
+        await distribution.async_register_static_path(hass, "3.3.0-dev")
+        self.assertEqual(len(hass.http.paths), 1)
+
+    async def test_panel_can_unload_without_removing_static_assets(self):
+        hass = FakeHass()
+        configured = distribution.configure_internal_frontend(
+            settings(), "3.3.0-dev"
+        )
+        await distribution.async_register_frontend(
+            hass, configured, "3.3.0-dev"
+        )
+        distribution.async_unregister_panel(hass, configured)
+        self.assertNotIn("cl-control", hass.data[frontend_stub.DATA_PANELS])
+        self.assertEqual(len(hass.http.paths), 1)
+
     async def test_legacy_panel_is_replaced_by_internal_panel(self):
         hass = FakeHass()
         hass.data[frontend_stub.DATA_PANELS] = {
@@ -195,11 +218,22 @@ class DistributionTests(unittest.IsolatedAsyncioTestCase):
     def test_manifest_and_future_hacs_metadata_are_valid(self):
         manifest = json.loads((PACKAGE / "manifest.json").read_text(encoding="utf-8"))
         hacs = json.loads((ROOT / "hacs.json").read_text(encoding="utf-8"))
+        strings = json.loads((PACKAGE / "strings.json").read_text(encoding="utf-8"))
+        italian = json.loads(
+            (PACKAGE / "translations" / "it.json").read_text(encoding="utf-8")
+        )
         self.assertEqual(manifest["domain"], "cl_control")
+        self.assertEqual(manifest["name"], "CL Control")
         self.assertEqual(manifest["version"], "3.3.0-dev")
+        self.assertTrue(manifest["config_flow"])
+        self.assertTrue(manifest["single_config_entry"])
         self.assertEqual(manifest["codeowners"], ["@climpianti"])
         self.assertIn("issue_tracker", manifest)
         self.assertEqual(hacs["name"], "CL Control")
+        self.assertEqual(strings.keys(), italian.keys())
+        self.assertEqual(strings["config"]["step"].keys(), italian["config"]["step"].keys())
+        self.assertEqual(strings["options"]["step"].keys(), italian["options"]["step"].keys())
+        self.assertEqual(strings["selector"].keys(), italian["selector"].keys())
 
 
 if __name__ == "__main__":

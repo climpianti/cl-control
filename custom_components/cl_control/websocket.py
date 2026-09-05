@@ -15,6 +15,8 @@ from homeassistant.helpers import entity_registry as er
 from .const import (
     DATA_INSTALLER_LIMITER,
     DATA_ASSISTANCE_GATEWAY,
+    DATA_CONFIG_ENTRY,
+    DATA_CREDENTIALS,
     DATA_INSTALLER_SESSIONS,
     DATA_RUNTIME,
     DATA_SECURITY_LIMITER,
@@ -22,6 +24,8 @@ from .const import (
     DATA_STORE,
     DOMAIN,
 )
+from .credentials import async_verify_pin
+from .entry_data import sync_options_from_runtime
 from .models import (
     build_bootstrap,
     migrate_runtime_config,
@@ -114,6 +118,11 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         ]
         data[DATA_RUNTIME] = runtime
         await data[DATA_STORE].async_save(runtime)
+        entry = data.get(DATA_CONFIG_ENTRY)
+        if entry is not None:
+            options = sync_options_from_runtime(dict(entry.options), runtime)
+            if options != dict(entry.options):
+                hass.config_entries.async_update_entry(entry, options=options)
         connection.send_result(msg["id"], runtime_to_frontend(runtime))
 
     @websocket_api.websocket_command(
@@ -198,8 +207,15 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
                 msg["id"], {"unlocked": False, "retry_after": retry_after}
             )
             return
+        entered = str(msg.get("pin") or "")
+        credential = data.get(DATA_CREDENTIALS, {}).get("installer_pin")
         expected = data[DATA_SETTINGS]["installer"]["pin"]
-        if secrets.compare_digest(str(msg.get("pin") or ""), expected):
+        valid = (
+            await async_verify_pin(hass, entered, credential)
+            if credential
+            else secrets.compare_digest(entered, expected)
+        )
+        if valid:
             limiter.record_success(user_key)
             data[DATA_INSTALLER_SESSIONS].unlock(user_key)
             minutes = data[DATA_SETTINGS]["installer"]["session_minutes"]
@@ -250,12 +266,18 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
             )
             return False
         expected = data[DATA_SETTINGS]["security"]["pin"]
-        if not expected:
+        credential = data.get(DATA_CREDENTIALS, {}).get("security_pin")
+        if not expected and not credential:
             connection.send_error(
                 msg["id"], "not_configured", "PIN sicurezza non configurato"
             )
             return False
-        if secrets.compare_digest(str(msg["pin"]), expected):
+        valid = (
+            await async_verify_pin(hass, str(msg["pin"]), credential)
+            if credential
+            else secrets.compare_digest(str(msg["pin"]), expected)
+        )
+        if valid:
             limiter.record_success(user_key)
             return True
         retry_after = limiter.record_failure(user_key)

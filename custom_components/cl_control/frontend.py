@@ -11,6 +11,8 @@ from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 
+from .const import DATA_STATIC_REGISTERED, DOMAIN
+
 _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIRECTORY = Path(__file__).parent / "frontend"
@@ -54,36 +56,44 @@ def _validate_assets() -> None:
         raise FileNotFoundError(f"Missing bundled CL Control frontend assets: {', '.join(missing)}")
 
 
-def _legacy_panel(hass: HomeAssistant, panel_url: str) -> bool:
+def _existing_panel(hass: HomeAssistant, panel_url: str) -> tuple[bool, bool]:
     panels = hass.data.get(frontend.DATA_PANELS, {})
     existing = panels.get(panel_url)
     if existing is None:
-        return False
+        return False, False
     panel_config = getattr(existing, "config", None) or {}
     custom = panel_config.get("_panel_custom", {})
     if getattr(existing, "component_name", None) != "custom" or custom.get("name") != "cl-control-panel":
         raise ValueError(f"Panel route /{panel_url} is already owned by another component")
-    return True
+    return True, str(custom.get("module_url") or "").startswith(LEGACY_ASSET_ROOT)
 
 
-async def async_register_frontend(
-    hass: HomeAssistant, settings: dict[str, Any], version: str
-) -> None:
-    """Register bundled static assets and the customer-facing sidebar panel."""
+async def async_register_static_path(hass: HomeAssistant, version: str) -> None:
+    """Register immutable bundled assets once per Home Assistant process."""
     _validate_assets()
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    if domain_data.get(DATA_STATIC_REGISTERED):
+        return
     asset_base = static_url(version)
     await hass.http.async_register_static_paths(
         [StaticPathConfig(asset_base, str(FRONTEND_DIRECTORY), True)]
     )
+    domain_data[DATA_STATIC_REGISTERED] = True
 
+
+def async_register_panel(
+    hass: HomeAssistant, settings: dict[str, Any], version: str
+) -> None:
+    """Register or safely update the CL Control sidebar panel."""
+    asset_base = static_url(version)
     frontend_config = settings["frontend"]
     panel_url = str(frontend_config.get("panel_url", "/cl-control")).strip("/")
     panel_url = panel_url or "cl-control"
-    is_legacy = _legacy_panel(hass, panel_url)
+    exists, is_legacy = _existing_panel(hass, panel_url)
     if is_legacy:
         _LOGGER.warning(
-            "CL Control now registers its panel automatically; the legacy panel_custom "
-            "entry can be removed after validating the bundled frontend"
+            "CL Control imported a legacy panel_custom registration; remove the "
+            "deprecated YAML block after validating the Config Entry"
         )
 
     frontend.async_register_built_in_panel(
@@ -103,8 +113,26 @@ async def async_register_frontend(
             },
         },
         require_admin=bool(frontend_config.get("require_admin", False)),
-        update=is_legacy,
+        update=exists,
     )
+
+
+def async_unregister_panel(hass: HomeAssistant, settings: dict[str, Any]) -> None:
+    """Remove only the CL Control panel; bundled static files remain registered."""
+    frontend_config = settings.get("frontend", {})
+    panel_url = str(frontend_config.get("panel_url", "/cl-control")).strip("/")
+    panel_url = panel_url or "cl-control"
+    panels = hass.data.get(frontend.DATA_PANELS, {})
+    if panel_url in panels:
+        frontend.async_remove_panel(hass, panel_url)
+
+
+async def async_register_frontend(
+    hass: HomeAssistant, settings: dict[str, Any], version: str
+) -> None:
+    """Register bundled static assets and the customer-facing sidebar panel."""
+    await async_register_static_path(hass, version)
+    async_register_panel(hass, settings, version)
 
 
 __all__ = (
@@ -112,6 +140,9 @@ __all__ = (
     "REQUIRED_ASSETS",
     "STATIC_URL_ROOT",
     "async_register_frontend",
+    "async_register_panel",
+    "async_register_static_path",
+    "async_unregister_panel",
     "configure_internal_frontend",
     "static_url",
 )

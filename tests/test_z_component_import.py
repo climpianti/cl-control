@@ -1,4 +1,4 @@
-"""Smoke-test the packaged integration import and YAML setup contract."""
+"""Smoke-test Config Entry lifecycle and legacy YAML import scheduling."""
 
 from __future__ import annotations
 
@@ -12,89 +12,174 @@ from unittest.mock import AsyncMock, Mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+# Reuse the comprehensive Home Assistant fakes installed by test_config_entry.
+support = importlib.import_module("test_config_entry")
 
-class Schema:
-    def __init__(self, value, **_kwargs) -> None:
-        self.value = value
-
-    def __call__(self, value):
-        return value
-
-
-vol = types.ModuleType("voluptuous")
-vol.ALLOW_EXTRA = object()
-vol.Schema = Schema
-vol.Optional = lambda key, **_kwargs: key
-vol.Required = lambda key, **_kwargs: key
-vol.Coerce = lambda *_args, **_kwargs: (lambda value: value)
-vol.In = lambda *_args, **_kwargs: (lambda value: value)
-vol.All = lambda *_args, **_kwargs: (lambda value: value)
-sys.modules["voluptuous"] = vol
-
-homeassistant = types.ModuleType("homeassistant")
 components = types.ModuleType("homeassistant.components")
 frontend = types.ModuleType("homeassistant.components.frontend")
 frontend.DATA_PANELS = "frontend_panels"
 frontend.async_register_built_in_panel = Mock()
+frontend.async_remove_panel = Mock()
 websocket_api = types.ModuleType("homeassistant.components.websocket_api")
+websocket_api.websocket_command = lambda schema: (lambda func: func)
+websocket_api.async_response = lambda func: func
+websocket_api.require_admin = lambda func: func
+websocket_api.async_register_command = Mock()
 http = types.ModuleType("homeassistant.components.http")
 http.StaticPathConfig = object
-core = types.ModuleType("homeassistant.core")
-core.HomeAssistant = object
-helpers = types.ModuleType("homeassistant.helpers")
 entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
-storage = types.ModuleType("homeassistant.helpers.storage")
-storage.Store = object
+entity_registry.async_get = lambda _hass: types.SimpleNamespace(
+    async_get=lambda _entity_id: None
+)
+exceptions = types.ModuleType("homeassistant.exceptions")
+exceptions.ConfigEntryError = RuntimeError
 components.frontend = frontend
 components.websocket_api = websocket_api
-helpers.entity_registry = entity_registry
 sys.modules.update(
     {
-        "homeassistant": homeassistant,
         "homeassistant.components": components,
         "homeassistant.components.frontend": frontend,
         "homeassistant.components.websocket_api": websocket_api,
         "homeassistant.components.http": http,
-        "homeassistant.core": core,
-        "homeassistant.helpers": helpers,
         "homeassistant.helpers.entity_registry": entity_registry,
-        "homeassistant.helpers.storage": storage,
+        "homeassistant.exceptions": exceptions,
     }
 )
 
 
 class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
-    async def test_component_import_and_legacy_yaml_setup_preserve_runtime(self):
+    async def test_invalid_entry_stops_before_application_storage(self):
         component = importlib.import_module("custom_components.cl_control")
-        self.assertEqual(component.VERSION, "3.3.0-dev")
-        self.assertTrue(callable(component.async_setup))
 
+        class ForbiddenStore:
+            def __init__(self, _hass):
+                raise AssertionError("application storage must not be opened")
+
+        original = component.RuntimeStore
+        component.RuntimeStore = ForbiddenStore
+        hass = support._Hass()
+        entry = support._ConfigEntry({"installation_id": "invalid"}, {})
+        try:
+            with self.assertRaisesRegex(RuntimeError, "incomplete or invalid"):
+                await component.async_setup_entry(hass, entry)
+        finally:
+            component.RuntimeStore = original
+
+    async def test_missing_credential_stops_before_application_storage(self):
+        component = importlib.import_module("custom_components.cl_control")
+
+        class ForbiddenStore:
+            def __init__(self, _hass):
+                raise AssertionError("application storage must not be opened")
+
+        original = component.RuntimeStore
+        component.RuntimeStore = ForbiddenStore
+        hass = support._Hass()
+        entry = support._ConfigEntry(
+            {"installation_id": "00000000-0000-4000-8000-000000000099"},
+            {},
+        )
+        try:
+            with self.assertRaisesRegex(RuntimeError, "credential is missing"):
+                await component.async_setup_entry(hass, entry)
+        finally:
+            component.RuntimeStore = original
+
+    async def test_yaml_schedules_import_without_loading_runtime(self):
+        component = importlib.import_module("custom_components.cl_control")
+        component.async_register_static_path = AsyncMock()
+        component.async_register_commands = Mock()
+        flow_init = AsyncMock()
+        created = []
+
+        class Hass(support._Hass):
+            def __init__(self):
+                super().__init__()
+                self.http = types.SimpleNamespace()
+                self.config_entries.flow = types.SimpleNamespace(async_init=flow_init)
+
+            def async_create_task(self, coroutine):
+                created.append(coroutine)
+                return types.SimpleNamespace()
+
+        hass = Hass()
+        legacy = {"installer": {"pin": "2468"}}
+        result = await component.async_setup(hass, {"cl_control": legacy})
+        self.assertTrue(result)
+        self.assertNotIn("runtime", hass.data["cl_control"])
+        self.assertEqual(len(created), 1)
+        await created[0]
+        flow_init.assert_awaited_once_with(
+            "cl_control", context={"source": "import"}, data=legacy
+        )
+        component.async_register_commands.assert_not_called()
+
+    async def test_setup_entry_preserves_storage_and_unload_keeps_credentials(self):
+        component = importlib.import_module("custom_components.cl_control")
+        installation_id = "00000000-0000-4000-8000-000000000001"
+        hass = support._Hass()
+        hass.data = {"cl_control": {"static_registered": True}}
+        await support.credentials_module.CredentialStore(hass).async_set_pin(
+            installation_id, "installer_pin", "2468"
+        )
         existing_runtime = {
             "schema_version": 2,
-            "customer_ui": {"favorites": ["light.cucina"]},
+            "customer_ui": {
+                "favorites": ["light.cucina"],
+                "aliases": {"light.cucina": "Luce cucina"},
+                "experience_level": "standard",
+                "layout": {
+                    "layout_schema_version": 1,
+                    "base": {},
+                    "mobile": {},
+                    "tablet": {},
+                    "wall": {},
+                },
+            },
             "site": {"site_name": "Existing site"},
-            "assistance": {"requests": []},
+            "assistance": {"requests": [{"ticket_id": "CLA-KEEP"}]},
         }
 
         class FakeStore:
-            def __init__(self, _hass) -> None:
-                return
+            def __init__(self, _hass):
+                pass
 
             async def async_load(self, _site_defaults):
                 return existing_runtime
 
+            async def async_save(self, _runtime):
+                return None
+
         component.RuntimeStore = FakeStore
-        component.async_register_frontend = AsyncMock()
+        component.async_register_panel = Mock()
+        component.async_unregister_panel = Mock()
         component.async_register_commands = Mock()
-        hass = types.SimpleNamespace(data={})
-        result = await component.async_setup(
-            hass,
-            {"cl_control": {"installer": {"pin": "test-only-pin"}}},
+        entry = support._ConfigEntry(
+            {"installation_id": installation_id},
+            support.flow_module.normalize_entry_options({"site_name": "Existing site"}),
         )
-        self.assertTrue(result)
+        self.assertTrue(await component.async_setup_entry(hass, entry))
         self.assertIs(hass.data["cl_control"]["runtime"], existing_runtime)
-        component.async_register_frontend.assert_awaited_once()
+        self.assertEqual(
+            existing_runtime["customer_ui"]["favorites"], ["light.cucina"]
+        )
+        self.assertEqual(
+            existing_runtime["customer_ui"]["aliases"]["light.cucina"],
+            "Luce cucina",
+        )
+        self.assertEqual(
+            existing_runtime["assistance"]["requests"][0]["ticket_id"],
+            "CLA-KEEP",
+        )
         component.async_register_commands.assert_called_once_with(hass, "3.3.0-dev")
+        credentials_before = dict(support._Store.records)
+        self.assertTrue(await component.async_unload_entry(hass, entry))
+        await component.async_remove_entry(hass, entry)
+        self.assertEqual(support._Store.records, credentials_before)
+        self.assertNotIn("runtime", hass.data["cl_control"])
+        self.assertTrue(await component.async_setup_entry(hass, entry))
+        component.async_register_commands.assert_called_once_with(hass, "3.3.0-dev")
+        self.assertTrue(await component.async_unload_entry(hass, entry))
 
 
 if __name__ == "__main__":
