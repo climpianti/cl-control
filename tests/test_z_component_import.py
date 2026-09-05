@@ -6,6 +6,7 @@ import importlib
 from pathlib import Path
 import sys
 import types
+from types import MappingProxyType
 import unittest
 from unittest.mock import AsyncMock, Mock
 
@@ -155,8 +156,12 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
         component.async_unregister_panel = Mock()
         component.async_register_commands = Mock()
         entry = support._ConfigEntry(
-            {"installation_id": installation_id},
-            support.flow_module.normalize_entry_options({"site_name": "Existing site"}),
+            MappingProxyType({"installation_id": installation_id}),
+            MappingProxyType(
+                support.flow_module.normalize_entry_options(
+                    {"site_name": "Existing site"}
+                )
+            ),
         )
         self.assertTrue(await component.async_setup_entry(hass, entry))
         self.assertIs(hass.data["cl_control"]["runtime"], existing_runtime)
@@ -171,7 +176,22 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
             existing_runtime["assistance"]["requests"][0]["ticket_id"],
             "CLA-KEEP",
         )
+        self.assertEqual(
+            hass.data["cl_control"]["settings"]["site"]["site_name"],
+            "Existing site",
+        )
         component.async_register_commands.assert_called_once_with(hass, "3.3.0-dev")
+        self.assertIn(
+            ((hass, "cl_control", f"invalid_config_entry_{entry.entry_id}"), {}),
+            support.issue_registry.deleted,
+        )
+        self.assertFalse(
+            any(
+                args[2] == "legacy_yaml_present"
+                for args, _kwargs in support.issue_registry.deleted
+                if len(args) > 2
+            )
+        )
         credentials_before = dict(support._Store.records)
         self.assertTrue(await component.async_unload_entry(hass, entry))
         await component.async_remove_entry(hass, entry)

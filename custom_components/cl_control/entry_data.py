@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from copy import deepcopy
 import re
 from typing import Any
@@ -71,7 +72,7 @@ def sanitize_legacy_settings(value: Any) -> Any:
 
 def normalize_entry_options(value: Any) -> dict[str, Any]:
     """Normalize the public, mutable Config Entry options."""
-    source = value if isinstance(value, dict) else {}
+    source = dict(value) if isinstance(value, Mapping) else {}
     result = deep_merge(DEFAULT_ENTRY_OPTIONS, source)
     result[CONF_SITE_NAME] = str(result.get(CONF_SITE_NAME) or "Casa")[:120]
     result[CONF_CUSTOMER_NAME] = str(result.get(CONF_CUSTOMER_NAME) or "")[:120]
@@ -147,7 +148,7 @@ def settings_from_entry(options: dict[str, Any]) -> dict[str, Any]:
 
 def entry_data_is_valid(data: Any) -> bool:
     """Validate essential non-sensitive Config Entry data."""
-    return isinstance(data, dict) and valid_installation_id(
+    return isinstance(data, Mapping) and valid_installation_id(
         data.get(CONF_INSTALLATION_ID)
     )
 

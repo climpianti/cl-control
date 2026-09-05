@@ -7,6 +7,7 @@ import importlib
 from pathlib import Path
 import sys
 import types
+from types import MappingProxyType
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -118,8 +119,9 @@ device_registry.async_get = lambda hass: types.SimpleNamespace(devices=hass.devi
 issue_registry = types.ModuleType("homeassistant.helpers.issue_registry")
 issue_registry.IssueSeverity = types.SimpleNamespace(WARNING="warning", ERROR="error")
 issue_registry.issues = []
+issue_registry.deleted = []
 issue_registry.async_create_issue = lambda *args, **kwargs: issue_registry.issues.append((args, kwargs))
-issue_registry.async_delete_issue = lambda *_args, **_kwargs: None
+issue_registry.async_delete_issue = lambda *args, **kwargs: issue_registry.deleted.append((args, kwargs))
 storage = types.ModuleType("homeassistant.helpers.storage")
 storage.Store = _Store
 selector = types.ModuleType("homeassistant.helpers.selector")
@@ -152,6 +154,7 @@ if package is None:
 
 flow_module = importlib.import_module("cl_control.config_flow")
 credentials_module = importlib.import_module("cl_control.credentials")
+entry_data_module = importlib.import_module("cl_control.entry_data")
 
 
 class _ConfigEntriesManager:
@@ -181,6 +184,7 @@ class ConfigFlowTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         _Store.records.clear()
         issue_registry.issues.clear()
+        issue_registry.deleted.clear()
 
     async def test_fresh_onboarding_creates_minimal_entry_and_hashed_pin(self):
         self.assertTrue(
@@ -296,6 +300,47 @@ class ConfigFlowTests(unittest.IsolatedAsyncioTestCase):
         stored = await credentials_module.CredentialStore(hass).async_get(installation_id)
         self.assertTrue(credentials_module.verify_pin("9753", stored["installer_pin"]))
         self.assertFalse(credentials_module.verify_pin("2468", stored["installer_pin"]))
+
+
+class ConfigEntryMappingTests(unittest.TestCase):
+    def test_entry_data_accepts_dict_and_immutable_mapping(self):
+        installation_id = "00000000-0000-4000-8000-000000000001"
+        mutable = {"installation_id": installation_id}
+        immutable = MappingProxyType(mutable)
+        before = dict(immutable)
+
+        self.assertTrue(entry_data_module.entry_data_is_valid(mutable))
+        self.assertTrue(entry_data_module.entry_data_is_valid(immutable))
+        self.assertEqual(dict(immutable), before)
+
+    def test_entry_data_rejects_missing_invalid_and_corrupt_values(self):
+        self.assertFalse(entry_data_module.entry_data_is_valid({}))
+        self.assertFalse(
+            entry_data_module.entry_data_is_valid(
+                MappingProxyType({"installation_id": "not-a-uuid"})
+            )
+        )
+        self.assertFalse(entry_data_module.entry_data_is_valid(None))
+        self.assertFalse(
+            entry_data_module.entry_data_is_valid(
+                [("installation_id", "not-a-mapping")]
+            )
+        )
+
+    def test_immutable_options_are_normalized_without_mutation(self):
+        raw = {
+            "site_name": "Villa Mapping",
+            "experience_level": "pro",
+            "legacy_settings": {"site": {"customer": "Cliente"}},
+        }
+        immutable = MappingProxyType(raw)
+        before = repr(raw)
+
+        normalized = entry_data_module.normalize_entry_options(immutable)
+
+        self.assertEqual(normalized["site_name"], "Villa Mapping")
+        self.assertEqual(normalized["experience_level"], "pro")
+        self.assertEqual(repr(raw), before)
 
 
 if __name__ == "__main__":
