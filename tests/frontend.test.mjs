@@ -24,6 +24,7 @@ import {
   layoutDeviceContext,
   layoutCardCapabilities,
   layoutOverrides,
+  lightTurnOnPayload,
   normalizeLayoutCard,
   reorderLayoutCards,
 } from "../cl-control-runtime.mjs";
@@ -67,8 +68,14 @@ assert.equal(layoutDeviceContext(1200), "base");
 assert.equal(layoutDeviceContext(1200, "wall"), "wall");
 assert.deepEqual(reorderLayoutCards(generatedLayout, "home:module:climate", "home:status").map(card => card.id), ["home:module:climate", "home:status", "home:module:lights"]);
 assert.equal(normalizeLayoutCard({ show_icon: false, show_title: false }).show_title, true);
-assert.deepEqual(layoutCardCapabilities("light").sizes, ["s", "m"]);
+assert.deepEqual(layoutCardCapabilities("light").sizes, ["s", "m", "l"]);
 assert.equal(normalizeLayoutCard({ size: "xl", shape: "wide" }, "light").size, "s");
+assert.equal(normalizeLayoutCard({ size: "l", visible: false }, "light").size, "l");
+const hiddenLayout = emptyLayout();
+hiddenLayout.base.lights = { "lights:entity:light.cucina": { type: "light", visible: false } };
+const hiddenGenerated = [{ id: "lights:entity:light.cucina", type: "light" }];
+assert.equal(effectiveLayout(hiddenLayout, "base", "lights", hiddenGenerated).length, 0);
+assert.equal(effectiveLayout(hiddenLayout, "base", "lights", hiddenGenerated, { includeHidden: true })[0].visible, false);
 const mobileOverrides = layoutOverrides(mobileLayout, effectiveLayout(inheritedLayout, "base", "home", generatedLayout));
 assert.deepEqual(mobileOverrides.find(card => card.id === "home:module:lights"), { id: "home:module:lights", type: "module", order: 1, size: "s" });
 assert.equal(normalizeLayoutCard({ favorite: true }).favorite, true);
@@ -237,6 +244,11 @@ assert.equal(colorWheelSelection(22, 145, wheelRect).hue, 240);
 assert.equal(colorWheelSelection(100, 100, wheelRect), null);
 assert.equal(colorWheelSelection(100, -40, wheelRect), null);
 assert.equal(colorWheelSelection(240, 100, wheelRect, { allowOutside: true }).hue, 90);
+assert.deepEqual(lightTurnOnPayload("light.rgb", { supported_color_modes: ["rgb"] }, { mode: "color", rgb: [255, 0, 0], brightness: 128 }), { entity_id: "light.rgb", brightness: 128, rgb_color: [255, 0, 0] });
+assert.deepEqual(lightTurnOnPayload("light.rgbw", { supported_color_modes: ["rgbw"] }, { mode: "color", rgb: [0, 255, 0], brightness: 180 }), { entity_id: "light.rgbw", brightness: 180, rgbw_color: [0, 255, 0, 0] });
+assert.deepEqual(lightTurnOnPayload("light.rgbww", { supported_color_modes: ["rgbww"] }, { mode: "white", brightness: 200 }), { entity_id: "light.rgbww", brightness: 200, rgbww_color: [0, 0, 0, 255, 255] });
+assert.deepEqual(lightTurnOnPayload("light.white", { supported_color_modes: ["white"] }, { mode: "white" }), { entity_id: "light.white", white: 255 });
+assert.deepEqual(lightTurnOnPayload("light.temp", { supported_color_modes: ["color_temp"], min_color_temp_kelvin: 2200, max_color_temp_kelvin: 6000 }, { mode: "temperature", kelvin: 4100 }), { entity_id: "light.temp", color_temp_kelvin: 4100 });
 
 const accordionPanel = Object.create(PanelClass.prototype);
 accordionPanel._installerSectionIds = ['site','discovery','interface','experience','security','assistance','diagnostics','about'];
@@ -306,8 +318,13 @@ assert.equal(hueInput.value, '35', 'preset selection must remain functional');
 assert.deepEqual(colorPanel._hsvRgb(0), [255, 0, 0]);
 assert.deepEqual(colorPanel._hsvRgb(120), [0, 255, 0]);
 assert.deepEqual(colorPanel._hsvRgb(240), [0, 0, 255]);
-assert.match(panelSource, /data\.rgb_color=this\._hsvRgb\(result\.hue\)/);
+assert.match(panelSource, /lightTurnOnPayload\(id,a,/);
+assert.match(panelSource, /Anteprima locale\. Il dispositivo viene aggiornato solo con Applica\./);
+assert.match(panelSource, /data-light-mode-panel="temperature"/);
 assert.match(ui3Styles, /touch-action:none/);
+assert.match(ui3Styles, /lightControlHero/);
+assert.match(ui3Styles, /layoutDragGhost/);
+assert.match(ui3Styles, /layoutHiddenSecondary \.lightDetail/);
 assert.match(ui3Styles, /max-height:calc\(100dvh/);
 
 const riscoZoneIds = [

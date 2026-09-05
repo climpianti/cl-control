@@ -2,11 +2,18 @@ import assert from 'node:assert/strict';
 
 const { chromium } = await import(process.env.CL_PLAYWRIGHT_URL || 'playwright');
 const browser = await chromium.launch({ headless: true, ...(process.env.CL_CHROME_PATH ? { executablePath: process.env.CL_CHROME_PATH } : {}) });
+const themeByWidth = new Map([[390, 'light'], [768, 'dark'], [1200, 'cl_blue']]);
+const requestedWidth = Number(process.env.CL_TEST_VIEWPORT) || 0;
+const viewports = [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 768, height: 1024 }, { width: 1200, height: 900 }, { width: 1920, height: 1080 }].filter(viewport => !requestedWidth || viewport.width === requestedWidth);
 
-for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 768, height: 1024 }, { width: 1200, height: 900 }, { width: 1920, height: 1080 }]) {
+for (const viewport of viewports) {
   const page = await browser.newPage({ viewport, hasTouch: viewport.width < 768 });
-  await page.goto('http://127.0.0.1:8765/tests/ui3-harness.html', { waitUntil: 'networkidle' });
+  page.setDefaultTimeout(7000);
+  console.log(`ui viewport ${viewport.width}x${viewport.height}`);
+  const requestedTheme = themeByWidth.get(viewport.width) || 'cl_blue';
+  await page.goto(`http://127.0.0.1:8765/tests/ui3-harness.html?theme=${requestedTheme}`, { waitUntil: 'networkidle' });
   const panel = page.locator('cl-control-panel');
+  assert.equal(await panel.getAttribute('data-theme'), requestedTheme);
   assert.match(await panel.locator('[data-layout-module="environment"]').textContent(), /Aria buona/);
   await panel.locator('[data-page="lights"]').click();
   await panel.locator('[data-light-controls]').first().click();
@@ -48,7 +55,27 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   const serviceCall = await page.evaluate(() => window.__clServiceCalls.at(-1));
   assert.equal(serviceCall[0], 'light');
   assert.equal(serviceCall[1], 'turn_on');
-  assert.deepEqual(serviceCall[2].rgb_color, [255, 149, 0]);
+  assert.deepEqual(serviceCall[2].rgbw_color, [255, 149, 0, 0]);
+  assert.equal('rgb_color' in serviceCall[2], false);
+
+  if ([390, 768, 1200].includes(viewport.width)) {
+    await panel.locator('[data-light-controls]').first().click();
+    await panel.locator('[data-light-mode="temperature"]').click();
+    await panel.locator('[name="kelvin"]').fill('4100');
+    const callsBeforeTemperature = await page.evaluate(() => window.__clServiceCalls.length);
+    await panel.locator('#clDialogForm .primary').click();
+    const temperatureCall = await page.evaluate(() => window.__clServiceCalls.at(-1));
+    assert.equal(temperatureCall[2].color_temp_kelvin, 4100);
+    assert.equal(callsBeforeTemperature + 1, await page.evaluate(() => window.__clServiceCalls.length));
+    await panel.locator('[data-light-controls]').first().click();
+    await panel.locator('[data-light-mode="white"]').click();
+    const callsBeforeWhite = await page.evaluate(() => window.__clServiceCalls.length);
+    await panel.locator('#clDialogForm .primary').click();
+    const whiteCall = await page.evaluate(() => window.__clServiceCalls.at(-1));
+    assert.deepEqual(whiteCall[2].rgbw_color, [0, 0, 0, 255]);
+    assert.equal(callsBeforeWhite + 1, await page.evaluate(() => window.__clServiceCalls.length));
+  }
+  console.log(`rgb ${viewport.width}: ok`);
 
   await panel.locator('[data-page="climate"]').click();
   assert.equal(await panel.locator('[data-environment-entity]').count(), 4);
@@ -70,6 +97,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   const coverCalls = await page.evaluate(() => window.__clServiceCalls);
   assert.equal(coverCalls.length, 1, 'horizontal drag must emit exactly one cover command');
   assert.equal(coverCalls[0][1], 'set_cover_position');
+  console.log(`modules ${viewport.width}: ok`);
 
   const installerNav = panel.locator('[data-page="more"]');
   if (await installerNav.isVisible()) await installerNav.click();
@@ -86,6 +114,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   await page.waitForTimeout(50);
   assert.notEqual(await sections.nth(6).getAttribute('open'), null, 'Assistenza collapsed after state refresh');
   assert.notEqual(await sections.nth(7).getAttribute('open'), null, 'Diagnostica collapsed after state refresh');
+  console.log(`installer ${viewport.width}: ok`);
 
   if (!(await sections.nth(3).getAttribute('open'))) await sections.nth(3).locator('summary').click();
   await sections.nth(3).locator('[data-layout-start]').click();
@@ -105,6 +134,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 5 });
   await page.mouse.up();
   assert.match(await panel.locator('.layoutEditorStatus').textContent(), /non salvate/, 'pointer drag must update the draft');
+  console.log(`home layout ${viewport.width}: ok`);
   const keyboardBefore=await panel.evaluate(element=>element._layoutEditor.drafts.get('base:home').map(card=>card.id));await panel.locator(`#page-home [data-layout-drag="${keyboardBefore[0]}"]`).press('ArrowDown');const keyboardAfter=await panel.evaluate(element=>element._layoutEditor.drafts.get('base:home').map(card=>card.id));assert.notDeepEqual(keyboardAfter,keyboardBefore,'keyboard reorder must remain available');
   await panel.locator('[data-layout-id="home:status"]').click({ position: { x: 12, y: 55 } });
   await panel.locator('button[name="action"][value="down"]').click();
@@ -119,10 +149,74 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   assert.equal(await panel.locator('[data-toggle-light]').first().isDisabled(), true);
   await panel.locator('[data-toggle-light]').first().click({ force: true });
   assert.equal(await page.evaluate(() => window.__clServiceCalls.length), lightServiceCount, 'light commands must be disabled in edit mode');
-  await panel.evaluate(element=>{const card=element.shadowRoot.querySelector('#page-lights [data-layout-edit-card]');element._editLayoutCard('lights',card.dataset.layoutEditCard);});
+  const sameAreaCards = panel.locator('#page-lights [data-order-area="Zona giorno"][data-order-kind="light"][data-layout-id]');
+  assert.ok(await sameAreaCards.count() >= 2, 'test requires multiple lights in the same area');
+  const touchDragBefore = await panel.evaluate(element => element._layoutEditor.drafts.get('base:lights').map(card => card.id));
+  const sourceHandle = sameAreaCards.nth(0).locator('.layoutDragHandle');
+  const sourceBox = await sourceHandle.boundingBox(), sameAreaTargetBox = await sameAreaCards.nth(1).boundingBox();
+  assert.ok(sourceBox && sameAreaTargetBox);
+  const touchPointer = { pointerId: 77, pointerType: 'touch', button: 0, clientX: sourceBox.x + sourceBox.width / 2, clientY: sourceBox.y + sourceBox.height / 2 };
+  await sourceHandle.dispatchEvent('pointerdown', touchPointer);
+  assert.equal(await panel.locator('.layoutDragGhost').count(), 1, 'dragged card must visibly follow touch');
+  await sourceHandle.dispatchEvent('pointermove', { ...touchPointer, clientX: sameAreaTargetBox.x + sameAreaTargetBox.width / 2, clientY: sameAreaTargetBox.y + sameAreaTargetBox.height * .75 });
+  assert.equal(await panel.locator('.layoutDropTarget').count(), 1, 'drop placeholder must be visible');
+  await sourceHandle.dispatchEvent('pointerup', { ...touchPointer, clientX: sameAreaTargetBox.x + sameAreaTargetBox.width / 2, clientY: sameAreaTargetBox.y + sameAreaTargetBox.height * .75 });
+  const touchDragAfter = await panel.evaluate(element => element._layoutEditor.drafts.get('base:lights').map(card => card.id));
+  assert.notDeepEqual(touchDragAfter, touchDragBefore, 'touch drag must reorder lights in the same area');
+  assert.equal(await page.evaluate(() => window.__clServiceCalls.length), lightServiceCount, 'drag must not command lights');
+  const handleTouchAction = await panel.locator('#page-lights .layoutDragHandle').first().evaluate(element => getComputedStyle(element).touchAction);
+  const cardTouchAction = await panel.locator('#page-lights [data-layout-id]').first().evaluate(element => getComputedStyle(element).touchAction);
+  assert.equal(handleTouchAction, 'none');
+  assert.notEqual(cardTouchAction, 'none', 'scroll must remain available outside the drag handle');
+  const crossAreaBefore = await panel.evaluate(element => element._layoutEditor.drafts.get('base:lights').map(card => card.id));
+  const crossSource = panel.locator('#page-lights [data-order-entity="light.cucina"] .layoutDragHandle'), crossTarget = panel.locator('#page-lights [data-order-entity="light.camera"]');
+  await crossTarget.scrollIntoViewIfNeeded();
+  const crossSourceBox = await crossSource.boundingBox(), crossTargetBox = await crossTarget.boundingBox();
+  assert.ok(crossSourceBox && crossTargetBox);
+  const crossPointer = { pointerId: 78, pointerType: 'touch', button: 0, clientX: crossSourceBox.x + crossSourceBox.width / 2, clientY: crossSourceBox.y + crossSourceBox.height / 2 };
+  await crossSource.dispatchEvent('pointerdown', crossPointer);
+  await crossSource.dispatchEvent('pointermove', { ...crossPointer, clientX: crossTargetBox.x + crossTargetBox.width / 2, clientY: crossTargetBox.y + crossTargetBox.height / 2 });
+  assert.equal(await panel.locator('.layoutDropTarget').count(), 0, 'a different technical area must not accept the drop');
+  await crossSource.dispatchEvent('pointerup', { ...crossPointer, clientX: crossTargetBox.x + crossTargetBox.width / 2, clientY: crossTargetBox.y + crossTargetBox.height / 2 });
+  assert.deepEqual(await panel.evaluate(element => element._layoutEditor.drafts.get('base:lights').map(card => card.id)), crossAreaBefore, 'cross-area drag must not alter graphical order or technical area');
+  console.log(`lights drag ${viewport.width}: ok`);
+
+  const primaryCardId = 'lights:entity:light.cucina';
+  await panel.evaluate((element,id)=>{ element._editLayoutCard('lights',id); }, primaryCardId);
   await panel.locator('#clDialogTitle').waitFor();
+  assert.equal(await panel.locator('[name="size"] option[value="l"]').count(), 1);
   assert.equal(await panel.locator('[name="size"] option[value="xl"]').count(), 0, 'light cards must expose capability-safe sizes');
-  await panel.locator('[data-dialog-cancel]').first().click();
+  await panel.locator('[name="size"]').selectOption('l');
+  await panel.locator('[name="span"]').selectOption('2');
+  await panel.locator('[name="shape"]').selectOption('square');
+  await panel.locator('[name="icon"]').fill('mdi:lightbulb');
+  await panel.locator('[name="icon_size"]').selectOption('l');
+  await panel.locator('[name="show_title"]').uncheck();
+  await panel.locator('[name="show_state"]').uncheck();
+  await panel.locator('[name="show_secondary"]').uncheck();
+  await panel.locator('[name="favorite"]').check();
+  await panel.locator('#clDialogForm .primary').click();
+  const draftCard = await panel.evaluate((element,id)=>element._layoutEditor.drafts.get('base:lights').find(card=>card.id===id), primaryCardId);
+  assert.deepEqual({size:draftCard.size,span:draftCard.span,shape:draftCard.shape,icon:draftCard.icon,icon_size:draftCard.icon_size,show_title:draftCard.show_title,show_state:draftCard.show_state,show_secondary:draftCard.show_secondary,visible:draftCard.visible,favorite:draftCard.favorite},{size:'l',span:2,shape:'square',icon:'mdi:lightbulb',icon_size:'l',show_title:false,show_state:false,show_secondary:false,visible:true,favorite:true});
+  const renderedPrimary = panel.locator(`[data-layout-id="${primaryCardId}"]`);
+  assert.equal(await renderedPrimary.getAttribute('data-layout-size'), 'l');
+  assert.equal(await renderedPrimary.getAttribute('data-layout-span'), '2');
+  assert.equal(await renderedPrimary.getAttribute('data-layout-shape'), 'square');
+  assert.equal(await renderedPrimary.getAttribute('data-layout-icon-size'), 'l');
+  assert.match(await renderedPrimary.getAttribute('class'), /layoutHiddenTitle.*layoutHiddenState.*layoutHiddenSecondary|layoutHiddenTitle/);
+  assert.equal(await renderedPrimary.locator('ha-icon').getAttribute('icon'), 'mdi:lightbulb');
+  assert.match(await renderedPrimary.getAttribute('style'), /grid-column: span 2/);
+  assert.equal(await renderedPrimary.locator('.name').evaluate(element => getComputedStyle(element).display), 'none');
+  assert.equal(await renderedPrimary.locator('.lightState').evaluate(element => getComputedStyle(element).display), 'none');
+  assert.equal(await renderedPrimary.locator('.lightDetail').evaluate(element => getComputedStyle(element).display), 'none');
+  assert.equal(await renderedPrimary.locator('.lightDetailAction').evaluate(element => getComputedStyle(element).display), 'none');
+
+  const hiddenCardId = 'lights:entity:light.soggiorno';
+  await panel.evaluate((element,id)=>{ element._editLayoutCard('lights',id); }, hiddenCardId);
+  await panel.locator('[name="visible"]').uncheck();
+  await panel.locator('#clDialogForm .primary').click();
+  assert.equal(await panel.locator(`[data-layout-id="${hiddenCardId}"].layoutCardHidden`).count(), 1, 'hidden card must remain editable in the draft');
+  console.log(`lights properties ${viewport.width}: ok`);
   await panel.locator('#page-lights [data-layout-save]').click();
   const layoutSaves = await page.evaluate(() => window.__clWsCalls.filter(call => call.type === 'cl_control/layout/set'));
   assert.equal(layoutSaves.length, 2, 'save must persist the Home and Lights drafts only on explicit save');
@@ -130,9 +224,21 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   assert.equal(layoutSaves[0].view, 'home');
   assert.ok(layoutSaves[0].cards['home:status']);
   assert.equal(layoutSaves[1].view, 'lights');
-  assert.ok(Object.keys(layoutSaves[1].cards).some(id => id.startsWith('lights:entity:')));
+  assert.deepEqual({size:layoutSaves[1].cards[primaryCardId].size,span:layoutSaves[1].cards[primaryCardId].span,shape:layoutSaves[1].cards[primaryCardId].shape,icon:layoutSaves[1].cards[primaryCardId].icon,icon_size:layoutSaves[1].cards[primaryCardId].icon_size,show_title:layoutSaves[1].cards[primaryCardId].show_title,show_state:layoutSaves[1].cards[primaryCardId].show_state,show_secondary:layoutSaves[1].cards[primaryCardId].show_secondary,visible:layoutSaves[1].cards[primaryCardId].visible,favorite:layoutSaves[1].cards[primaryCardId].favorite},{size:'l',span:2,shape:'square',icon:'mdi:lightbulb',icon_size:'l',show_title:false,show_state:false,show_secondary:false,visible:true,favorite:true});
+  assert.equal(layoutSaves[1].cards[hiddenCardId].visible, false);
   await panel.locator('#page-lights [data-layout-cancel]').click();
   assert.equal(await panel.locator('.layoutEditorBar').count(), 0);
+  await panel.evaluate(async element => { element._config=null; await element._loadConfig(); element._switchPage('lights'); element._renderLights(); });
+  assert.equal(await panel.locator(`[data-layout-id="${hiddenCardId}"]`).isHidden(), true, 'hidden card must remain hidden after storage/bootstrap reload');
+  assert.equal(await panel.locator(`[data-layout-id="${primaryCardId}"]`).getAttribute('data-layout-size'), 'l');
+  assert.equal(await panel.locator(`[data-layout-id="${primaryCardId}"]`).evaluate(element => Number(element.style.order)), layoutSaves[1].cards[primaryCardId].order);
+  assert.match(await panel.locator(`[data-layout-id="${primaryCardId}"] [data-favorite]`).getAttribute('class'), /active/, 'layout favorite must affect the rendered card');
+  await panel.locator('[data-light-filter="favorites"]').click();
+  assert.equal(await panel.locator(`[data-layout-id="${primaryCardId}"]`).count(), 1, 'layout favorite must participate in the Favorites filter');
+  await panel.locator('[data-page="home"]').click();
+  assert.equal(await panel.locator('.statusCard').count(), 1, 'Home status card regression');
+  assert.ok(await panel.locator('[data-layout-module]').count() > 0, 'Home modules regression');
+  console.log(`layout reload ${viewport.width}: ok`);
 
   if (viewport.width === 390) {
     await panel.evaluate(element => { element._installerUnlocked = true; element._editEntity('sensor.qualita_aria_incerta'); });

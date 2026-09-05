@@ -128,6 +128,9 @@ design_tokens:
     default_hue: 38
     saturation: "86%"
     lightness: "56%"
+    temperature_warm: "#FFB45A"
+    temperature_neutral: "#FFF2D0"
+    temperature_cool: "#D9F1FF"
     wheel: "conic-gradient(hsl(0 90% 55%), hsl(60 90% 55%), hsl(120 80% 45%), hsl(180 85% 45%), hsl(240 90% 60%), hsl(300 85% 55%), hsl(360 90% 55%))"
     mask: "radial-gradient(circle, transparent 0 34%, black 36%)"
 

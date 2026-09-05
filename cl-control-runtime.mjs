@@ -32,8 +32,8 @@ export const LAYOUT_CARD_CAPABILITIES = Object.freeze({
   module: { sizes: ["s", "m", "l"], shapes: ["compact", "rectangle", "square"] },
   status: { sizes: ["m", "l"], shapes: ["compact", "rectangle"] },
   favorites: { sizes: ["m", "l", "xl"], shapes: ["compact", "rectangle"] },
-  light: { sizes: ["s", "m"], shapes: ["compact", "rectangle", "square"] },
-  switch: { sizes: ["s", "m"], shapes: ["compact", "rectangle", "square"] },
+  light: { sizes: ["s", "m", "l"], shapes: ["compact", "rectangle", "square"] },
+  switch: { sizes: ["s", "m", "l"], shapes: ["compact", "rectangle", "square"] },
   thermostat: { sizes: ["m", "l"], shapes: ["rectangle", "square"] },
   camera: { sizes: ["m", "l", "xl"], shapes: ["rectangle", "wide"] },
   energy: { sizes: ["l", "xl"], shapes: ["rectangle", "wide"] },
@@ -60,7 +60,7 @@ export function normalizeLayoutCard(value = {}, type = "module") {
   return next;
 }
 
-export function effectiveLayout(layout, context, view, generatedCards = []) {
+export function effectiveLayout(layout, context, view, generatedCards = [], options = {}) {
   const safe = layout && typeof layout === "object" ? layout : emptyLayout();
   const base = safe.base?.[view] || {};
   const override = context !== "base" ? safe[context]?.[view] || {} : {};
@@ -68,14 +68,16 @@ export function effectiveLayout(layout, context, view, generatedCards = []) {
     const type = card.type || "module";
     const value = normalizeLayoutCard({ order: generatedOrder, ...card, ...(base[card.id] || {}), ...(override[card.id] || {}) }, type);
     return { ...value, id: card.id };
-  }).filter(card => card.visible).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
+  }).filter(card => options.includeHidden || card.visible).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 }
 
-export function reorderLayoutCards(cards, movedId, targetId) {
+export function reorderLayoutCards(cards, movedId, targetId, position = "before") {
   const result = cards.map(card => ({ ...card }));
   const from = result.findIndex(card => card.id === movedId), to = result.findIndex(card => card.id === targetId);
   if (from < 0 || to < 0 || from === to) return result;
-  const [moved] = result.splice(from, 1); result.splice(to, 0, moved);
+  const [moved] = result.splice(from, 1);
+  const target = result.findIndex(card => card.id === targetId);
+  result.splice(target + (position === "after" ? 1 : 0), 0, moved);
   return result.map((card, order) => ({ ...card, order }));
 }
 
@@ -106,6 +108,29 @@ export function colorWheelSelection(clientX, clientY, rect, options = {}) {
   if (!options.allowOutside && (distance < radius * innerRatio || distance > radius)) return null;
   const hue = (Math.atan2(dy, dx) * 180 / Math.PI + 90 + 360) % 360;
   return { hue: Math.round(hue) % 360, distance: Math.min(1, distance / radius) };
+}
+
+export function lightTurnOnPayload(entityId, attributes = {}, selection = {}) {
+  const supported = new Set((attributes.supported_color_modes || []).map(mode => String(mode).toLowerCase()));
+  const payload = { entity_id: entityId };
+  const brightness = Number(selection.brightness);
+  if (Number.isFinite(brightness)) payload.brightness = Math.max(1, Math.min(255, Math.round(brightness)));
+  const mode = String(selection.mode || "color");
+  if (mode === "temperature" && supported.has("color_temp")) {
+    const minimum = Number(attributes.min_color_temp_kelvin) || 2000;
+    const maximum = Number(attributes.max_color_temp_kelvin) || 6500;
+    payload.color_temp_kelvin = Math.max(minimum, Math.min(maximum, Math.round(Number(selection.kelvin) || minimum)));
+  } else if (mode === "white") {
+    if (supported.has("white")) payload.white = 255;
+    else if (supported.has("rgbww")) payload.rgbww_color = [0, 0, 0, 255, 255];
+    else if (supported.has("rgbw")) payload.rgbw_color = [0, 0, 0, 255];
+  } else {
+    const rgb = (Array.isArray(selection.rgb) ? selection.rgb : [255, 255, 255]).slice(0, 3).map(value => Math.max(0, Math.min(255, Math.round(Number(value) || 0))));
+    if (supported.has("rgbww")) payload.rgbww_color = [...rgb, 0, 0];
+    else if (supported.has("rgbw")) payload.rgbw_color = [...rgb, 0];
+    else payload.rgb_color = rgb;
+  }
+  return payload;
 }
 
 export function createSliderGesture(options = {}) {
@@ -191,6 +216,9 @@ export const FALLBACK_BOOTSTRAP = Object.freeze({
         default_hue: 38,
         saturation: "86%",
         lightness: "56%",
+        temperature_warm: "#FFB45A",
+        temperature_neutral: "#FFF2D0",
+        temperature_cool: "#D9F1FF",
         wheel: "conic-gradient(hsl(0 90% 55%), hsl(60 90% 55%), hsl(120 80% 45%), hsl(180 85% 45%), hsl(240 90% 60%), hsl(300 85% 55%), hsl(360 90% 55%))",
         mask: "radial-gradient(circle, transparent 0 34%, black 36%)",
       },
@@ -344,6 +372,7 @@ export function buildDesignTokens(bootstrap, themeId) {
     "--cl-state-disabled": tokens.state?.disabled,
     "--cl-opacity-disabled": tokens.opacity?.disabled,
     "--cl-opacity-soft": tokens.opacity?.soft,
+    "--cl-opacity-medium": tokens.opacity?.medium,
     "--cl-opacity-strong": tokens.opacity?.strong,
     "--cl-blur-nav": tokens.effect?.blur_nav,
     "--cl-blur-dialog": tokens.effect?.blur_dialog,
@@ -351,6 +380,9 @@ export function buildDesignTokens(bootstrap, themeId) {
     "--cl-color-picker-default-hue": tokens.color_picker?.default_hue,
     "--cl-color-picker-saturation": tokens.color_picker?.saturation,
     "--cl-color-picker-lightness": tokens.color_picker?.lightness,
+    "--cl-color-temperature-warm": tokens.color_picker?.temperature_warm,
+    "--cl-color-temperature-neutral": tokens.color_picker?.temperature_neutral,
+    "--cl-color-temperature-cool": tokens.color_picker?.temperature_cool,
     "--cl-color-picker-mask": tokens.color_picker?.mask,
     "--cl-on-primary": colors.text,
     "--cl-overlay-soft": "color-mix(in srgb, var(--cl-text) 8%, transparent)",

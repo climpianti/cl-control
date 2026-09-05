@@ -45,6 +45,16 @@ DEFAULT_CONFIG = {
         "motion": {"fast": "120ms", "normal": "180ms", "slow": "280ms", "flow": "1.4s", "easing": "cubic-bezier(0.2, 0, 0, 1)"},
         "state": {"active": "#32E394", "disabled": "#71859A", "warning": "#FFD05C", "error": "#FF5B69"},
         "opacity": {"subtle": 0.08, "soft": 0.14, "medium": 0.35, "strong": 0.70},
+        "color_picker": {
+            "default_hue": 38,
+            "saturation": "86%",
+            "lightness": "56%",
+            "temperature_warm": "#FFB45A",
+            "temperature_neutral": "#FFF2D0",
+            "temperature_cool": "#D9F1FF",
+            "wheel": "conic-gradient(hsl(0 90% 55%), hsl(60 90% 55%), hsl(120 80% 45%), hsl(180 85% 45%), hsl(240 90% 60%), hsl(300 85% 55%), hsl(360 90% 55%))",
+            "mask": "radial-gradient(circle, transparent 0 34%, black 36%)",
+        },
     },
     "themes": [
         {

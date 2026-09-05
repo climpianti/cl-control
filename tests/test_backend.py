@@ -121,6 +121,27 @@ class LayoutTests(unittest.TestCase):
         }}})
         self.assertTrue(normalized["base"]["home"]["home:module:climate"]["favorite"])
 
+    def test_light_layout_preserves_large_size_and_hidden_state(self):
+        normalized = layout.normalize_layout({"base": {"lights": {
+            "lights:entity:light.cucina": {
+                "type": "light", "size": "l", "span": 2, "shape": "square",
+                "icon": "mdi:lightbulb", "icon_size": "l", "show_title": False,
+                "show_state": False, "show_secondary": False, "visible": False,
+                "favorite": True,
+            }
+        }}})
+        card = normalized["base"]["lights"]["lights:entity:light.cucina"]
+        self.assertEqual(card["size"], "l")
+        self.assertEqual(card["span"], 2)
+        self.assertEqual(card["shape"], "square")
+        self.assertEqual(card["icon"], "mdi:lightbulb")
+        self.assertEqual(card["icon_size"], "l")
+        self.assertFalse(card["show_title"])
+        self.assertFalse(card["show_state"])
+        self.assertFalse(card["show_secondary"])
+        self.assertFalse(card["visible"])
+        self.assertTrue(card["favorite"])
+
     def test_update_and_scoped_reset_preserve_other_views(self):
         value = layout.update_layout_view({}, "base", "home", {
             "home:status": {"type": "status", "order": 1, "size": "l"}
