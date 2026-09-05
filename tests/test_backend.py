@@ -106,9 +106,10 @@ class LayoutTests(unittest.TestCase):
         })
         card = normalized["base"]["home"]["home:module:lights"]
         self.assertEqual(normalized["layout_schema_version"], 1)
-        self.assertEqual(card["size"], "s")
-        self.assertEqual(card["span"], 4)
-        self.assertEqual(card["shape"], "compact")
+        self.assertEqual(card["size"], "m")
+        self.assertEqual(card["span"], 1)
+        self.assertEqual(card["shape"], "rectangle")
+        self.assertTrue(card["show_state"])
         self.assertTrue(card["show_title"])
         self.assertNotIn("icon", card)
         self.assertNotIn("secret", card)
@@ -157,7 +158,20 @@ class LayoutTests(unittest.TestCase):
         value = layout.normalize_layout({
             "mobile": {"home": {"home:status": {"type": "status", "size": "m"}}}
         })
-        self.assertEqual(value["mobile"]["home"]["home:status"], {"type": "status", "size": "m"})
+        self.assertEqual(value["mobile"]["home"]["home:status"], {"type": "status", "size": "l"})
+
+    def test_home_constraints_fallback_to_safe_cards(self):
+        value = layout.normalize_layout({"base": {"home": {
+            "home:status": {"type": "status", "size": "s", "span": 4, "shape": "square", "show_state": False},
+            "home:module:energy": {"type": "module", "size": "s", "span": 3, "shape": "square", "show_state": False},
+            "home:favorites": {"type": "favorites", "size": "m", "span": 1},
+        }}})
+        status = value["base"]["home"]["home:status"]
+        module = value["base"]["home"]["home:module:energy"]
+        favorites = value["base"]["home"]["home:favorites"]
+        self.assertEqual((status["size"], status["span"], status["shape"], status["show_state"]), ("l", 2, "rectangle", True))
+        self.assertEqual((module["size"], module["span"], module["shape"], module["show_state"]), ("m", 1, "rectangle", True))
+        self.assertEqual((favorites["size"], favorites["span"]), ("l", 2))
 
     def test_invalid_scope_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "invalid_layout_scope"):

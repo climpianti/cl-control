@@ -59,7 +59,7 @@ inheritedLayout.mobile.home = {
   "home:module:lights": { order: 1, size: "s" },
 };
 const mobileLayout = effectiveLayout(inheritedLayout, "mobile", "home", generatedLayout);
-assert.equal(mobileLayout.find(card => card.id === "home:module:lights").size, "s");
+assert.equal(mobileLayout.find(card => card.id === "home:module:lights").size, "m");
 assert.equal(mobileLayout.find(card => card.id === "home:module:lights").show_secondary, false);
 assert.equal(effectiveLayout(inheritedLayout, "tablet", "home", generatedLayout).find(card => card.id === "home:module:lights").size, "l");
 assert.equal(layoutDeviceContext(390), "mobile");
@@ -69,6 +69,30 @@ assert.equal(layoutDeviceContext(1200, "wall"), "wall");
 assert.deepEqual(reorderLayoutCards(generatedLayout, "home:module:climate", "home:status").map(card => card.id), ["home:module:climate", "home:status", "home:module:lights"]);
 assert.equal(normalizeLayoutCard({ show_icon: false, show_title: false }).show_title, true);
 assert.deepEqual(layoutCardCapabilities("light").sizes, ["s", "m", "l"]);
+assert.deepEqual(layoutCardCapabilities("module", { view: "home" }).sizes, ["m", "l"]);
+assert.deepEqual(layoutCardCapabilities("status", { view: "home" }).spans, [2]);
+const safeHomeStatus = normalizeLayoutCard({ size: "s", span: 4, shape: "square", show_state: false }, "status", { id: "home:status", view: "home" });
+assert.deepEqual({ size: safeHomeStatus.size, span: safeHomeStatus.span, shape: safeHomeStatus.shape, show_state: safeHomeStatus.show_state }, { size: "l", span: 2, shape: "rectangle", show_state: true });
+const safeHomeModule = normalizeLayoutCard({ size: "s", span: 4, shape: "square", show_state: false }, "module", { id: "home:module:lights", view: "home" });
+assert.deepEqual({ size: safeHomeModule.size, span: safeHomeModule.span, shape: safeHomeModule.shape, show_state: safeHomeModule.show_state }, { size: "m", span: 1, shape: "rectangle", show_state: true });
+const homeModuleIds = ["lights", "covers", "climate", "energy", "security", "cameras", "environment", "support"];
+for (const count of [1, 3, 5, 8]) {
+  const cards = [{ id: "home:status", type: "status" }, ...homeModuleIds.slice(0, count).map(id => ({ id: `home:module:${id}`, type: id === "support" ? "assistance" : "module" }))];
+  const automatic = effectiveLayout(emptyLayout(), "mobile", "home", cards);
+  assert.equal(automatic[0].size, "l");
+  assert.equal(automatic[0].span, 2);
+  for (const card of automatic.slice(1)) {
+    assert.ok(["m", "l"].includes(card.size));
+    assert.ok([1, 2].includes(card.span));
+    assert.ok(!["square"].includes(card.shape));
+    assert.equal(card.show_state, true);
+  }
+}
+const incompatibleHome = emptyLayout();
+incompatibleHome.base.home = { "home:module:energy": { size: "s", span: 4, shape: "square", show_state: false } };
+const recoveredHome = effectiveLayout(incompatibleHome, "base", "home", [{ id: "home:module:energy", type: "module", order: 0 }])[0];
+assert.deepEqual({ size: recoveredHome.size, span: recoveredHome.span, shape: recoveredHome.shape, show_state: recoveredHome.show_state }, { size: "m", span: 1, shape: "rectangle", show_state: true });
+assert.deepEqual(layoutOverrides([recoveredHome], effectiveLayout(emptyLayout(), "base", "home", [{ id: "home:module:energy", type: "module", order: 0 }])), [], "safe fallback must not become a permanent override");
 assert.equal(normalizeLayoutCard({ size: "xl", shape: "wide" }, "light").size, "s");
 assert.equal(normalizeLayoutCard({ size: "l", visible: false }, "light").size, "l");
 const hiddenLayout = emptyLayout();
@@ -77,7 +101,7 @@ const hiddenGenerated = [{ id: "lights:entity:light.cucina", type: "light" }];
 assert.equal(effectiveLayout(hiddenLayout, "base", "lights", hiddenGenerated).length, 0);
 assert.equal(effectiveLayout(hiddenLayout, "base", "lights", hiddenGenerated, { includeHidden: true })[0].visible, false);
 const mobileOverrides = layoutOverrides(mobileLayout, effectiveLayout(inheritedLayout, "base", "home", generatedLayout));
-assert.deepEqual(mobileOverrides.find(card => card.id === "home:module:lights"), { id: "home:module:lights", type: "module", order: 1, size: "s" });
+assert.deepEqual(mobileOverrides.find(card => card.id === "home:module:lights"), { id: "home:module:lights", type: "module", order: 1, size: "m" });
 assert.equal(normalizeLayoutCard({ favorite: true }).favorite, true);
 
 const slider = createSliderGesture({ threshold: 10 });
@@ -201,6 +225,7 @@ assert.match(panelSource, /Assistenza/);
 assert.match(panelSource, /cl_control\/layout\/set/);
 assert.match(panelSource, /cl_control\/layout\/reset/);
 assert.match(panelSource, /data-layout-drag/);
+assert.match(panelSource, /data-layout-reset/);
 assert.match(panelSource, /pointerdown/);
 assert.match(panelSource, /Modifiche non salvate/);
 assert.match(panelSource, /Preview cliente/);
@@ -208,6 +233,7 @@ assert.match(panelSource, /Stai modificando il layout/);
 assert.match(panelSource, /bindIntentionalSlider/);
 assert.match(panelSource, /Ambiente e qualità aria/);
 assert.match(ui3Styles, /layoutDragHandle\{touch-action:none/);
+assert.match(ui3Styles, /homeLayoutGrid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 assert.match(ui3Styles, /layout-preview-mobile|layoutPreview/);
 
 assert.doesNotMatch(panelSource, /CL Impianti/);
@@ -247,6 +273,7 @@ assert.equal(colorWheelSelection(240, 100, wheelRect, { allowOutside: true }).hu
 assert.deepEqual(lightTurnOnPayload("light.rgb", { supported_color_modes: ["rgb"] }, { mode: "color", rgb: [255, 0, 0], brightness: 128 }), { entity_id: "light.rgb", brightness: 128, rgb_color: [255, 0, 0] });
 assert.deepEqual(lightTurnOnPayload("light.rgbw", { supported_color_modes: ["rgbw"] }, { mode: "color", rgb: [0, 255, 0], brightness: 180 }), { entity_id: "light.rgbw", brightness: 180, rgbw_color: [0, 255, 0, 0] });
 assert.deepEqual(lightTurnOnPayload("light.rgbww", { supported_color_modes: ["rgbww"] }, { mode: "white", brightness: 200 }), { entity_id: "light.rgbww", brightness: 200, rgbww_color: [0, 0, 0, 255, 255] });
+assert.deepEqual(lightTurnOnPayload("light.rgbww", { supported_color_modes: ["rgbww"] }, { mode: "color", rgb: [20, 40, 60] }), { entity_id: "light.rgbww", rgbww_color: [20, 40, 60, 0, 0] });
 assert.deepEqual(lightTurnOnPayload("light.white", { supported_color_modes: ["white"] }, { mode: "white" }), { entity_id: "light.white", white: 255 });
 assert.deepEqual(lightTurnOnPayload("light.temp", { supported_color_modes: ["color_temp"], min_color_temp_kelvin: 2200, max_color_temp_kelvin: 6000 }, { mode: "temperature", kelvin: 4100 }), { entity_id: "light.temp", color_temp_kelvin: 4100 });
 
@@ -297,7 +324,13 @@ const colorLayer = {
   querySelectorAll(selector) { return selector === '[data-hue-preset]' ? [preset] : []; },
 };
 const colorPanel = Object.create(PanelClass.prototype);
-colorPanel._bindColorWheelControls(colorLayer, hueInput, preview, 38);
+const colorEvents = { previews: [], commits: [], presets: [], cancels: [] };
+colorPanel._bindColorWheelControls(colorLayer, hueInput, preview, 38, {
+  onPreview: value => colorEvents.previews.push(value),
+  onCommit: value => colorEvents.commits.push(value),
+  onPreset: value => colorEvents.presets.push(value),
+  onCancel: value => colorEvents.cancels.push(value),
+});
 const pointer = (clientX, clientY, pointerId = 1, pointerType = 'mouse') => ({ clientX, clientY, pointerId, pointerType, button: 0, prevented: false, preventDefault() { this.prevented = true; } });
 let event = pointer(100, 10, 1, 'touch');
 wheelHandlers.pointerdown(event);
@@ -309,17 +342,28 @@ assert.equal(hueInput.value, '120', 'touch drag must preview green');
 assert.equal(previewValues['--preview-hue'], '120');
 wheelHandlers.pointerup(event);
 assert.equal(wheel.released, 1);
+assert.deepEqual(colorEvents.commits, [120]);
 event = pointer(22, 145, 2, 'mouse');
 wheelHandlers.pointerdown(event);
 assert.equal(hueInput.value, '240', 'mouse click must select blue');
 assert.equal(wheelAttributes['aria-valuenow'], '240');
 presetHandlers.click();
 assert.equal(hueInput.value, '35', 'preset selection must remain functional');
+assert.deepEqual(colorEvents.presets, [35]);
+event = pointer(100, 10, 3, 'touch');
+wheelHandlers.pointerdown(event);
+event = pointer(178, 145, 3, 'touch');
+wheelHandlers.pointermove(event);
+wheelHandlers.pointercancel(event);
+assert.equal(hueInput.value, '35', 'pointercancel must restore the pre-gesture hue');
+assert.deepEqual(colorEvents.cancels, [35]);
 assert.deepEqual(colorPanel._hsvRgb(0), [255, 0, 0]);
 assert.deepEqual(colorPanel._hsvRgb(120), [0, 255, 0]);
 assert.deepEqual(colorPanel._hsvRgb(240), [0, 0, 255]);
 assert.match(panelSource, /lightTurnOnPayload\(id,a,/);
-assert.match(panelSource, /Anteprima locale\. Il dispositivo viene aggiornato solo con Applica\./);
+assert.match(panelSource, /setTimeout\(flushColor,180\)/);
+assert.match(panelSource, /Modifiche inviate automaticamente/);
+assert.doesNotMatch(panelSource, /Il dispositivo viene aggiornato solo con Applica/);
 assert.match(panelSource, /data-light-mode-panel="temperature"/);
 assert.match(ui3Styles, /touch-action:none/);
 assert.match(ui3Styles, /lightControlHero/);

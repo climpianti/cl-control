@@ -29,32 +29,42 @@ const LAYOUT_DEFAULT_CARD = Object.freeze({
   show_state: true, show_secondary: true, visible: true, favorite: false,
 });
 export const LAYOUT_CARD_CAPABILITIES = Object.freeze({
-  module: { sizes: ["s", "m", "l"], shapes: ["compact", "rectangle", "square"] },
-  status: { sizes: ["m", "l"], shapes: ["compact", "rectangle"] },
-  favorites: { sizes: ["m", "l", "xl"], shapes: ["compact", "rectangle"] },
-  light: { sizes: ["s", "m", "l"], shapes: ["compact", "rectangle", "square"] },
-  switch: { sizes: ["s", "m", "l"], shapes: ["compact", "rectangle", "square"] },
-  thermostat: { sizes: ["m", "l"], shapes: ["rectangle", "square"] },
-  camera: { sizes: ["m", "l", "xl"], shapes: ["rectangle", "wide"] },
-  energy: { sizes: ["l", "xl"], shapes: ["rectangle", "wide"] },
-  security: { sizes: ["m", "l"], shapes: ["compact", "rectangle"] },
-  assistance: { sizes: ["m", "l"], shapes: ["compact", "rectangle"] },
+  module: { sizes: ["s", "m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle", "square"] },
+  status: { sizes: ["m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle"] },
+  favorites: { sizes: ["m", "l", "xl"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle"] },
+  light: { sizes: ["s", "m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle", "square"] },
+  switch: { sizes: ["s", "m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle", "square"] },
+  thermostat: { sizes: ["m", "l"], spans: [1, 2, 3, 4], shapes: ["rectangle", "square"] },
+  camera: { sizes: ["m", "l", "xl"], spans: [1, 2, 3, 4], shapes: ["rectangle", "wide"] },
+  energy: { sizes: ["l", "xl"], spans: [1, 2, 3, 4], shapes: ["rectangle", "wide"] },
+  security: { sizes: ["m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle"] },
+  assistance: { sizes: ["m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle"] },
 });
 
-export function layoutCardCapabilities(type) {
+const HOME_CARD_CAPABILITIES = Object.freeze({
+  status: { sizes: ["l", "xl"], spans: [2], shapes: ["rectangle"], defaults: { size: "l", span: 2, shape: "rectangle" }, required: ["show_state"] },
+  favorites: { sizes: ["l", "xl"], spans: [2], shapes: ["rectangle"], defaults: { size: "l", span: 2, shape: "rectangle" }, required: ["show_state"] },
+  module: { sizes: ["m", "l"], spans: [1, 2], shapes: ["compact", "rectangle"], defaults: { size: "m", span: 1, shape: "rectangle" }, required: ["show_state"] },
+  assistance: { sizes: ["m", "l"], spans: [1, 2], shapes: ["compact", "rectangle"], defaults: { size: "m", span: 1, shape: "rectangle" }, required: ["show_state"] },
+});
+
+export function layoutCardCapabilities(type, options = {}) {
+  if (options?.view === "home") return HOME_CARD_CAPABILITIES[type] || HOME_CARD_CAPABILITIES.module;
   return LAYOUT_CARD_CAPABILITIES[type] || LAYOUT_CARD_CAPABILITIES.module;
 }
 
-export function normalizeLayoutCard(value = {}, type = "module") {
+export function normalizeLayoutCard(value = {}, type = "module", options = {}) {
   const next = { ...LAYOUT_DEFAULT_CARD, ...(value && typeof value === "object" ? value : {}), type };
-  const capabilities = layoutCardCapabilities(type);
+  const capabilities = layoutCardCapabilities(type, options);
   next.order = Math.max(-10000, Math.min(10000, Number.parseInt(next.order, 10) || 0));
-  next.span = Math.max(1, Math.min(4, Number.parseInt(next.span, 10) || 1));
-  if (!capabilities.sizes.includes(next.size)) next.size = capabilities.sizes[0];
-  if (!capabilities.shapes.includes(next.shape)) next.shape = capabilities.shapes[0];
+  const span = Math.max(1, Math.min(4, Number.parseInt(next.span, 10) || 1));
+  next.span = capabilities.spans.includes(span) ? span : (capabilities.defaults?.span ?? capabilities.spans[0]);
+  if (!capabilities.sizes.includes(next.size)) next.size = capabilities.defaults?.size ?? capabilities.sizes[0];
+  if (!capabilities.shapes.includes(next.shape)) next.shape = capabilities.defaults?.shape ?? capabilities.shapes[0];
   if (!["s", "m", "l"].includes(next.icon_size)) next.icon_size = "m";
   if (!["none", "soft", "solid"].includes(next.icon_container)) next.icon_container = "soft";
   for (const key of ["show_icon", "show_title", "show_state", "show_secondary", "visible"]) next[key] = next[key] !== false;
+  for (const key of capabilities.required || []) next[key] = true;
   next.favorite = next.favorite === true;
   if (next.visible && !next.show_icon && !next.show_title) next.show_title = true;
   return next;
@@ -66,7 +76,7 @@ export function effectiveLayout(layout, context, view, generatedCards = [], opti
   const override = context !== "base" ? safe[context]?.[view] || {} : {};
   return generatedCards.map((card, generatedOrder) => {
     const type = card.type || "module";
-    const value = normalizeLayoutCard({ order: generatedOrder, ...card, ...(base[card.id] || {}), ...(override[card.id] || {}) }, type);
+    const value = normalizeLayoutCard({ order: generatedOrder, ...card, ...(base[card.id] || {}), ...(override[card.id] || {}) }, type, { id: card.id, view, context });
     return { ...value, id: card.id };
   }).filter(card => options.includeHidden || card.visible).sort((a, b) => a.order - b.order || a.id.localeCompare(b.id));
 }

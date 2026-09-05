@@ -15,6 +15,24 @@ for (const viewport of viewports) {
   const panel = page.locator('cl-control-panel');
   assert.equal(await panel.getAttribute('data-theme'), requestedTheme);
   assert.match(await panel.locator('[data-layout-module="environment"]').textContent(), /Aria buona/);
+  const homeCards = panel.locator('#page-home [data-layout-id]');
+  assert.ok(await homeCards.count() >= 7, 'standard Home must expose the expected modules');
+  assert.equal(await panel.locator('[data-layout-id="home:status"]').getAttribute('data-layout-size'), 'l');
+  assert.equal(await panel.locator('[data-layout-id="home:status"]').getAttribute('data-layout-span'), '2');
+  for (let index=0; index<await homeCards.count(); index++) {
+    const card=homeCards.nth(index),box=await card.boundingBox();assert.ok(box);
+    assert.ok(box.x >= -1 && box.x + box.width <= viewport.width + 1, 'Home card must remain inside the viewport');
+    assert.equal(await card.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, 'Home card must not overflow horizontally');
+  }
+  assert.doesNotMatch(await panel.locator('#page-home').textContent(), /(?:sensor|binary_sensor|light|cover|climate)\./, 'Home must not expose technical labels');
+  if (viewport.width === 390) {
+    await panel.evaluate(element => { element._config.support.site_name='Impianto residenziale con una denominazione volutamente molto lunga'; element._renderHome(); });
+    assert.equal(await panel.locator('#page-home').evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, 'long site names must not create horizontal overflow');
+  }
+  await panel.evaluate(element => {
+    window.__clServiceCalls = [];
+    element.hass.callService = async (...args) => window.__clServiceCalls.push(args);
+  });
   await panel.locator('[data-page="lights"]').click();
   await panel.locator('[data-light-controls]').first().click();
   const dialog = panel.locator('.dialog');
@@ -31,50 +49,81 @@ for (const viewport of viewports) {
     return { x: box.x + box.width / 2 + box.width * 0.4 * Math.cos(radians), y: box.y + box.height / 2 + box.height * 0.4 * Math.sin(radians) };
   };
   for (const expected of [0, 120, 240]) {
+    const before = await page.evaluate(() => window.__clServiceCalls.length);
     const point = pointForHue(expected);
     await page.mouse.click(point.x, point.y);
     assert.equal(Number(await panel.locator('[name="hue"]').inputValue()), expected);
+    await page.waitForTimeout(25);
+    assert.equal(await page.evaluate(() => window.__clServiceCalls.length), before + 1, 'wheel tap must command immediately on release');
   }
+  const beforeDrag = await page.evaluate(() => window.__clServiceCalls.length);
   const red = pointForHue(0), green = pointForHue(120);
   await page.mouse.move(red.x, red.y);
   await page.mouse.down();
   await page.mouse.move(green.x, green.y, { steps: 6 });
   await page.mouse.up();
   assert.equal(Number(await panel.locator('[name="hue"]').inputValue()), 120);
+  await page.waitForTimeout(25);
+  const dragCalls = await page.evaluate(before => window.__clServiceCalls.slice(before), beforeDrag);
+  assert.ok(dragCalls.length >= 1 && dragCalls.length <= 2, 'color drag must be debounced');
+  assert.deepEqual(dragCalls.at(-1)[2].rgbw_color, [0, 255, 0, 0], 'final color command must match the last pointer position');
+  const beforePreset = await page.evaluate(() => window.__clServiceCalls.length);
   await panel.locator('[data-hue-preset="35"]').click();
   assert.equal(Number(await panel.locator('[name="hue"]').inputValue()), 35);
-  await panel.evaluate(element => {
-    window.__clServiceCalls = [];
-    element.hass.callService = async (...args) => window.__clServiceCalls.push(args);
-  });
+  await page.waitForTimeout(25);
+  assert.equal(await page.evaluate(() => window.__clServiceCalls.length), beforePreset + 1, 'preset must command immediately');
+  if (viewport.width === 390) {
+    const beforeCancel=await page.evaluate(() => window.__clServiceCalls.length),cancelStart=pointForHue(0),cancelMove=pointForHue(120),cancelPointer={pointerId:91,pointerType:'touch',button:0};
+    await wheel.evaluate((element,{cancelPointer,cancelStart,cancelMove})=>{
+      element.dispatchEvent(new PointerEvent('pointerdown',{...cancelPointer,clientX:cancelStart.x,clientY:cancelStart.y,bubbles:true}));
+      element.dispatchEvent(new PointerEvent('pointermove',{...cancelPointer,clientX:cancelMove.x,clientY:cancelMove.y,bubbles:true}));
+      element.dispatchEvent(new PointerEvent('pointercancel',{...cancelPointer,clientX:cancelMove.x,clientY:cancelMove.y,bubbles:true}));
+    },{cancelPointer,cancelStart,cancelMove});
+    await page.waitForTimeout(220);
+    assert.equal(await page.evaluate(() => window.__clServiceCalls.length), beforeCancel, 'pointercancel must not flush a color command');
+    assert.equal(Number(await panel.locator('[name="hue"]').inputValue()),38,'pointercancel must reconcile to the latest real HA state');
+  }
   const brightness=panel.locator('[name="brightness"]'),brightnessBox=await brightness.boundingBox(),initialBrightness=await brightness.inputValue();assert.ok(brightnessBox);
+  const callsBeforeBrightness = await page.evaluate(() => window.__clServiceCalls.length);
   await page.mouse.click(brightnessBox.x+brightnessBox.width*.85,brightnessBox.y+brightnessBox.height/2);assert.equal(await brightness.inputValue(),initialBrightness,'brightness track tap must not change value');
+  assert.equal(await page.evaluate(() => window.__clServiceCalls.length), callsBeforeBrightness, 'brightness track tap must not command');
   await page.mouse.move(brightnessBox.x+brightnessBox.width*.45,brightnessBox.y+brightnessBox.height/2);await page.mouse.down();await page.mouse.move(brightnessBox.x+brightnessBox.width*.75,brightnessBox.y+brightnessBox.height/2+2,{steps:4});await page.mouse.up();assert.notEqual(await brightness.inputValue(),initialBrightness,'intentional brightness drag must update local preview');
-  assert.equal(await page.evaluate(()=>window.__clServiceCalls.length),0,'brightness drag must not call HA before Apply');
-  await panel.locator('#clDialogForm .primary').click();
+  await page.waitForTimeout(25);
+  assert.equal(await page.evaluate(() => window.__clServiceCalls.length), callsBeforeBrightness + 1, 'brightness drag must emit one command on release');
   const serviceCall = await page.evaluate(() => window.__clServiceCalls.at(-1));
   assert.equal(serviceCall[0], 'light');
   assert.equal(serviceCall[1], 'turn_on');
-  assert.deepEqual(serviceCall[2].rgbw_color, [255, 149, 0, 0]);
-  assert.equal('rgb_color' in serviceCall[2], false);
+  assert.ok(Number.isFinite(serviceCall[2].brightness));
+  assert.equal('rgbw_color' in serviceCall[2], false, 'brightness release must not alter color');
+  await panel.evaluate((element,value) => { const current=element.hass.states['light.cucina']; element.hass={...element.hass,states:{...element.hass.states,'light.cucina':{...current,attributes:{...current.attributes,brightness:value}}}}; }, serviceCall[2].brightness);
+  assert.match(await panel.locator('[data-light-live-status]').textContent(), /Aggiornato/);
 
   if ([390, 768, 1200].includes(viewport.width)) {
+    await panel.locator('#clDialogForm [data-dialog-cancel]').click();
     await panel.locator('[data-light-controls]').first().click();
     await panel.locator('[data-light-mode="temperature"]').click();
-    await panel.locator('[name="kelvin"]').fill('4100');
+    const kelvin=panel.locator('[name="kelvin"]'),kelvinBox=await kelvin.boundingBox();assert.ok(kelvinBox);
     const callsBeforeTemperature = await page.evaluate(() => window.__clServiceCalls.length);
-    await panel.locator('#clDialogForm .primary').click();
+    await page.mouse.move(kelvinBox.x+kelvinBox.width*.3,kelvinBox.y+kelvinBox.height/2);await page.mouse.down();await page.mouse.move(kelvinBox.x+kelvinBox.width*.47,kelvinBox.y+kelvinBox.height/2+1,{steps:4});await page.mouse.up();await page.waitForTimeout(25);
     const temperatureCall = await page.evaluate(() => window.__clServiceCalls.at(-1));
-    assert.equal(temperatureCall[2].color_temp_kelvin, 4100);
+    assert.ok(temperatureCall[2].color_temp_kelvin >= 4000 && temperatureCall[2].color_temp_kelvin <= 4300);
     assert.equal(callsBeforeTemperature + 1, await page.evaluate(() => window.__clServiceCalls.length));
+    await panel.evaluate((element,value) => { const current=element.hass.states['light.cucina']; element.hass={...element.hass,states:{...element.hass.states,'light.cucina':{...current,attributes:{...current.attributes,color_temp_kelvin:value,color_mode:'color_temp'}}}}; }, temperatureCall[2].color_temp_kelvin);
+    assert.match(await panel.locator('[data-light-live-status]').textContent(), /Aggiornato/);
+    await panel.locator('#clDialogForm [data-dialog-cancel]').click();
     await panel.locator('[data-light-controls]').first().click();
-    await panel.locator('[data-light-mode="white"]').click();
     const callsBeforeWhite = await page.evaluate(() => window.__clServiceCalls.length);
-    await panel.locator('#clDialogForm .primary').click();
+    await panel.locator('button[data-light-mode="white"]').click();
+    await page.waitForTimeout(120);
     const whiteCall = await page.evaluate(() => window.__clServiceCalls.at(-1));
     assert.deepEqual(whiteCall[2].rgbw_color, [0, 0, 0, 255]);
     assert.equal(callsBeforeWhite + 1, await page.evaluate(() => window.__clServiceCalls.length));
+    await panel.locator('#clDialogForm [data-dialog-cancel]').click();
+    await panel.evaluate(element => { element._openLightControls('light.portico'); });
+    assert.match(await panel.locator('[data-light-live-status]').textContent(), /non disponibile/i);
+    assert.equal(await panel.locator('[data-color-wheel]').count(), 0);
   }
+  if (await panel.locator('.dialogLayer.open').count()) await panel.locator('[data-dialog-cancel]').first().click();
   console.log(`rgb ${viewport.width}: ok`);
 
   await panel.locator('[data-page="climate"]').click();
@@ -125,6 +174,10 @@ for (const viewport of viewports) {
   await panel.locator('[data-layout-id="home:module:lights"]').click({ position: { x: 8, y: 8 } });
   assert.equal(await page.evaluate(() => window.__clServiceCalls.length), beforeCalls, 'edit mode must not execute device commands');
   assert.match(await panel.locator('#clDialogTitle').textContent(), /Personalizza card/);
+  assert.deepEqual(await panel.locator('[name="size"] option').allTextContents(), ['M','L']);
+  assert.deepEqual(await panel.locator('[name="span"] option').allTextContents(), ['1 colonna','2 colonne']);
+  assert.equal(await panel.locator('[name="shape"] option[value="square"]').count(),0);
+  assert.equal(await panel.locator('[name="show_state"]').isDisabled(),true,'Home state is required for a useful card');
   await panel.locator('[data-dialog-cancel]').first().click();
   const dragHandle = panel.locator('#page-home .layoutDragHandle').first();
   const [dragBox,targetBox]=await panel.evaluate(element=>{const nodes=[element.shadowRoot.querySelector('#page-home .layoutDragHandle'),element.shadowRoot.querySelectorAll('#page-home [data-layout-id]')[1]];return nodes.map(node=>{const r=node?.getBoundingClientRect();return r&&r.width&&r.height?{x:r.x,y:r.y,width:r.width,height:r.height}:null;});});
@@ -137,6 +190,9 @@ for (const viewport of viewports) {
   console.log(`home layout ${viewport.width}: ok`);
   const keyboardBefore=await panel.evaluate(element=>element._layoutEditor.drafts.get('base:home').map(card=>card.id));await panel.locator(`#page-home [data-layout-drag="${keyboardBefore[0]}"]`).press('ArrowDown');const keyboardAfter=await panel.evaluate(element=>element._layoutEditor.drafts.get('base:home').map(card=>card.id));assert.notDeepEqual(keyboardAfter,keyboardBefore,'keyboard reorder must remain available');
   await panel.locator('[data-layout-id="home:status"]').click({ position: { x: 12, y: 55 } });
+  assert.deepEqual(await panel.locator('[name="size"] option').allTextContents(), ['L','XL']);
+  assert.deepEqual(await panel.locator('[name="span"] option').allTextContents(), ['2 colonne']);
+  assert.deepEqual(await panel.locator('[name="shape"] option').allTextContents(), ['rectangle']);
   await panel.locator('button[name="action"][value="down"]').click();
   assert.match(await panel.locator('.layoutEditorStatus').textContent(), /non salvate/);
   await panel.locator('.layoutOptions > summary').click();

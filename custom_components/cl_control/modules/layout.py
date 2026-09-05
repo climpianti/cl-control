@@ -19,16 +19,22 @@ CARD_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.:-]{0,127}$")
 ICON_RE = re.compile(r"^(?:mdi|cl):[a-z0-9-]{1,64}$")
 
 CARD_CAPABILITIES = {
-    "module": {"sizes": ("s", "m", "l"), "shapes": ("compact", "rectangle", "square")},
-    "status": {"sizes": ("m", "l"), "shapes": ("compact", "rectangle")},
-    "favorites": {"sizes": ("m", "l", "xl"), "shapes": ("compact", "rectangle")},
-    "light": {"sizes": ("s", "m", "l"), "shapes": ("compact", "rectangle", "square")},
-    "switch": {"sizes": ("s", "m", "l"), "shapes": ("compact", "rectangle", "square")},
-    "thermostat": {"sizes": ("m", "l"), "shapes": ("rectangle", "square")},
-    "camera": {"sizes": ("m", "l", "xl"), "shapes": ("rectangle", "wide")},
-    "energy": {"sizes": ("l", "xl"), "shapes": ("rectangle", "wide")},
-    "security": {"sizes": ("m", "l"), "shapes": ("compact", "rectangle")},
-    "assistance": {"sizes": ("m", "l"), "shapes": ("compact", "rectangle")},
+    "module": {"sizes": ("s", "m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle", "square")},
+    "status": {"sizes": ("m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle")},
+    "favorites": {"sizes": ("m", "l", "xl"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle")},
+    "light": {"sizes": ("s", "m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle", "square")},
+    "switch": {"sizes": ("s", "m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle", "square")},
+    "thermostat": {"sizes": ("m", "l"), "spans": (1, 2, 3, 4), "shapes": ("rectangle", "square")},
+    "camera": {"sizes": ("m", "l", "xl"), "spans": (1, 2, 3, 4), "shapes": ("rectangle", "wide")},
+    "energy": {"sizes": ("l", "xl"), "spans": (1, 2, 3, 4), "shapes": ("rectangle", "wide")},
+    "security": {"sizes": ("m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle")},
+    "assistance": {"sizes": ("m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle")},
+}
+HOME_CARD_CAPABILITIES = {
+    "status": {"sizes": ("l", "xl"), "spans": (2,), "shapes": ("rectangle",), "defaults": {"size": "l", "span": 2, "shape": "rectangle"}, "required": ("show_state",)},
+    "favorites": {"sizes": ("l", "xl"), "spans": (2,), "shapes": ("rectangle",), "defaults": {"size": "l", "span": 2, "shape": "rectangle"}, "required": ("show_state",)},
+    "module": {"sizes": ("m", "l"), "spans": (1, 2), "shapes": ("compact", "rectangle"), "defaults": {"size": "m", "span": 1, "shape": "rectangle"}, "required": ("show_state",)},
+    "assistance": {"sizes": ("m", "l"), "spans": (1, 2), "shapes": ("compact", "rectangle"), "defaults": {"size": "m", "span": 1, "shape": "rectangle"}, "required": ("show_state",)},
 }
 DEFAULT_CARD = {
     "type": "module", "order": 0, "size": "m", "span": 1,
@@ -48,11 +54,12 @@ def layout_write_allowed(is_admin: bool, installer_active: bool) -> bool:
     return bool(is_admin and installer_active)
 
 
-def _card(value: Any, *, partial: bool = False) -> dict[str, Any] | None:
+def _card(value: Any, *, partial: bool = False, view: str = "") -> dict[str, Any] | None:
     if not isinstance(value, dict):
         return None
     card_type = str(value.get("type", "module")).lower()
-    caps = CARD_CAPABILITIES.get(card_type, CARD_CAPABILITIES["module"])
+    caps = (HOME_CARD_CAPABILITIES.get(card_type, HOME_CARD_CAPABILITIES["module"])
+            if view == "home" else CARD_CAPABILITIES.get(card_type, CARD_CAPABILITIES["module"]))
     result = deepcopy(DEFAULT_CARD)
     result["type"] = card_type if card_type in CARD_CAPABILITIES else "module"
     try:
@@ -60,13 +67,14 @@ def _card(value: Any, *, partial: bool = False) -> dict[str, Any] | None:
     except (TypeError, ValueError):
         result["order"] = 0
     size = str(value.get("size", result["size"])).lower()
-    result["size"] = size if size in caps["sizes"] else caps["sizes"][0]
+    result["size"] = size if size in caps["sizes"] else caps.get("defaults", {}).get("size", caps["sizes"][0])
     shape = str(value.get("shape", result["shape"])).lower()
-    result["shape"] = shape if shape in caps["shapes"] else caps["shapes"][0]
+    result["shape"] = shape if shape in caps["shapes"] else caps.get("defaults", {}).get("shape", caps["shapes"][0])
     try:
-        result["span"] = max(1, min(4, int(value.get("span", 1))))
+        span = max(1, min(4, int(value.get("span", 1))))
+        result["span"] = span if span in caps["spans"] else caps.get("defaults", {}).get("span", caps["spans"][0])
     except (TypeError, ValueError):
-        result["span"] = 1
+        result["span"] = caps.get("defaults", {}).get("span", 1)
     icon_size = str(value.get("icon_size", "m")).lower()
     result["icon_size"] = icon_size if icon_size in ("s", "m", "l") else "m"
     container = str(value.get("icon_container", "soft")).lower()
@@ -77,6 +85,8 @@ def _card(value: Any, *, partial: bool = False) -> dict[str, Any] | None:
     for key in ("show_icon", "show_title", "show_state", "show_secondary", "visible", "favorite"):
         if key in value:
             result[key] = bool(value[key])
+    for key in caps.get("required", ()):
+        result[key] = True
     # A visible card must retain an accessible identity.
     if result["visible"] and not (result["show_icon"] or result["show_title"]):
         result["show_title"] = True
@@ -102,7 +112,7 @@ def normalize_layout(value: Any) -> dict[str, Any]:
             cards: dict[str, Any] = {}
             for card_id, raw_card in list(raw_view.items())[:1000]:
                 card_id = str(card_id).lower()
-                card = _card(raw_card, partial=context != "base")
+                card = _card(raw_card, partial=context != "base", view=view)
                 if CARD_ID_RE.fullmatch(card_id) and card is not None:
                     cards[card_id] = card
             if cards:
