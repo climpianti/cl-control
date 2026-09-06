@@ -91,6 +91,7 @@ class _OptionsFlowWithReload(_FlowBase):
 
 class _Store:
     records = {}
+    save_calls = {}
 
     def __init__(self, _hass, _version, key, **_kwargs):
         self.key = key
@@ -101,6 +102,7 @@ class _Store:
 
     async def async_save(self, value):
         self.records[self.key] = value
+        self.save_calls[self.key] = self.save_calls.get(self.key, 0) + 1
 
 
 config_entries = types.ModuleType("homeassistant.config_entries")
@@ -155,6 +157,8 @@ if package is None:
 flow_module = importlib.import_module("cl_control.config_flow")
 credentials_module = importlib.import_module("cl_control.credentials")
 entry_data_module = importlib.import_module("cl_control.entry_data")
+models_module = importlib.import_module("cl_control.models")
+runtime_storage_module = importlib.import_module("cl_control.storage")
 
 
 class _ConfigEntriesManager:
@@ -183,6 +187,7 @@ class _Hass:
 class ConfigFlowTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         _Store.records.clear()
+        _Store.save_calls.clear()
         issue_registry.issues.clear()
         issue_registry.deleted.clear()
 
@@ -341,6 +346,72 @@ class ConfigEntryMappingTests(unittest.TestCase):
         self.assertEqual(normalized["site_name"], "Villa Mapping")
         self.assertEqual(normalized["experience_level"], "pro")
         self.assertEqual(repr(raw), before)
+
+
+class RuntimeStoragePrecedenceTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        _Store.records.clear()
+        _Store.save_calls.clear()
+
+    async def test_defaults_preserve_customer_theme_and_runtime_data(self):
+        existing = models_module.migrate_runtime_config(
+            {
+                "schema_version": 2,
+                "customer_ui": {
+                    "theme": "auto",
+                    "favorites": ["light.cucina"],
+                    "entity_visibility": {"light.cucina": False},
+                },
+                "site": {
+                    "site_name": "Impianto cliente",
+                    "customer": "Cliente storage",
+                    "support": {"message": "Messaggio cliente"},
+                },
+                "assistance": {"requests": [{"ticket_id": "CLA-KEEP"}]},
+            }
+        )
+        _Store.records["cl_control.configuration"] = existing
+        store = runtime_storage_module.RuntimeStore(_Hass())
+        defaults = entry_data_module.settings_from_entry(
+            entry_data_module.normalize_entry_options({"customer_name": ""})
+        )["site"]
+
+        loaded = await store.async_load(defaults)
+
+        self.assertEqual(loaded["site"]["customer"], "Cliente storage")
+        self.assertEqual(loaded["customer_ui"]["theme"], "auto")
+        self.assertEqual(loaded["customer_ui"]["favorites"], ["light.cucina"])
+        self.assertFalse(loaded["customer_ui"]["entity_visibility"]["light.cucina"])
+        self.assertEqual(loaded["assistance"]["requests"][0]["ticket_id"], "CLA-KEEP")
+        self.assertEqual(_Store.save_calls.get("cl_control.configuration", 0), 0)
+
+    async def test_explicit_site_option_wins_once_then_storage_is_stable(self):
+        existing = models_module.migrate_runtime_config(
+            {
+                "schema_version": 2,
+                "customer_ui": {"theme": "auto"},
+                "site": {"customer": "Cliente storage"},
+                "assistance": {"requests": [{"ticket_id": "CLA-KEEP"}]},
+            }
+        )
+        _Store.records["cl_control.configuration"] = existing
+        store = runtime_storage_module.RuntimeStore(_Hass())
+        explicit = entry_data_module.settings_from_entry(
+            entry_data_module.normalize_entry_options(
+                {"customer_name": "Cliente option"}
+            )
+        )["site"]
+
+        first = await store.async_load(explicit)
+        first_saved = repr(_Store.records["cl_control.configuration"])
+        second = await store.async_load(explicit)
+
+        self.assertEqual(first["site"]["customer"], "Cliente option")
+        self.assertEqual(first["customer_ui"]["theme"], "auto")
+        self.assertEqual(first["assistance"]["requests"][0]["ticket_id"], "CLA-KEEP")
+        self.assertEqual(second, first)
+        self.assertEqual(repr(_Store.records["cl_control.configuration"]), first_saved)
+        self.assertEqual(_Store.save_calls["cl_control.configuration"], 1)
 
 
 if __name__ == "__main__":

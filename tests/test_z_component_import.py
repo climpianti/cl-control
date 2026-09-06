@@ -49,6 +49,10 @@ sys.modules.update(
 
 
 class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        support.issue_registry.issues.clear()
+        support.issue_registry.deleted.clear()
+
     async def test_invalid_entry_stops_before_application_storage(self):
         component = importlib.import_module("custom_components.cl_control")
 
@@ -63,6 +67,12 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
         try:
             with self.assertRaisesRegex(RuntimeError, "incomplete or invalid"):
                 await component.async_setup_entry(hass, entry)
+            self.assertTrue(
+                any(
+                    args[2] == f"invalid_config_entry_{entry.entry_id}"
+                    for args, _kwargs in support.issue_registry.issues
+                )
+            )
         finally:
             component.RuntimeStore = original
 
@@ -200,6 +210,13 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(await component.async_setup_entry(hass, entry))
         component.async_register_commands.assert_called_once_with(hass, "3.3.0-dev")
         self.assertTrue(await component.async_unload_entry(hass, entry))
+        invalid_cleanup = [
+            args
+            for args, _kwargs in support.issue_registry.deleted
+            if len(args) > 2
+            and args[2] == f"invalid_config_entry_{entry.entry_id}"
+        ]
+        self.assertEqual(len(invalid_cleanup), 2)
 
 
 if __name__ == "__main__":

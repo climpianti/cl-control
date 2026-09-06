@@ -126,14 +126,18 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up one CL Control Config Entry without resetting application storage."""
     installation_id = str(entry.data.get(CONF_INSTALLATION_ID) or "")
+    invalid_issue_id = f"invalid_config_entry_{entry.entry_id}"
     if not entry_data_is_valid(entry.data):
         _create_issue(
             hass,
-            f"invalid_config_entry_{entry.entry_id}",
+            invalid_issue_id,
             "invalid_config_entry",
             ir.IssueSeverity.ERROR,
         )
         raise ConfigEntryError("CL Control Config Entry is incomplete or invalid")
+    # Deletion is idempotent. During startup Home Assistant may defer the
+    # persistent Repairs registry write even though the in-memory issue is gone.
+    ir.async_delete_issue(hass, DOMAIN, invalid_issue_id)
 
     credential_store = CredentialStore(hass)
     credentials = await credential_store.async_get(installation_id)
@@ -180,7 +184,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         domain_data[DATA_WEBSOCKET_REGISTERED] = True
     entry.runtime_data = domain_data
     async_register_panel(hass, settings, VERSION)
-    ir.async_delete_issue(hass, DOMAIN, f"invalid_config_entry_{entry.entry_id}")
     ir.async_delete_issue(
         hass, DOMAIN, f"installer_credential_missing_{entry.entry_id}"
     )
