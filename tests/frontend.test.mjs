@@ -199,6 +199,8 @@ assert.match(ui3Styles, /\.clToggle/);
 assert.match(ui3Styles, /clToggleLoading/);
 
 const panelSource = readFileSync(new URL("../custom_components/cl_control/frontend/cl-control-panel.js", import.meta.url), "utf8");
+assert.match(panelSource, /data-update-summary/);
+assert.match(panelSource, /hass-more-info/);
 const brandingSource = readFileSync(new URL("../config/branding.yaml", import.meta.url), "utf8");
 assert.doesNotMatch(panelSource, /\b(?:prompt|alert|confirm)\s*\(/);
 assert.doesNotMatch(panelSource, /Migrazione da|migrateLegacy|_legacyConfig/);

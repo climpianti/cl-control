@@ -2,6 +2,11 @@
 
 ## 3.3.0-dev
 
+- Add the native Home Assistant CL Control Update entity and Installer summary.
+- Add provider-neutral private distribution contracts with stable/beta/dev policy.
+- Require signed manifests, Ed25519 verification, SHA-256 and strict ZIP safety checks.
+- Add mandatory native backup, staged runtime swap and recoverable local rollback.
+- Add deterministic release packaging and a signing-only CI hook without publishing.
 - Add native Home Assistant Config Flow and a complete Italian onboarding.
 - Add Config Entry setup/unload and automatic Options Flow reload.
 - Store Installer and Security PINs as salted scrypt hashes in private storage.

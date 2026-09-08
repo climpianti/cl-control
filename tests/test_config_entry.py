@@ -164,6 +164,8 @@ runtime_storage_module = importlib.import_module("cl_control.storage")
 class _ConfigEntriesManager:
     def __init__(self):
         self.entries = []
+        self.forwarded = []
+        self.unloaded = []
 
     def async_entries(self, _domain=None):
         return self.entries
@@ -171,6 +173,13 @@ class _ConfigEntriesManager:
     def async_update_entry(self, entry, **kwargs):
         for key, value in kwargs.items():
             setattr(entry, key, value)
+
+    async def async_forward_entry_setups(self, entry, platforms):
+        self.forwarded.append((entry, tuple(platforms)))
+
+    async def async_unload_platforms(self, entry, platforms):
+        self.unloaded.append((entry, tuple(platforms)))
+        return True
 
 
 class _Hass:
@@ -211,6 +220,7 @@ class ConfigFlowTests(unittest.IsolatedAsyncioTestCase):
         result = await flow.async_step_summary({})
         self.assertEqual(result["type"], "create_entry")
         self.assertEqual(set(result["data"]), {"installation_id"})
+        self.assertEqual(result["options"]["release_channel"], "stable")
         self.assertNotIn("2468", repr(result))
         stored = await credentials_module.CredentialStore(flow.hass).async_get(result["data"]["installation_id"])
         self.assertTrue(credentials_module.verify_pin("2468", stored["installer_pin"]))

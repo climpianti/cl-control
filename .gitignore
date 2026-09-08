@@ -10,6 +10,8 @@ secrets.yaml
 *.pfx
 *.crt
 *.cer
+release-secrets/
+dist/
 id_rsa*
 id_ed25519*
 

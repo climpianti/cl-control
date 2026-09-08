@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://climpianti.example/schemas/cl-control-release-v1.json",
+  "title": "CL Control signed release manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "product", "version", "channel", "published_at", "requires_restart", "authorization", "compatibility", "artifact", "release", "signing"],
+  "properties": {
+    "schema": {"const": 1},
+    "product": {"const": "cl_control"},
+    "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:-[0-9A-Za-z.-]+)?$"},
+    "channel": {"enum": ["stable", "beta", "dev"]},
+    "published_at": {"type": "string", "format": "date-time"},
+    "requires_restart": {"type": "boolean"},
+    "authorization": {"type": "object", "required": ["dev"], "properties": {"dev": {"type": "boolean"}}, "additionalProperties": false},
+    "compatibility": {
+      "type": "object", "required": ["minimum_home_assistant", "runtime_schema", "layout_schema", "config_entry", "rollback_safe"],
+      "properties": {
+        "minimum_home_assistant": {"type": "string"}, "tested_home_assistant": {"type": "string"},
+        "runtime_schema": {"$ref": "#/$defs/range"}, "layout_schema": {"$ref": "#/$defs/range"},
+        "config_entry": {"type": "object", "required": ["major", "minor"], "properties": {"major": {"type": "integer"}, "minor": {"type": "integer"}}, "additionalProperties": false},
+        "rollback_safe": {"type": "boolean"}
+      }, "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object", "required": ["url", "sha256", "size", "format", "root"],
+      "properties": {"url": {"type": "string"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "size": {"type": "integer", "minimum": 1, "maximum": 33554432}, "format": {"const": "zip"}, "root": {"const": "custom_components/cl_control"}}, "additionalProperties": false
+    },
+    "release": {"type": "object", "required": ["summary", "notes", "url"], "properties": {"summary": {"type": "string"}, "notes": {"type": "string"}, "url": {"type": "string"}}, "additionalProperties": false},
+    "signing": {"type": "object", "required": ["algorithm", "key_id", "signature"], "properties": {"algorithm": {"const": "ed25519"}, "key_id": {"type": "string"}, "signature": {"type": "string"}}, "additionalProperties": false}
+  },
+  "$defs": {"range": {"type": "object", "required": ["min", "max"], "properties": {"min": {"type": "integer"}, "max": {"type": "integer"}}, "additionalProperties": false}}
+}

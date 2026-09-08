@@ -10,5 +10,5 @@
   "config_flow": true,
   "single_config_entry": true,
   "dependencies": ["frontend"],
-  "after_dependencies": ["panel_custom"]
+  "after_dependencies": ["backup", "panel_custom"]
 }

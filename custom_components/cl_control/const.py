@@ -12,6 +12,9 @@ CREDENTIAL_STORAGE_KEY = "cl_control.credentials"
 RUNTIME_SCHEMA_VERSION = 2
 MODULE_SCHEMA_VERSION = 1
 CONFIG_ENTRY_VERSION = 1
+LAYOUT_SCHEMA_VERSION = 1
+UPDATE_MANIFEST_SCHEMA_VERSION = 1
+PLATFORMS = ("update",)
 
 DATA_SETTINGS = "settings"
 DATA_RUNTIME = "runtime"
@@ -26,6 +29,8 @@ DATA_CREDENTIAL_STORE = "credential_store"
 DATA_STATIC_REGISTERED = "static_registered"
 DATA_WEBSOCKET_REGISTERED = "websocket_registered"
 DATA_LEGACY_CONFIG = "legacy_config"
+DATA_UPDATE_MANAGER = "update_manager"
+DATA_DISTRIBUTION_PROVIDER = "distribution_provider"
 
 CONF_INSTALLATION_ID = "installation_id"
 CONF_SITE_NAME = "site_name"

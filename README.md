@@ -54,3 +54,19 @@ backend. Report security issues privately to CL Impianti.
 
 The repository contains frontend, backend and browser interaction tests. Stable
 releases are maintained on `main`; active work remains on feature branches.
+
+## Private updates (Phase C)
+
+CL Control now exposes a native Home Assistant Update entity backed by a
+provider-neutral distribution layer. In this development baseline the provider
+is deliberately offline: there is no GitHub token, paid service, telemetry,
+automatic update or automatic restart. The default customer channel is
+`stable`; `beta` and authorized laboratory `dev` channels can be selected from
+the Options Flow.
+
+Every install requires a signed release manifest, Ed25519 verification,
+SHA-256 and strict ZIP validation, followed by a successful native Home
+Assistant backup. Only `custom_components/cl_control` is staged and swapped;
+Config Entry, customer storage and credential storage are never included in an
+artifact or overwritten by the updater. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)
+for the manifest contract, rollback model and signing-key rotation procedure.

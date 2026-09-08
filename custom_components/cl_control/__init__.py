@@ -22,17 +22,21 @@ from .const import (
     DATA_CONFIG_ENTRY,
     DATA_CREDENTIALS,
     DATA_CREDENTIAL_STORE,
+    DATA_DISTRIBUTION_PROVIDER,
     DATA_INSTALLER_LIMITER,
     DATA_INSTALLER_SESSIONS,
     DATA_RUNTIME,
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
     DATA_STORE,
+    DATA_UPDATE_MANAGER,
     DATA_WEBSOCKET_REGISTERED,
     DOMAIN,
+    PLATFORMS,
     VERSION,
 )
 from .credentials import CredentialStore
+from .distribution import MockDistributionProvider, UpdateManager
 from .entry_data import (
     entry_data_is_valid,
     normalize_entry_options,
@@ -63,6 +67,7 @@ _RUNTIME_KEYS = (
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
     DATA_STORE,
+    DATA_UPDATE_MANAGER,
 )
 
 
@@ -160,6 +165,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await store.async_save(runtime)
 
     domain_data = hass.data.setdefault(DOMAIN, {})
+    provider = domain_data.get(DATA_DISTRIBUTION_PROVIDER)
+    if provider is None:
+        # Phase C intentionally performs no network call until CL Impianti
+        # supplies an authorized DistributionProvider.
+        provider = MockDistributionProvider.offline()
+    update_manager = UpdateManager(
+        hass=hass,
+        entry=entry,
+        provider=provider,
+        release_channel=options["release_channel"],
+    )
     domain_data.update(
         {
             DATA_SETTINGS: settings,
@@ -177,6 +193,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 settings["assistance"],
                 MockAIProvider(settings["assistance"]["model"]),
             ),
+            DATA_UPDATE_MANAGER: update_manager,
         }
     )
     if not domain_data.get(DATA_WEBSOCKET_REGISTERED):
@@ -184,6 +201,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         domain_data[DATA_WEBSOCKET_REGISTERED] = True
     entry.runtime_data = domain_data
     async_register_panel(hass, settings, VERSION)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     ir.async_delete_issue(
         hass, DOMAIN, f"installer_credential_missing_{entry.entry_id}"
     )
@@ -195,6 +213,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     domain_data = hass.data.get(DOMAIN, {})
     if domain_data.get(DATA_CONFIG_ENTRY) is not entry:
         return True
+    if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
+        return False
     settings = domain_data.get(DATA_SETTINGS, {})
     async_unregister_panel(hass, settings)
     for key in _RUNTIME_KEYS:

@@ -35,7 +35,7 @@ DEFAULT_ENTRY_OPTIONS = {
     CONF_ASSISTANCE_PROVIDER: "whatsapp",
     CONF_EXPERIENCE_LEVEL: "standard",
     CONF_BRANDING_TEMPLATE: "cl_control",
-    CONF_RELEASE_CHANNEL: "dev",
+    CONF_RELEASE_CHANNEL: "stable",
     CONF_LEGACY_SETTINGS: {},
     CONF_LEGACY_IMPORTED: False,
     CONF_LEGACY_PIN_MIGRATED: False,
@@ -84,7 +84,7 @@ def normalize_entry_options(value: Any) -> dict[str, Any]:
     if result.get(CONF_BRANDING_TEMPLATE) not in BRANDING_TEMPLATES:
         result[CONF_BRANDING_TEMPLATE] = "cl_control"
     if result.get(CONF_RELEASE_CHANNEL) not in RELEASE_CHANNELS:
-        result[CONF_RELEASE_CHANNEL] = "dev"
+        result[CONF_RELEASE_CHANNEL] = "stable"
     result[CONF_LEGACY_SETTINGS] = sanitize_legacy_settings(
         result.get(CONF_LEGACY_SETTINGS, {})
     )
@@ -112,7 +112,7 @@ def options_from_legacy(raw: dict[str, Any]) -> dict[str, Any]:
             .get("experience", {})
             .get("default_level", "standard"),
             CONF_BRANDING_TEMPLATE: "cl_control",
-            CONF_RELEASE_CHANNEL: "dev",
+            CONF_RELEASE_CHANNEL: "stable",
             CONF_LEGACY_SETTINGS: sanitize_legacy_settings(raw),
             CONF_LEGACY_IMPORTED: True,
             CONF_LEGACY_PIN_MIGRATED: bool(

@@ -1,5 +1,10 @@
 {
   "title": "CL Control",
+  "entity": {
+    "update": {
+      "cl_control": { "name": "CL Control" }
+    }
+  },
   "config": {
     "step": {
       "user": {
