@@ -53,7 +53,10 @@ export function layoutCardCapabilities(type, options = {}) {
 }
 
 export function normalizeLayoutCard(value = {}, type = "module", options = {}) {
-  const next = { ...LAYOUT_DEFAULT_CARD, ...(value && typeof value === "object" ? value : {}), type };
+  const viewDefaults = options?.view === "lights" && ["light", "switch"].includes(type)
+    ? { size: "m", span: 1, shape: "compact" }
+    : {};
+  const next = { ...LAYOUT_DEFAULT_CARD, ...viewDefaults, ...(value && typeof value === "object" ? value : {}), type };
   const capabilities = layoutCardCapabilities(type, options);
   next.order = Math.max(-10000, Math.min(10000, Number.parseInt(next.order, 10) || 0));
   const span = Math.max(1, Math.min(4, Number.parseInt(next.span, 10) || 1));
@@ -67,6 +70,16 @@ export function normalizeLayoutCard(value = {}, type = "module", options = {}) {
   next.favorite = next.favorite === true;
   if (next.visible && !next.show_icon && !next.show_title) next.show_title = true;
   return next;
+}
+
+export function resetLayoutCardDraft(cards, layout, context, view, generatedCards, cardId) {
+  const sourceLayout = context === "base" ? emptyLayout() : layout;
+  const inherited = effectiveLayout(sourceLayout, "base", view, generatedCards, { includeHidden: true });
+  const fallback = inherited.find(card => card.id === cardId);
+  if (!fallback) return (cards || []).map(card => ({ ...card }));
+  const current = (cards || []).find(card => card.id === cardId);
+  const replacement = { ...fallback, favorite: current?.favorite === true || fallback.favorite === true };
+  return (cards || []).map(card => card.id === cardId ? replacement : { ...card });
 }
 
 export function effectiveLayout(layout, context, view, generatedCards = [], options = {}) {

@@ -45,7 +45,7 @@ from .modules.security import (
     build_security_whitelist,
     validate_risco_zone_pair,
 )
-from .modules.layout import LAYOUT_CONTEXTS, LAYOUT_VIEWS, layout_write_allowed, reset_layout, update_layout_view
+from .modules.layout import LAYOUT_CONTEXTS, LAYOUT_VIEWS, layout_favorite_entity_ids, layout_write_allowed, reset_layout, update_layout_view
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -165,6 +165,13 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
             connection.send_error(msg["id"], "unauthorized", "Modalita installatore non attiva")
             return
         runtime = migrate_runtime_config(data[DATA_RUNTIME])
+        preserved_favorites = layout_favorite_entity_ids(
+            runtime["customer_ui"].get("layout"), msg["context"], msg.get("view")
+        )
+        if preserved_favorites:
+            runtime["customer_ui"]["favorites"] = list(dict.fromkeys([
+                *runtime["customer_ui"].get("favorites", []), *sorted(preserved_favorites)
+            ]))[:500]
         runtime["customer_ui"]["layout"] = reset_layout(
             runtime["customer_ui"].get("layout"), msg["context"], msg.get("view")
         )

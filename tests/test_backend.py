@@ -154,6 +154,19 @@ class LayoutTests(unittest.TestCase):
         self.assertIn("home:status", reset["base"]["home"])
         self.assertNotIn("lights", reset["mobile"])
 
+    def test_layout_reset_exposes_favorites_for_preservation(self):
+        value = layout.normalize_layout({"mobile": {"lights": {
+            "lights:entity:light.cucina": {"type": "light", "favorite": True},
+            "lights:entity:light.camera": {"type": "light", "favorite": False},
+        }}, "base": {"home": {
+            "home:module:lights": {"type": "module", "favorite": True},
+        }}})
+        self.assertEqual(
+            layout.layout_favorite_entity_ids(value, "mobile", "lights"),
+            {"light.cucina"},
+        )
+        self.assertEqual(layout.layout_favorite_entity_ids(value, "tablet", "lights"), set())
+
     def test_device_override_keeps_only_explicit_fields(self):
         value = layout.normalize_layout({
             "mobile": {"home": {"home:status": {"type": "status", "size": "m"}}}

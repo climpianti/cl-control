@@ -26,6 +26,7 @@ import {
   lightTurnOnPayload,
   normalizeLayoutCard,
   reorderLayoutCards,
+  resetLayoutCardDraft,
 } from "../custom_components/cl_control/frontend/cl-control-runtime.mjs";
 import { buildUi3Styles, icon } from "../custom_components/cl_control/frontend/cl-control-ui3.mjs";
 
@@ -70,6 +71,22 @@ assert.equal(normalizeLayoutCard({ show_icon: false, show_title: false }).show_t
 assert.deepEqual(layoutCardCapabilities("light").sizes, ["s", "m", "l"]);
 assert.deepEqual(layoutCardCapabilities("module", { view: "home" }).sizes, ["m", "l"]);
 assert.deepEqual(layoutCardCapabilities("status", { view: "home" }).spans, [2]);
+const automaticLights = effectiveLayout(emptyLayout(), "mobile", "lights", [
+  { id: "lights:entity:light.nuova", type: "light" },
+  { id: "lights:entity:switch.lampada", type: "switch" },
+]);
+for (const card of automaticLights) {
+  assert.deepEqual({ size: card.size, span: card.span, shape: card.shape }, { size: "m", span: 1, shape: "compact" });
+}
+const responsiveLayout = emptyLayout();
+responsiveLayout.base.lights = { "lights:entity:light.nuova": { type: "light", size: "l", span: 2, shape: "square", favorite: true } };
+responsiveLayout.mobile.lights = { "lights:entity:light.nuova": { type: "light", size: "s", span: 1 } };
+const responsiveCards = effectiveLayout(responsiveLayout, "mobile", "lights", [{ id: "lights:entity:light.nuova", type: "light" }], { includeHidden: true });
+assert.deepEqual({ size: responsiveCards[0].size, span: responsiveCards[0].span, shape: responsiveCards[0].shape }, { size: "s", span: 1, shape: "square" }, "saved responsive properties remain intact for visual fallback");
+const resetResponsive = resetLayoutCardDraft(responsiveCards, responsiveLayout, "mobile", "lights", [{ id: "lights:entity:light.nuova", type: "light", favorite: true }], "lights:entity:light.nuova");
+assert.deepEqual({ size: resetResponsive[0].size, span: resetResponsive[0].span, shape: resetResponsive[0].shape, favorite: resetResponsive[0].favorite }, { size: "l", span: 2, shape: "square", favorite: true }, "card reset removes only current-context graphics and inherits Base");
+const resetBase = resetLayoutCardDraft([responsiveCards[0]], responsiveLayout, "base", "lights", [{ id: "lights:entity:light.nuova", type: "light", favorite: true }], "lights:entity:light.nuova");
+assert.deepEqual({ size: resetBase[0].size, span: resetBase[0].span, shape: resetBase[0].shape, favorite: resetBase[0].favorite }, { size: "m", span: 1, shape: "compact", favorite: true }, "Base reset returns to automatic Lights layout without losing favorite");
 const safeHomeStatus = normalizeLayoutCard({ size: "s", span: 4, shape: "square", show_state: false }, "status", { id: "home:status", view: "home" });
 assert.deepEqual({ size: safeHomeStatus.size, span: safeHomeStatus.span, shape: safeHomeStatus.shape, show_state: safeHomeStatus.show_state }, { size: "l", span: 2, shape: "rectangle", show_state: true });
 const safeHomeModule = normalizeLayoutCard({ size: "s", span: 4, shape: "square", show_state: false }, "module", { id: "home:module:lights", view: "home" });
@@ -236,6 +253,13 @@ assert.match(panelSource, /Ambiente e qualità aria/);
 assert.match(ui3Styles, /layoutDragHandle\{touch-action:none/);
 assert.match(ui3Styles, /homeLayoutGrid\{grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
 assert.match(ui3Styles, /layout-preview-mobile|layoutPreview/);
+assert.match(ui3Styles, /#page-lights \.layoutCard\{grid-column:1\/-1!important;aspect-ratio:auto/);
+assert.match(ui3Styles, /\.layoutEditing \.layoutCard\{outline:1px dashed/);
+assert.doesNotMatch(ui3Styles, /(?<!layoutEditing )\.layoutCard\{outline:1px dashed/);
+assert.match(panelSource, /data-light-card/);
+assert.doesNotMatch(panelSource, /data-light-more/);
+assert.match(panelSource, /Ripristinare il layout/);
+assert.match(panelSource, /Nomi, aree, preferiti e configurazioni dei dispositivi non verranno modificati/);
 
 assert.doesNotMatch(panelSource, /CL Impianti/);
 assert.doesNotMatch(panelSource, /CL Control/);

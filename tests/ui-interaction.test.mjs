@@ -34,7 +34,26 @@ for (const viewport of viewports) {
     element.hass.callService = async (...args) => window.__clServiceCalls.push(args);
   });
   await panel.locator('[data-page="lights"]').click();
-  await panel.locator('[data-light-controls]').first().click();
+  const customerLight = panel.locator('[data-light-card="light.cucina"]');
+  const unavailableLight = panel.locator('[data-light-card="light.portico"]');
+  assert.equal(await customerLight.locator('[data-edit-entity]').count(), 0, 'customer cards must not expose Installer configuration');
+  assert.equal(await customerLight.locator('[data-light-more]').count(), 0, 'details chevron must not compress customer actions');
+  assert.equal(await customerLight.locator('[data-favorite]').count(), 1);
+  assert.equal(await customerLight.locator('[data-toggle-light]').count(), 1);
+  assert.equal(await unavailableLight.locator('[data-toggle-light]').isDisabled(), true, 'unavailable light action must be disabled');
+  const customerBox = await customerLight.boundingBox(), unavailableBox = await unavailableLight.boundingBox();
+  assert.ok(customerBox && unavailableBox);
+  assert.ok(Math.abs(customerBox.height - unavailableBox.height) <= 2, 'unavailable card must keep the automatic card height');
+  if (viewport.width < 768) {
+    const gridBox = await customerLight.locator('xpath=..').boundingBox();
+    assert.ok(gridBox && customerBox.width >= gridBox.width - 2, 'automatic smartphone Lights card must be full width');
+  }
+  assert.equal(await customerLight.evaluate(element => getComputedStyle(element).outlineStyle), 'none', 'editor outline must not leak into customer mode');
+  await panel.locator('[data-light-area="Zona notte"] [data-area-light-toggle]').click();
+  const areaCall = await page.evaluate(() => window.__clServiceCalls.at(-1));
+  assert.deepEqual(areaCall[2].entity_id, ['light.camera'], 'area action must exclude unavailable lights');
+  await page.evaluate(() => { window.__clServiceCalls = []; });
+  await customerLight.click({ position: { x: 64, y: 38 } });
   const dialog = panel.locator('.dialog');
   const dialogBox = await dialog.boundingBox();
   assert.ok(dialogBox && dialogBox.x >= 0 && dialogBox.y >= 0);
@@ -100,7 +119,7 @@ for (const viewport of viewports) {
 
   if ([390, 768, 1200].includes(viewport.width)) {
     await panel.locator('#clDialogForm [data-dialog-cancel]').click();
-    await panel.locator('[data-light-controls]').first().click();
+    await panel.locator('[data-light-card="light.cucina"]').click({ position: { x: 64, y: 38 } });
     await panel.locator('[data-light-mode="temperature"]').click();
     const kelvin=panel.locator('[name="kelvin"]'),kelvinBox=await kelvin.boundingBox();assert.ok(kelvinBox);
     const callsBeforeTemperature = await page.evaluate(() => window.__clServiceCalls.length);
@@ -111,7 +130,7 @@ for (const viewport of viewports) {
     await panel.evaluate((element,value) => { const current=element.hass.states['light.cucina']; element.hass={...element.hass,states:{...element.hass.states,'light.cucina':{...current,attributes:{...current.attributes,color_temp_kelvin:value,color_mode:'color_temp'}}}}; }, temperatureCall[2].color_temp_kelvin);
     assert.match(await panel.locator('[data-light-live-status]').textContent(), /Aggiornato/);
     await panel.locator('#clDialogForm [data-dialog-cancel]').click();
-    await panel.locator('[data-light-controls]').first().click();
+    await panel.locator('[data-light-card="light.cucina"]').click({ position: { x: 64, y: 38 } });
     const callsBeforeWhite = await page.evaluate(() => window.__clServiceCalls.length);
     await panel.locator('button[data-light-mode="white"]').click();
     await page.waitForTimeout(120);
@@ -265,7 +284,20 @@ for (const viewport of viewports) {
   assert.equal(await renderedPrimary.locator('.name').evaluate(element => getComputedStyle(element).display), 'none');
   assert.equal(await renderedPrimary.locator('.lightState').evaluate(element => getComputedStyle(element).display), 'none');
   assert.equal(await renderedPrimary.locator('.lightDetail').evaluate(element => getComputedStyle(element).display), 'none');
-  assert.equal(await renderedPrimary.locator('.lightDetailAction').evaluate(element => getComputedStyle(element).display), 'none');
+
+  const resetCardId = 'lights:entity:light.camera';
+  await panel.evaluate((element,id)=>{ element._editLayoutCard('lights',id); }, resetCardId);
+  await panel.locator('[name="size"]').selectOption('l');
+  await panel.locator('[name="shape"]').selectOption('square');
+  await panel.locator('[name="favorite"]').check();
+  await panel.locator('#clDialogForm .primary').click();
+  await panel.evaluate((element,id)=>{ element._editLayoutCard('lights',id); }, resetCardId);
+  assert.match(await panel.locator('.dialog > p').textContent(), /Base/);
+  assert.match(await panel.locator('.fieldHint').textContent(), /Nome, area, preferito e configurazione tecnica restano invariati/);
+  await panel.locator('button[name="action"][value="reset"]').click();
+  await page.waitForFunction(id=>{const panel=document.querySelector('cl-control-panel');return panel?._layoutEditor?.drafts?.get('base:lights')?.find(card=>card.id===id)?.shape==='compact';},resetCardId);
+  const resetCard = await panel.evaluate((element,id)=>element._layoutEditor.drafts.get('base:lights').find(card=>card.id===id), resetCardId);
+  assert.deepEqual({size:resetCard.size,span:resetCard.span,shape:resetCard.shape,favorite:resetCard.favorite},{size:'m',span:1,shape:'compact',favorite:true},'single-card reset must restore automatic graphics and keep favorite');
 
   const hiddenCardId = 'lights:entity:light.soggiorno';
   await panel.evaluate((element,id)=>{ element._editLayoutCard('lights',id); }, hiddenCardId);
@@ -297,6 +329,25 @@ for (const viewport of viewports) {
   console.log(`layout reload ${viewport.width}: ok`);
 
   if (viewport.width === 390) {
+    const technicalBeforeReset = await panel.evaluate(element => ({aliases:structuredClone(element._config.aliases),areas:structuredClone(element._config.entity_areas),modules:structuredClone(element._config.entity_modules),favorites:structuredClone(element._config.favorites)}));
+    await panel.evaluate(element => { element._installerUnlocked=true; element._startLayoutEditor(false,'lights'); element._layoutEditor.context='mobile'; element._renderLights(); });
+    await panel.evaluate(element => { const key='mobile:lights',cards=element._layoutEditor.drafts.get(key); const first=cards[0]; element._setLayoutDraft('lights',cards.map(card=>card.id===first.id?{...card,size:'l',span:2,shape:'square'}:card)); });
+    await panel.locator('#page-lights [data-layout-save]').click();
+    assert.ok(await panel.evaluate(element=>element._config.layout.mobile?.lights), 'mobile override must persist before reset');
+    await panel.locator('.layoutOptions > summary').click();
+    await panel.locator('[data-layout-reset]').click();
+    assert.match(await panel.locator('#clDialogTitle').textContent(), /Ripristinare il layout Luci/);
+    assert.match(await panel.locator('.dialog > p').textContent(), /Questo dispositivo · Smartphone/);
+    await panel.locator('#clDialogForm .primary').click();
+    const resetCalls = await page.evaluate(() => window.__clWsCalls.filter(call => call.type === 'cl_control/layout/reset'));
+    assert.deepEqual({context:resetCalls.at(-1).context,view:resetCalls.at(-1).view},{context:'mobile',view:'lights'});
+    assert.equal(await panel.evaluate(element=>Boolean(element._config.layout.mobile?.lights)),false,'only current responsive view must be reset');
+    assert.deepEqual(await panel.evaluate(element => ({aliases:element._config.aliases,areas:element._config.entity_areas,modules:element._config.entity_modules,favorites:element._config.favorites})),technicalBeforeReset,'layout reset must not alter technical settings or favorites');
+    assert.equal(await panel.evaluate(element=>element._layoutEditor.dirty),false,'reset must not leave a dirty draft');
+    assert.deepEqual(await panel.evaluate(element=>[...element._layoutEditor.drafts.keys()]),['mobile:lights'],'renderer may rebuild only the clean current draft');
+    await panel.evaluate(async element => { element._config=null; await element._loadConfig(); element._renderLights(); });
+    assert.equal(await panel.evaluate(element=>Boolean(element._config.layout.mobile?.lights)),false,'layout reset must survive bootstrap reload');
+    await panel.evaluate(element=>element._cancelLayoutEditor());
     await panel.evaluate(element => { element._installerUnlocked = true; element._editEntity('sensor.qualita_aria_incerta'); });
     await panel.locator('input[name="alias"]').fill('Aria salone');
     await panel.evaluate(element => { const root=element.shadowRoot; root.querySelector('input[name="module"][value="environment"]').checked=true; root.querySelector('input[name="area"]').value='Zona giorno'; root.querySelector('input[name="type"][value="tecnico"]').checked=true; root.querySelector('input[name="subtype"][value="aqi"]').checked=true; root.querySelector('input[name="level"][value="standard"]').checked=true; root.querySelector('input[name="visible"]').checked=true; root.querySelector('input[name="favorite"]').checked=true; root.querySelector('#clDialogForm').requestSubmit(); });

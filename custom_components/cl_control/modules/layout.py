@@ -143,3 +143,16 @@ def reset_layout(layout: Any, context: str, view: str | None = None) -> dict[str
     else:
         normalized[context].pop(view, None)
     return normalized
+
+
+def layout_favorite_entity_ids(layout: Any, context: str, view: str | None = None) -> set[str]:
+    """Return entity favorites that must survive removal of layout overrides."""
+    normalized = normalize_layout(layout)
+    selected = normalized.get(context, {})
+    views = (view,) if view is not None else tuple(selected)
+    favorites: set[str] = set()
+    for selected_view in views:
+        for card_id, card in selected.get(selected_view, {}).items():
+            if card.get("favorite") is True and ":entity:" in card_id:
+                favorites.add(card_id.split(":entity:", 1)[1])
+    return favorites
