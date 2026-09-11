@@ -8,7 +8,49 @@ export const EXPERIENCE_RANK = Object.freeze({
 
 export const LAYOUT_SCHEMA_VERSION = 1;
 export const LAYOUT_CONTEXTS = Object.freeze(["base", "mobile", "tablet", "wall"]);
-export const LAYOUT_VIEWS = Object.freeze(["home", "lights", "covers", "climate", "energy", "security", "cameras", "support"]);
+export const LAYOUT_VIEWS = Object.freeze(["home", "area", "sections", "lights", "covers", "climate", "energy", "security", "media", "cameras", "support"]);
+
+export const TILE_TYPES = Object.freeze([
+  "simple", "toggle", "slider", "climate", "sensor", "security", "media", "camera",
+]);
+
+const AREA_SECTION_BY_DOMAIN = Object.freeze({
+  light: "lights",
+  switch: "lights",
+  cover: "covers",
+  climate: "climate",
+  alarm_control_panel: "security",
+  binary_sensor: "security",
+  media_player: "media",
+  camera: "cameras",
+});
+
+export function areaSectionForEntity(entity = {}, classification = {}) {
+  const entityId = String(entity.entity_id || "");
+  const domain = entityId.split(".")[0];
+  if (domain === "sensor") return classification.module === "energy" ? "energy" : "environment";
+  return AREA_SECTION_BY_DOMAIN[domain] || "other";
+}
+
+export function tileTypeForEntity(entity = {}, options = {}) {
+  const entityId = String(entity.entity_id || "");
+  const domain = entityId.split(".")[0];
+  if (domain === "light" || domain === "switch") return options.hasSlider ? "slider" : "toggle";
+  if (domain === "climate") return "climate";
+  if (domain === "sensor") return "sensor";
+  if (domain === "alarm_control_panel" || domain === "binary_sensor") return "security";
+  if (domain === "media_player") return "media";
+  if (domain === "camera") return "camera";
+  return "simple";
+}
+
+export function responsiveSectionColumns(width, complexity = "simple") {
+  const value = Math.max(0, Number(width) || 0);
+  if (complexity === "complex") return value >= 1200 ? 2 : 1;
+  if (value >= 1200) return 4;
+  if (value >= 768) return 3;
+  return 2;
+}
 
 export function emptyLayout() {
   return { layout_schema_version: LAYOUT_SCHEMA_VERSION, base: {}, mobile: {}, tablet: {}, wall: {} };
@@ -37,6 +79,8 @@ export const LAYOUT_CARD_CAPABILITIES = Object.freeze({
   camera: { sizes: ["m", "l", "xl"], spans: [1, 2, 3, 4], shapes: ["rectangle", "wide"] },
   energy: { sizes: ["l", "xl"], spans: [1, 2, 3, 4], shapes: ["rectangle", "wide"] },
   security: { sizes: ["m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle"] },
+  sensor: { sizes: ["s", "m"], spans: [1, 2], shapes: ["compact", "rectangle"] },
+  media: { sizes: ["s", "m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle"] },
   assistance: { sizes: ["m", "l"], spans: [1, 2, 3, 4], shapes: ["compact", "rectangle"] },
 });
 

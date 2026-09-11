@@ -25,7 +25,7 @@ sys.modules.setdefault("cl_update_test", package)
 distribution = importlib.import_module("cl_update_test.distribution")
 
 
-def artifact(version="3.3.1", *, extra=None):
+def artifact(version="3.4.1", *, extra=None):
     stream = io.BytesIO()
     with ZipFile(stream, "w", ZIP_DEFLATED) as archive:
         archive.writestr("custom_components/cl_control/__init__.py", "# release\n")
@@ -35,7 +35,7 @@ def artifact(version="3.3.1", *, extra=None):
     return stream.getvalue()
 
 
-def signed_manifest(private, payload, *, version="3.3.1", channel="stable", dev=False, sha=None, size=None):
+def signed_manifest(private, payload, *, version="3.4.1", channel="stable", dev=False, sha=None, size=None):
     raw = {
         "schema": 1, "product": "cl_control", "version": version, "channel": channel,
         "published_at": "2026-09-08T00:00:00Z",
@@ -157,7 +157,7 @@ class UpdateSystemTests(unittest.IsolatedAsyncioTestCase):
             storage.write_text("customer", encoding="utf-8")
             credentials.write_text("hash", encoding="utf-8")
             rollback = distribution.RuntimeInstaller(component, root / "config/.cl_control_update").install(self.parsed(), self.payload)
-            self.assertEqual(json.loads((component / "manifest.json").read_text())["version"], "3.3.1")
+            self.assertEqual(json.loads((component / "manifest.json").read_text())["version"], "3.4.1")
             self.assertEqual((rollback / "old.txt").read_text(), "old")
             self.assertEqual(storage.read_text(), "customer")
             self.assertEqual(credentials.read_text(), "hash")

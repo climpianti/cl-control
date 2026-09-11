@@ -147,11 +147,19 @@ class LayoutTests(unittest.TestCase):
         value = layout.update_layout_view({}, "base", "home", {
             "home:status": {"type": "status", "order": 1, "size": "l"}
         })
+        value = layout.update_layout_view(value, "base", "area", {
+            "area:zona-giorno": {"type": "module", "order": 2}
+        })
+        value = layout.update_layout_view(value, "base", "sections", {
+            "area-section:lights": {"type": "module", "order": 3}
+        })
         value = layout.update_layout_view(value, "mobile", "lights", {
             "lights:entity:light.cucina": {"type": "light", "order": 2}
         })
         reset = layout.reset_layout(value, "mobile", "lights")
         self.assertIn("home:status", reset["base"]["home"])
+        self.assertIn("area:zona-giorno", reset["base"]["area"])
+        self.assertIn("area-section:lights", reset["base"]["sections"])
         self.assertNotIn("lights", reset["mobile"])
 
     def test_layout_reset_exposes_favorites_for_preservation(self):

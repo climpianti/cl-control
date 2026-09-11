@@ -1,7 +1,23 @@
 # CL Control
 
 CL Control is the CL Impianti customer interface for Home Assistant. The current
-development version is `3.3.0-dev`.
+development version is `3.4.0-dev`.
+
+## Optional Home Assistant dashboard
+
+CL Control remains available as the automatically registered `/cl-control` panel. It
+also bundles `cl-control-dashboard-strategy.mjs`, an optional dashboard strategy that
+reuses the same panel, discovery and design-system runtime. Register the versioned
+internal URL as a Home Assistant JavaScript module resource, then choose **CL Control**
+from the Community dashboards picker (Home Assistant 2026.5 or newer). CL Control does
+not change the user's default dashboard automatically.
+
+Example strategy configuration for an explicitly created dashboard:
+
+```yaml
+strategy:
+  type: custom:cl-control
+```
 
 ## Distribution-ready package
 

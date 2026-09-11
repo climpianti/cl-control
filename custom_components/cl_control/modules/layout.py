@@ -13,7 +13,7 @@ from typing import Any
 LAYOUT_SCHEMA_VERSION = 1
 LAYOUT_CONTEXTS = ("base", "mobile", "tablet", "wall")
 LAYOUT_VIEWS = (
-    "home", "lights", "covers", "climate", "energy", "security", "cameras", "support"
+    "home", "area", "sections", "lights", "covers", "climate", "energy", "security", "media", "cameras", "support"
 )
 CARD_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_.:-]{0,127}$")
 ICON_RE = re.compile(r"^(?:mdi|cl):[a-z0-9-]{1,64}$")
@@ -28,6 +28,8 @@ CARD_CAPABILITIES = {
     "camera": {"sizes": ("m", "l", "xl"), "spans": (1, 2, 3, 4), "shapes": ("rectangle", "wide")},
     "energy": {"sizes": ("l", "xl"), "spans": (1, 2, 3, 4), "shapes": ("rectangle", "wide")},
     "security": {"sizes": ("m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle")},
+    "sensor": {"sizes": ("s", "m"), "spans": (1, 2), "shapes": ("compact", "rectangle")},
+    "media": {"sizes": ("s", "m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle")},
     "assistance": {"sizes": ("m", "l"), "spans": (1, 2, 3, 4), "shapes": ("compact", "rectangle")},
 }
 HOME_CARD_CAPABILITIES = {

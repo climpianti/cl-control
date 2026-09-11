@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   FALLBACK_BOOTSTRAP,
+  areaSectionForEntity,
   buildDesignTokens,
   classifyEntity,
   colorWheelSelection,
@@ -27,6 +28,8 @@ import {
   normalizeLayoutCard,
   reorderLayoutCards,
   resetLayoutCardDraft,
+  responsiveSectionColumns,
+  tileTypeForEntity,
 } from "../custom_components/cl_control/frontend/cl-control-runtime.mjs";
 import { buildUi3Styles, icon } from "../custom_components/cl_control/frontend/cl-control-ui3.mjs";
 
@@ -45,6 +48,15 @@ assert.ok(tokens["--cl-focus-ring"]);
 assert.ok(tokens["--cl-color-wheel"]);
 assert.ok(tokens["--cl-color-picker-max"]);
 assert.ok(tokens["--cl-layout-min-column"]);
+assert.equal(areaSectionForEntity({ entity_id: "light.living" }), "lights");
+assert.equal(areaSectionForEntity({ entity_id: "sensor.co2_living" }, { module: "environment" }), "environment");
+assert.equal(areaSectionForEntity({ entity_id: "sensor.grid_power" }, { module: "energy" }), "energy");
+assert.equal(tileTypeForEntity({ entity_id: "climate.living" }), "climate");
+assert.equal(tileTypeForEntity({ entity_id: "light.living" }, { hasSlider: true }), "slider");
+assert.equal(responsiveSectionColumns(390), 2);
+assert.equal(responsiveSectionColumns(768), 3);
+assert.equal(responsiveSectionColumns(1200), 4);
+assert.equal(responsiveSectionColumns(390, "complex"), 1);
 
 const generatedLayout = [
   { id: "home:status", type: "status" },
@@ -216,6 +228,15 @@ assert.match(ui3Styles, /\.clToggle/);
 assert.match(ui3Styles, /clToggleLoading/);
 
 const panelSource = readFileSync(new URL("../custom_components/cl_control/frontend/cl-control-panel.js", import.meta.url), "utf8");
+const strategySource = readFileSync(new URL("../custom_components/cl_control/frontend/cl-control-dashboard-strategy.mjs", import.meta.url), "utf8");
+assert.match(strategySource, /ll-strategy-dashboard-cl-control/);
+assert.match(strategySource, /window\.customStrategies/);
+assert.match(strategySource, /dashboard-context/);
+assert.match(panelSource, /id="page-area"/);
+assert.match(panelSource, /data-home-area/);
+assert.match(panelSource, /data-area-section/);
+assert.match(panelSource, /id="page-media"/);
+assert.doesNotMatch(panelSource, /data-reorder-mode/);
 assert.match(panelSource, /data-update-summary/);
 assert.match(panelSource, /hass-more-info/);
 const brandingSource = readFileSync(new URL("../config/branding.yaml", import.meta.url), "utf8");

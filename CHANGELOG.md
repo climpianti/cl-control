@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.0-dev
+
+- Redesign Home as an overview with status, favorites, Home Assistant areas and global modules.
+- Add responsive Area Views and unified capability-aware tiles for devices, climate, environment, security and media.
+- Add an optional Home Assistant dashboard strategy that reuses the same CL Control runtime.
+- Move area ordering into the session-safe Layout Editor while preserving technical area assignments.
+- Simplify customer controls and keep layout/preferences tools exclusive to Installer mode.
+
 ## 3.3.0-dev
 
 - Add the native Home Assistant CL Control Update entity and Installer summary.

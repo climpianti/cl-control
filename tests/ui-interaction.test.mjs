@@ -25,6 +25,12 @@ for (const viewport of viewports) {
     assert.equal(await card.evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, 'Home card must not overflow horizontally');
   }
   assert.doesNotMatch(await panel.locator('#page-home').textContent(), /(?:sensor|binary_sensor|light|cover|climate)\./, 'Home must not expose technical labels');
+  assert.ok(await panel.locator('#page-home [data-home-area]').count() >= 1, 'overview must expose discovered Home Assistant areas');
+  await panel.locator('#page-home [data-home-area]').first().click();
+  assert.equal(await panel.locator('#page-area').getAttribute('class'), 'page active');
+  assert.ok(await panel.locator('#page-area [data-area-section]').count() >= 1, 'Area View must expose only populated sections');
+  assert.equal(await panel.locator('#page-area').evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, 'Area View must not overflow');
+  await panel.locator('#page-area [data-area-back]').click();
   if (viewport.width === 390) {
     await panel.evaluate(element => { element._config.support.site_name='Impianto residenziale con una denominazione volutamente molto lunga'; element._renderHome(); });
     assert.equal(await panel.locator('#page-home').evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, 'long site names must not create horizontal overflow');
@@ -38,7 +44,7 @@ for (const viewport of viewports) {
   const unavailableLight = panel.locator('[data-light-card="light.portico"]');
   assert.equal(await customerLight.locator('[data-edit-entity]').count(), 0, 'customer cards must not expose Installer configuration');
   assert.equal(await customerLight.locator('[data-light-more]').count(), 0, 'details chevron must not compress customer actions');
-  assert.equal(await customerLight.locator('[data-favorite]').count(), 1);
+  assert.equal(await customerLight.locator('[data-favorite]').count(), 0, 'customer tiles must not expose favorite controls');
   assert.equal(await customerLight.locator('[data-toggle-light]').count(), 1);
   assert.equal(await unavailableLight.locator('[data-toggle-light]').isDisabled(), true, 'unavailable light action must be disabled');
   const customerBox = await customerLight.boundingBox(), unavailableBox = await unavailableLight.boundingBox();
@@ -46,7 +52,7 @@ for (const viewport of viewports) {
   assert.ok(Math.abs(customerBox.height - unavailableBox.height) <= 2, 'unavailable card must keep the automatic card height');
   if (viewport.width < 768) {
     const gridBox = await customerLight.locator('xpath=..').boundingBox();
-    assert.ok(gridBox && customerBox.width >= gridBox.width - 2, 'automatic smartphone Lights card must be full width');
+    assert.ok(gridBox && customerBox.width >= gridBox.width * .4 && customerBox.width <= gridBox.width * .55, 'simple smartphone Lights tiles must use the two-column grid');
   }
   assert.equal(await customerLight.evaluate(element => getComputedStyle(element).outlineStyle), 'none', 'editor outline must not leak into customer mode');
   await panel.locator('[data-light-area="Zona notte"] [data-area-light-toggle]').click();
@@ -165,6 +171,9 @@ for (const viewport of viewports) {
   const coverCalls = await page.evaluate(() => window.__clServiceCalls);
   assert.equal(coverCalls.length, 1, 'horizontal drag must emit exactly one cover command');
   assert.equal(coverCalls[0][1], 'set_cover_position');
+  await panel.evaluate(element=>{element._switchPage('media');element._renderMedia();});
+  assert.match(await panel.locator('#page-media').textContent(),/Diffusore salone/,'Media module must render the shared capability-aware tile');
+  assert.equal(await panel.locator('#page-media [data-media-play-pause]').count(),1);
   console.log(`modules ${viewport.width}: ok`);
 
   const installerNav = panel.locator('[data-page="more"]');
@@ -199,12 +208,12 @@ for (const viewport of viewports) {
   assert.equal(await panel.locator('[name="show_state"]').isDisabled(),true,'Home state is required for a useful card');
   await panel.locator('[data-dialog-cancel]').first().click();
   const dragHandle = panel.locator('#page-home .layoutDragHandle').first();
-  const [dragBox,targetBox]=await panel.evaluate(element=>{const nodes=[element.shadowRoot.querySelector('#page-home .layoutDragHandle'),element.shadowRoot.querySelectorAll('#page-home [data-layout-id]')[1]];return nodes.map(node=>{const r=node?.getBoundingClientRect();return r&&r.width&&r.height?{x:r.x,y:r.y,width:r.width,height:r.height}:null;});});
+  const [dragBox,targetBox]=await panel.evaluate(element=>{const nodes=[element.shadowRoot.querySelector('#page-home .homeLayoutGrid .layoutDragHandle'),element.shadowRoot.querySelectorAll('#page-home .homeLayoutGrid [data-layout-id]')[1]];return nodes.map(node=>{const r=node?.getBoundingClientRect();return r&&r.width&&r.height?{x:r.x,y:r.y,width:r.width,height:r.height}:null;});});
   assert.ok(dragBox && targetBox);
-  await page.mouse.move(dragBox.x + dragBox.width / 2, dragBox.y + dragBox.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 5 });
-  await page.mouse.up();
+  const homePointer={pointerId:71,pointerType:'mouse',button:0,clientX:dragBox.x+dragBox.width/2,clientY:dragBox.y+dragBox.height/2};
+  await dragHandle.dispatchEvent('pointerdown',homePointer);
+  await dragHandle.dispatchEvent('pointermove',{...homePointer,clientX:targetBox.x+targetBox.width/2,clientY:targetBox.y+targetBox.height/2});
+  await dragHandle.dispatchEvent('pointerup',{...homePointer,clientX:targetBox.x+targetBox.width/2,clientY:targetBox.y+targetBox.height/2});
   assert.match(await panel.locator('.layoutEditorStatus').textContent(), /non salvate/, 'pointer drag must update the draft');
   console.log(`home layout ${viewport.width}: ok`);
   const keyboardBefore=await panel.evaluate(element=>element._layoutEditor.drafts.get('base:home').map(card=>card.id));await panel.locator(`#page-home [data-layout-drag="${keyboardBefore[0]}"]`).press('ArrowDown');const keyboardAfter=await panel.evaluate(element=>element._layoutEditor.drafts.get('base:home').map(card=>card.id));assert.notDeepEqual(keyboardAfter,keyboardBefore,'keyboard reorder must remain available');
@@ -320,7 +329,7 @@ for (const viewport of viewports) {
   assert.equal(await panel.locator(`[data-layout-id="${hiddenCardId}"]`).isHidden(), true, 'hidden card must remain hidden after storage/bootstrap reload');
   assert.equal(await panel.locator(`[data-layout-id="${primaryCardId}"]`).getAttribute('data-layout-size'), 'l');
   assert.equal(await panel.locator(`[data-layout-id="${primaryCardId}"]`).evaluate(element => Number(element.style.order)), layoutSaves[1].cards[primaryCardId].order);
-  assert.match(await panel.locator(`[data-layout-id="${primaryCardId}"] [data-favorite]`).getAttribute('class'), /active/, 'layout favorite must affect the rendered card');
+  assert.match(await panel.locator(`[data-layout-id="${primaryCardId}"]`).getAttribute('class'), /layoutFavorite/, 'layout favorite must affect the rendered card without a permanent star');
   await panel.locator('[data-light-filter="favorites"]').click();
   assert.equal(await panel.locator(`[data-layout-id="${primaryCardId}"]`).count(), 1, 'layout favorite must participate in the Favorites filter');
   await panel.locator('[data-page="home"]').click();
@@ -348,6 +357,29 @@ for (const viewport of viewports) {
     await panel.evaluate(async element => { element._config=null; await element._loadConfig(); element._renderLights(); });
     assert.equal(await panel.evaluate(element=>Boolean(element._config.layout.mobile?.lights)),false,'layout reset must survive bootstrap reload');
     await panel.evaluate(element=>element._cancelLayoutEditor());
+    await panel.evaluate(element => { element._installerUnlocked=true; element._startLayoutEditor(false,'area'); });
+    assert.equal(await panel.locator('#page-home [data-layout-view-button="area"].active').count(),1,'Area ordering must use the same Layout Editor');
+    const areaCards = panel.locator('#page-home .areaGrid [data-layout-id^="area:"]');
+    assert.equal(await areaCards.count(),2,'all discovered Home Assistant areas must be editable');
+    const originalAreaOrder = await areaCards.evaluateAll(elements=>elements.sort((a,b)=>Number(a.style.order)-Number(b.style.order)).map(element=>element.dataset.layoutId));
+    await panel.locator(`#page-home [data-layout-id="${originalAreaOrder[0]}"] [data-layout-drag]`).press('ArrowDown');
+    const changedAreaOrder = await panel.evaluate(element=>element._layoutEditor.drafts.get('base:area').map(card=>card.id));
+    assert.deepEqual(changedAreaOrder,[originalAreaOrder[1],originalAreaOrder[0]],'Area order must change without changing technical area metadata');
+    await panel.locator('#page-home [data-layout-save]').click();
+    const areaSave = await page.evaluate(() => window.__clWsCalls.filter(call => call.type === 'cl_control/layout/set' && call.view === 'area').at(-1));
+    assert.ok(areaSave?.cards?.[originalAreaOrder[0]],'Area order must persist through the layout WebSocket contract');
+    await panel.evaluate(element=>element._cancelLayoutEditor());
+    await panel.evaluate(element => { element._installerUnlocked=true; element._startLayoutEditor(false,'sections'); });
+    const areaSections = panel.locator('#page-area [data-layout-id^="area-section:"]');
+    assert.ok(await areaSections.count() >= 2,'populated Area View sections must be editable in the same Layout Editor');
+    const originalSectionOrder = await areaSections.evaluateAll(elements=>elements.sort((a,b)=>Number(a.style.order)-Number(b.style.order)).map(element=>element.dataset.layoutId));
+    await panel.locator(`#page-area [data-layout-id="${originalSectionOrder[0]}"] [data-layout-drag]`).press('ArrowDown');
+    const changedSectionOrder = await panel.evaluate(element=>element._layoutEditor.drafts.get('base:sections').map(card=>card.id));
+    assert.deepEqual(changedSectionOrder.slice(0,2),[originalSectionOrder[1],originalSectionOrder[0]],'Area section order must remain a presentation-only draft');
+    await panel.locator('#page-area [data-layout-save]').click();
+    const sectionSave = await page.evaluate(() => window.__clWsCalls.filter(call => call.type === 'cl_control/layout/set' && call.view === 'sections').at(-1));
+    assert.ok(sectionSave?.cards?.[originalSectionOrder[0]],'Area section order must persist only after explicit save');
+    await panel.evaluate(element=>element._cancelLayoutEditor());
     await panel.evaluate(element => { element._installerUnlocked = true; element._editEntity('sensor.qualita_aria_incerta'); });
     await panel.locator('input[name="alias"]').fill('Aria salone');
     await panel.evaluate(element => { const root=element.shadowRoot; root.querySelector('input[name="module"][value="environment"]').checked=true; root.querySelector('input[name="area"]').value='Zona giorno'; root.querySelector('input[name="type"][value="tecnico"]').checked=true; root.querySelector('input[name="subtype"][value="aqi"]').checked=true; root.querySelector('input[name="level"][value="standard"]').checked=true; root.querySelector('input[name="visible"]').checked=true; root.querySelector('input[name="favorite"]').checked=true; root.querySelector('#clDialogForm').requestSubmit(); });
@@ -360,4 +392,4 @@ for (const viewport of viewports) {
 }
 
 await browser.close();
-console.log('ui interaction 3.3.0-dev: ok');
+console.log('ui interaction 3.4.0-dev: ok');
