@@ -67,6 +67,7 @@ design_tokens:
     bold: 700
   component_size:
     content_max_width: "1280px"
+    dashboard_content_max_width: "1600px"
     logo: "72px"
     logo_compact: "52px"
     logo_desktop: "58px"
@@ -77,6 +78,7 @@ design_tokens:
     flow_node_min_height: "96px"
     header: "58px"
     bottom_nav: "64px"
+    dashboard_bottom_nav: "56px"
     nav_rail: "80px"
     sidebar: "224px"
     nav_item: "52px"

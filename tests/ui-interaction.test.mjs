@@ -39,7 +39,7 @@ for (const viewport of viewports) {
     window.__clServiceCalls = [];
     element.hass.callService = async (...args) => window.__clServiceCalls.push(args);
   });
-  await panel.locator('[data-page="lights"]').click();
+  await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="lights"]')?.click());
   const customerLight = panel.locator('[data-light-card="light.cucina"]');
   const unavailableLight = panel.locator('[data-light-card="light.portico"]');
   assert.equal(await customerLight.locator('[data-edit-entity]').count(), 0, 'customer cards must not expose Installer configuration');
@@ -158,7 +158,7 @@ for (const viewport of viewports) {
   assert.match(await panel.locator('.environmentSection').textContent(), /PM2.5 camera/);
   assert.doesNotMatch(await panel.locator('.environmentSection').textContent(), /sensor\./);
 
-  await panel.locator('[data-page="covers"]').click();
+  await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="covers"]')?.click());
   const coverSlider = panel.locator('[data-cover-position]').first();
   const coverBox = await coverSlider.boundingBox();
   assert.ok(coverBox);
@@ -332,7 +332,7 @@ for (const viewport of viewports) {
   assert.match(await panel.locator(`[data-layout-id="${primaryCardId}"]`).getAttribute('class'), /layoutFavorite/, 'layout favorite must affect the rendered card without a permanent star');
   await panel.locator('[data-light-filter="favorites"]').click();
   assert.equal(await panel.locator(`[data-layout-id="${primaryCardId}"]`).count(), 1, 'layout favorite must participate in the Favorites filter');
-  await panel.locator('[data-page="home"]').click();
+  await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="home"]')?.click());
   assert.equal(await panel.locator('.statusCard').count(), 1, 'Home status card regression');
   assert.ok(await panel.locator('[data-layout-module]').count() > 0, 'Home modules regression');
   console.log(`layout reload ${viewport.width}: ok`);
@@ -391,5 +391,48 @@ for (const viewport of viewports) {
   await page.close();
 }
 
+for (const viewport of viewports) {
+  const page = await browser.newPage({ viewport, hasTouch: viewport.width < 768 });
+  page.setDefaultTimeout(7000);
+  await page.goto('http://127.0.0.1:8765/tests/ui3-harness.html?theme=cl_blue&context=dashboard', { waitUntil: 'networkidle' });
+  const panel = page.locator('cl-control-panel');
+  assert.equal(await panel.evaluate(element => element.runtimeContext), 'dashboard');
+  const shell = await panel.evaluate(element => {
+    const root=element.shadowRoot,nav=root.querySelector('.nav'),wrap=root.querySelector('.wrap'),top=root.querySelector('.top'),app=root.querySelector('.app');
+    const navBox=nav.getBoundingClientRect(),wrapBox=wrap.getBoundingClientRect();
+    return {navDisplay:getComputedStyle(nav).display,navHeight:navBox.height,topDisplay:getComputedStyle(top).display,wrapWidth:wrapBox.width,appPaddingBottom:parseFloat(getComputedStyle(app).paddingBottom)};
+  });
+  assert.equal(shell.topDisplay, 'none', 'dashboard must not duplicate the Home Assistant header');
+  if (viewport.width >= 768) {
+    assert.equal(shell.navDisplay, 'none', 'dashboard desktop/tablet must use Home Assistant navigation');
+    assert.ok(shell.wrapWidth >= viewport.width * .75, 'dashboard desktop must use the available width');
+  } else {
+    assert.notEqual(shell.navDisplay, 'none', 'dashboard smartphone keeps compact CL navigation');
+    assert.ok(shell.navHeight <= 58, 'dashboard smartphone navigation must remain compact');
+    assert.ok(shell.appPaddingBottom >= shell.navHeight, 'content must reserve space for bottom navigation');
+  }
+  await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="lights"]')?.click());
+  assert.equal(await panel.locator('[data-light-card="light.cl_power_control_status"]').count(), 0, 'technical CL Power Control entity must be filtered from Customer Lights');
+  assert.equal(await panel.evaluate(element=>element._installerEntities().some(item=>item.id==='light.cl_power_control_status')), true, 'technical entities remain available to Installer diagnostics');
+  assert.equal(await panel.locator('[data-light-card="light.lampadario_ingresso_nome_molto_lungo"]').count(), 1, 'long customer light names remain visible');
+  assert.equal(await panel.locator('[data-light-card="light.lampadario_ingresso_nome_molto_lungo"] .name').evaluate(element => getComputedStyle(element).webkitLineClamp), '2');
+  await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="covers"]')?.click());
+  const coverCards=panel.locator('#page-covers .coverEntity');
+  assert.ok(await coverCards.count() >= 2);
+  if (viewport.width < 768) {
+    const heights=await coverCards.evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));
+    assert.ok(heights.every(height=>height<=170), 'mobile cover tiles must remain compact');
+    await coverCards.last().scrollIntoViewIfNeeded();
+    const clearance=await panel.evaluate(element=>{const root=element.shadowRoot,last=root.querySelector('#page-covers .coverEntity:last-of-type'),nav=root.querySelector('.nav');return{lastBottom:last?.getBoundingClientRect().bottom||0,navTop:nav?.getBoundingClientRect().top||innerHeight};});
+    assert.ok(clearance.lastBottom<=clearance.navTop+1, 'last cover must be reachable above bottom navigation');
+  }
+  assert.equal(await panel.locator('#page-covers .coverSlider').first().evaluate(element=>getComputedStyle(element).touchAction), 'pan-y');
+  await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="home"]')?.click());
+  await panel.locator('#page-home [data-home-area]').first().click();
+  assert.ok(await panel.locator('#page-area [data-area-section]').count() >= 1);
+  assert.deepEqual(await page.evaluate(()=>window.__clServiceCalls||[]), [], 'dashboard navigation and rendering must not command devices');
+  await page.close();
+}
+
 await browser.close();
-console.log('ui interaction 3.4.0-dev: ok');
+console.log('ui interaction 3.4.1-dev: ok');

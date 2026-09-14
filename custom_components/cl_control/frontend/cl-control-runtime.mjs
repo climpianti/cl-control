@@ -259,7 +259,7 @@ export const FALLBACK_BOOTSTRAP = Object.freeze({
       icon_size: { sm: "18px", md: "22px", lg: "28px" },
       typography_scale: { micro: "10px", caption: "12px", label: "13px", body_small: "14px", body: "15px", section: "17px", heading: "20px", page: "26px", title: "24px", display: "32px" },
       font_weight: { regular: 400, medium: 500, semibold: 600, bold: 700 },
-      component_size: { content_max_width: "1280px", logo: "72px", logo_compact: "52px", logo_desktop: "58px", camera_height: "200px", navigation_max_width: "960px", navigation_item_width: "82px", panel_bottom_space: "96px", flow_node_min_height: "96px", header: "58px", bottom_nav: "64px", nav_rail: "80px", sidebar: "224px", nav_item: "52px", tile_icon: "42px", status_icon: "42px", status: "68px", quick_tile: "88px", toggle_dot: "18px", installer_max_width: "1120px", dialog_max_width: "520px", toast_max_width: "520px", bottom_sheet_max_width: "620px", thermostat_min_height: "190px", color_picker_max: "220px", choice_list_max_height: "240px", layout_min_column: "168px", layout_editor_bar: "64px", layout_preview_mobile: "390px", layout_preview_tablet: "820px", layout_preview_wall: "1200px" },
+      component_size: { content_max_width: "1280px", dashboard_content_max_width: "1600px", logo: "72px", logo_compact: "52px", logo_desktop: "58px", camera_height: "200px", navigation_max_width: "960px", navigation_item_width: "82px", panel_bottom_space: "96px", dashboard_bottom_nav: "56px", flow_node_min_height: "96px", header: "58px", bottom_nav: "64px", nav_rail: "80px", sidebar: "224px", nav_item: "52px", tile_icon: "42px", status_icon: "42px", status: "68px", quick_tile: "88px", toggle_dot: "18px", installer_max_width: "1120px", dialog_max_width: "520px", toast_max_width: "520px", bottom_sheet_max_width: "620px", thermostat_min_height: "190px", color_picker_max: "220px", choice_list_max_height: "240px", layout_min_column: "168px", layout_editor_bar: "64px", layout_preview_mobile: "390px", layout_preview_tablet: "820px", layout_preview_wall: "1200px" },
       touch_target: "44px",
       breakpoints: { phone: 480, tablet: 768, desktop: 1200 },
       motion: {
@@ -398,6 +398,7 @@ export function buildDesignTokens(bootstrap, themeId) {
     "--cl-weight-semibold": tokens.font_weight?.semibold,
     "--cl-weight-bold": tokens.font_weight?.bold,
     "--cl-content-max-width": tokens.component_size?.content_max_width,
+    "--cl-dashboard-content-max-width": tokens.component_size?.dashboard_content_max_width || tokens.component_size?.content_max_width,
     "--cl-logo-size": tokens.component_size?.logo,
     "--cl-camera-height": tokens.component_size?.camera_height,
     "--cl-navigation-max-width": tokens.component_size?.navigation_max_width,
@@ -408,6 +409,7 @@ export function buildDesignTokens(bootstrap, themeId) {
     "--cl-size-logo-desktop": tokens.component_size?.logo_desktop || tokens.component_size?.logo_compact,
     "--cl-size-header": tokens.component_size?.header,
     "--cl-size-bottom-nav": tokens.component_size?.bottom_nav,
+    "--cl-size-dashboard-bottom-nav": tokens.component_size?.dashboard_bottom_nav || tokens.component_size?.bottom_nav,
     "--cl-size-nav-rail": tokens.component_size?.nav_rail,
     "--cl-size-sidebar": tokens.component_size?.sidebar,
     "--cl-size-nav-item": tokens.component_size?.nav_item,
@@ -531,8 +533,37 @@ export function looksTechnicalName(value) {
     /(?:shelly|sonoff|esphome|tasmota|zigbee|zwave)[-_]?[a-f0-9]{6,}/i.test(compact) ||
     /(?:^|[-_])[a-f0-9]{10,}(?:$|[-_])/i.test(compact) ||
     /\b(?:channel|canale|relay|switch)[-_ ]?\d+\b/i.test(compact) ||
-    /^[a-z0-9]+(?:[-_][a-z0-9]+){3,}$/i.test(compact)
+    /^(?=.*\d)[a-z0-9]+(?:[-_][a-z0-9]+){3,}$/i.test(compact)
   );
+}
+
+export function classifyCustomerEntity(entityId, attributes = {}, metadata = {}) {
+  const domain = String(entityId || "").split(".", 1)[0].toLowerCase();
+  const category = String(metadata.entity_category || attributes.entity_category || "").toLowerCase();
+  if (["config", "diagnostic"].includes(category)) {
+    return { customer_facing: false, classification_reason: "entity_category" };
+  }
+  if (metadata.disabled_by || metadata.hidden_by) {
+    return { customer_facing: false, classification_reason: metadata.disabled_by ? "disabled_entity" : "hidden_entity" };
+  }
+  const platform = String(metadata.platform || metadata.integration || "").toLowerCase();
+  if (platform === "cl_control") {
+    return { customer_facing: false, classification_reason: "internal_platform" };
+  }
+  const technicalPlatforms = new Set(["hassio", "homeassistant", "repairs", "systemmonitor"]);
+  if (technicalPlatforms.has(platform)) {
+    return { customer_facing: false, classification_reason: "technical_platform" };
+  }
+  const technicalText = [entityId, metadata.name, metadata.original_name, metadata.device_name]
+    .filter(Boolean).join(" ").toLowerCase();
+  const internalMarker = /(?:^|[\s._-])(controller|control|diagnostic|diagnostics|firmware|availability|health|status|uptime|update)(?:$|[\s._-])/i;
+  if (platform === "cl_power_control" && internalMarker.test(technicalText)) {
+    return { customer_facing: false, classification_reason: "integration_internal_entity" };
+  }
+  if (["button", "event", "number", "select", "text", "update"].includes(domain)) {
+    return { customer_facing: false, classification_reason: "service_domain" };
+  }
+  return { customer_facing: true, classification_reason: "customer_safe" };
 }
 
 export function classifySwitchModule(entityId, attributes = {}, metadata = {}, manualModule = "") {
@@ -540,6 +571,10 @@ export function classifySwitchModule(entityId, attributes = {}, metadata = {}, m
     return { module: manualModule, classification_confidence: 1, classification_reason: "installer_override", needs_review: false, customer_facing: manualModule === "lights" };
   }
   const domain = String(entityId || "").split(".", 1)[0];
+  const customerClassification = classifyCustomerEntity(entityId, attributes, metadata);
+  if (!customerClassification.customer_facing) {
+    return { module: "installer", classification_confidence: 0.99, classification_reason: customerClassification.classification_reason, needs_review: false, customer_facing: false };
+  }
   if (domain === "light") return { module: "lights", classification_confidence: 1, classification_reason: "light_domain", needs_review: false, customer_facing: true };
   if (!["switch", "valve"].includes(domain)) return { module: "unassigned", classification_confidence: 0, classification_reason: "unsupported_domain", needs_review: true, customer_facing: false };
   const category = String(metadata.entity_category || attributes.entity_category || "").toLowerCase();

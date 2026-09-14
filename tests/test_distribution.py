@@ -224,7 +224,7 @@ class DistributionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(manifest["domain"], "cl_control")
         self.assertEqual(manifest["name"], "CL Control")
-        self.assertEqual(manifest["version"], "3.4.0-dev")
+        self.assertEqual(manifest["version"], "3.4.1-dev")
         self.assertTrue(manifest["config_flow"])
         self.assertTrue(manifest["single_config_entry"])
         self.assertEqual(manifest["codeowners"], ["@climpianti"])

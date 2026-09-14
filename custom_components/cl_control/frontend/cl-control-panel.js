@@ -1,6 +1,7 @@
 import {
   FALLBACK_BOOTSTRAP,
   applyDesignTokens,
+  classifyCustomerEntity,
   classifySwitchModule,
   classifyCover,
   classifyEnvironmentSensor,
@@ -87,8 +88,9 @@ class CLControlPanel extends HTMLElement {
     this._renderData();
   }
   get hass(){return this._hass;}
-  set panel(value){this._panel=value;}
+  set panel(value){this._panel=value;if(value?.config?.dashboard_context===true)this.setAttribute('dashboard-context','');}
   set narrow(value){this.toggleAttribute('narrow',Boolean(value));}
+  get runtimeContext(){return this.hasAttribute('dashboard-context')||this._panel?.config?.dashboard_context===true?'dashboard':'panel';}
 
   _state(id){return this._hass?.states?.[id];}
   _value(id,fallback='unknown'){return this._state(id)?.state ?? fallback;}
@@ -167,7 +169,7 @@ class CLControlPanel extends HTMLElement {
   _applyTheme(theme=null){const selected=theme||this._theme(),effective=selected==='auto'?(window.matchMedia?.('(prefers-color-scheme: light)').matches?'light':'dark'):selected;this.setAttribute('data-theme',selected);this.setAttribute('data-theme-effective',effective);applyDesignTokens(this,this._bootstrap,effective);}
   async _setTheme(theme){if(!this._installerOn())return;this._config.theme=theme;this._applyTheme(theme);await this._saveConfig({theme});}
 
-  _entityMetadata(id){const entity=this._entityRegistry.get(id)||{};const device=this._deviceRegistry.get(entity.device_id)||{};const identifiers=(device.identifiers||[]).flat().map(String);return{...entity,device,device_id:entity.device_id||'',device_name:device.name_by_user||device.name||'',manufacturer:device.manufacturer||'',model:device.model||'',identifiers,area_name:this._installerAreaName(id),platform:entity.platform||entity.integration||'',integration:entity.platform||entity.integration||'',original_device_class:entity.original_device_class||'',config_entry_id:entity.config_entry_id||'',switch_type:this._config?.switch_types?.[id]||''};}
+  _entityMetadata(id){const entity=this._entityRegistry.get(id)||{};const device=this._deviceRegistry.get(entity.device_id)||{};const identifiers=(device.identifiers||[]).flat().map(String);return{...entity,device,device_id:entity.device_id||'',device_name:device.name_by_user||device.name||'',manufacturer:device.manufacturer||'',model:device.model||'',identifiers,area_name:this._installerAreaName(id),platform:entity.platform||entity.integration||'',integration:entity.platform||entity.integration||'',entity_category:entity.entity_category||'',disabled_by:entity.disabled_by||'',hidden_by:entity.hidden_by||'',original_device_class:entity.original_device_class||'',config_entry_id:entity.config_entry_id||'',switch_type:this._config?.switch_types?.[id]||''};}
   _customerNameInfo(id){
     const alias=String(this._config?.aliases?.[id]||'').trim();if(alias)return{name:alias,source:'cl_control',needs_review:false};
     const state=this._state(id),meta=this._entityMetadata(id);const friendly=String(state?.attributes?.friendly_name||'').trim();if(friendly&&!looksTechnicalName(friendly))return{name:friendly,source:'friendly_name',needs_review:false};
@@ -182,7 +184,7 @@ class CLControlPanel extends HTMLElement {
   }
   _displayName(id){return this._customerNameInfo(id).name;}
   _nameNeedsReview(id){return this._customerNameInfo(id).needs_review;}
-  _customerEntityVisible(id){const override=this._config?.entity_visibility?.[id];if(override===false)return false;if(override===true)return true;return !this._customerNameInfo(id).needs_review;}
+  _customerEntityVisible(id){const override=this._config?.entity_visibility?.[id];if(override===false)return false;if(override===true)return true;const entity=this._state(id),classification=classifyCustomerEntity(id,entity?.attributes||{},this._entityMetadata(id));return classification.customer_facing&&!this._customerNameInfo(id).needs_review;}
   _switchClassification(entity){if(!entity)return{module:'unassigned',classification_confidence:0,needs_review:true,customer_facing:false};return classifySwitchModule(entity.entity_id,entity.attributes||{},this._entityMetadata(entity.entity_id),this._config?.entity_modules?.[entity.entity_id]||'');}
   _isFavorite(id){const configured=(this._config?.favorites||[]).includes(id),cardId=`lights:entity:${id}`,layout=this._config?.layout||{},context=this._layoutContext?.()||'base',base=layout.base?.lights?.[cardId]?.favorite,override=context!=='base'?layout[context]?.lights?.[cardId]?.favorite:undefined;return typeof override==='boolean'?override:typeof base==='boolean'?base:configured;}
   _choiceField(name,label,options,current){

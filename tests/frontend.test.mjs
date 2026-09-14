@@ -10,6 +10,7 @@ import {
   classifyEnvironmentSensor,
   environmentStatus,
   classifyCover,
+  classifyCustomerEntity,
   classifySecurityZone,
   classifySwitchModule,
   buildResponsiveNavigation,
@@ -43,6 +44,8 @@ assert.ok(tokens["--cl-font-label"]);
 assert.ok(tokens["--cl-logo-size"]);
 assert.ok(tokens["--cl-motion-flow"]);
 assert.ok(tokens["--cl-size-bottom-nav"]);
+assert.ok(tokens["--cl-size-dashboard-bottom-nav"]);
+assert.ok(tokens["--cl-dashboard-content-max-width"]);
 assert.ok(tokens["--cl-font-page"]);
 assert.ok(tokens["--cl-focus-ring"]);
 assert.ok(tokens["--cl-color-wheel"]);
@@ -190,6 +193,17 @@ const genericSwitch = classifySwitchModule("switch.relay_0", { friendly_name: "S
 assert.equal(genericSwitch.module, "unassigned");
 assert.equal(genericSwitch.needs_review, true);
 assert.equal(genericSwitch.customer_facing, false);
+const technicalPowerLight = classifyCustomerEntity(
+  "light.cl_power_control_status",
+  { friendly_name: "CL Power Control" },
+  { platform: "cl_power_control", original_name: "Controller status" },
+);
+assert.equal(technicalPowerLight.customer_facing, false);
+assert.equal(technicalPowerLight.classification_reason, "integration_internal_entity");
+assert.equal(classifySwitchModule("light.cl_power_control_status", {}, { platform: "cl_power_control" }).customer_facing, false);
+assert.equal(classifyCustomerEntity("light.cucina", { friendly_name: "Cucina" }, { platform: "hue" }).customer_facing, true);
+assert.equal(classifyCustomerEntity("switch.calibrazione", {}, { platform: "shelly", entity_category: "config" }).customer_facing, false);
+assert.equal(classifyCustomerEntity("sensor.segnale", {}, { platform: "demo", disabled_by: "integration" }).customer_facing, false);
 const navItems = [["home"], ["lights"], ["climate"], ["energy"], ["support"], ["more"]];
 assert.deepEqual(selectMobileNavigation(navItems, { isAdmin: true }), ["home", "lights", "climate", "energy", "more"]);
 assert.deepEqual(selectMobileNavigation(navItems, { isAdmin: false }), ["home", "lights", "climate", "energy", "support"]);
@@ -221,6 +235,8 @@ assert.equal(unrelatedBinary.security_candidate, false);
 assert.match(icon("home"), /^<svg/);
 const ui3Styles = buildUi3Styles(FALLBACK_BOOTSTRAP.branding);
 assert.match(ui3Styles, /safe-area-inset-bottom/);
+assert.match(ui3Styles, /:host\(\[dashboard-context\]\) \.nav\{display:none!important\}/);
+assert.match(ui3Styles, /--cl-size-dashboard-bottom-nav/);
 assert.match(ui3Styles, /prefers-reduced-motion/);
 assert.match(ui3Styles, /@media\(min-width:768px\)/);
 assert.match(ui3Styles, /@media\(min-width:1200px\)/);

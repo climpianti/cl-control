@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.1-dev
+
+- Distinguish panel and Home Assistant dashboard presentation without duplicating runtime logic.
+- Improve responsive dashboard density, mobile navigation clearance, light tiles, cover tiles, and Area View sections.
+- Exclude technical/configuration entities from the Customer UI while retaining Installer access and explicit overrides.
+
 ## 3.4.0-dev
 
 - Redesign Home as an overview with status, favorites, Home Assistant areas and global modules.

@@ -191,7 +191,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
             hass.data["cl_control"]["settings"]["site"]["site_name"],
             "Existing site",
         )
-        component.async_register_commands.assert_called_once_with(hass, "3.4.0-dev")
+        component.async_register_commands.assert_called_once_with(hass, "3.4.1-dev")
         self.assertIn(
             ((hass, "cl_control", f"invalid_config_entry_{entry.entry_id}"), {}),
             support.issue_registry.deleted,
@@ -210,7 +210,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(support._Store.records, credentials_before)
         self.assertNotIn("runtime", hass.data["cl_control"])
         self.assertTrue(await component.async_setup_entry(hass, entry))
-        component.async_register_commands.assert_called_once_with(hass, "3.4.0-dev")
+        component.async_register_commands.assert_called_once_with(hass, "3.4.1-dev")
         self.assertTrue(await component.async_unload_entry(hass, entry))
         invalid_cleanup = [
             args
