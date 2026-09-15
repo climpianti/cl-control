@@ -30,7 +30,14 @@ for (const viewport of viewports) {
   assert.equal(await panel.locator('#page-area').getAttribute('class'), 'page active');
   assert.ok(await panel.locator('#page-area [data-area-section]').count() >= 1, 'Area View must expose only populated sections');
   assert.equal(await panel.locator('#page-area').evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, 'Area View must not overflow');
-  await panel.locator('#page-area [data-area-back]').click();
+  const areaName = await panel.locator('#page-area .pageTitle').textContent();
+  await panel.locator('#page-area [data-area-module]').first().click();
+  assert.notEqual(await panel.evaluate(element => element._page), 'area', 'Area module must open as a secondary CL view');
+  await panel.locator('.page.active [data-nav-back]').click();
+  assert.equal(await panel.evaluate(element => element._page), 'area');
+  assert.equal(await panel.locator('#page-area .pageTitle').textContent(), areaName, 'contextual back must return to the originating Area');
+  await panel.locator('#page-area [data-nav-back]').click();
+  assert.equal(await panel.evaluate(element => element._page), 'home', 'Area back must return Home');
   if (viewport.width === 390) {
     await panel.evaluate(element => { element._config.support.site_name='Impianto residenziale con una denominazione volutamente molto lunga'; element._renderHome(); });
     assert.equal(await panel.locator('#page-home').evaluate(element => element.scrollWidth <= element.clientWidth + 1), true, 'long site names must not create horizontal overflow');
@@ -40,6 +47,7 @@ for (const viewport of viewports) {
     element.hass.callService = async (...args) => window.__clServiceCalls.push(args);
   });
   await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="lights"]')?.click());
+  assert.equal(await panel.locator('#page-lights [data-nav-back]').count(), 1, 'secondary modules need one compact CL back action');
   const customerLight = panel.locator('[data-light-card="light.cucina"]');
   const unavailableLight = panel.locator('[data-light-card="light.portico"]');
   assert.equal(await customerLight.locator('[data-edit-entity]').count(), 0, 'customer cards must not expose Installer configuration');
@@ -302,7 +310,7 @@ for (const viewport of viewports) {
   await panel.locator('#clDialogForm .primary').click();
   await panel.evaluate((element,id)=>{ element._editLayoutCard('lights',id); }, resetCardId);
   assert.match(await panel.locator('.dialog > p').textContent(), /Base/);
-  assert.match(await panel.locator('.fieldHint').textContent(), /Nome, area, preferito e configurazione tecnica restano invariati/);
+  assert.match(await panel.locator('.dialog .fieldHint').textContent(), /Nome, area, preferito e configurazione tecnica restano invariati/);
   await panel.locator('button[name="action"][value="reset"]').click();
   await page.waitForFunction(id=>{const panel=document.querySelector('cl-control-panel');return panel?._layoutEditor?.drafts?.get('base:lights')?.find(card=>card.id===id)?.shape==='compact';},resetCardId);
   const resetCard = await panel.evaluate((element,id)=>element._layoutEditor.drafts.get('base:lights').find(card=>card.id===id), resetCardId);
@@ -403,8 +411,17 @@ for (const viewport of viewports) {
     return {navDisplay:getComputedStyle(nav).display,navHeight:navBox.height,topDisplay:getComputedStyle(top).display,wrapWidth:wrapBox.width,appPaddingBottom:parseFloat(getComputedStyle(app).paddingBottom)};
   });
   assert.equal(shell.topDisplay, 'none', 'dashboard must not duplicate the Home Assistant header');
+  if (viewport.width === 390) {
+    for (const modulePage of ['lights','covers','climate']) {
+      await panel.evaluate((element,page)=>element.shadowRoot.querySelector(`[data-page="${page}"]`)?.click(),modulePage);
+      assert.equal(await panel.evaluate(element=>element._page),modulePage);
+      await panel.locator('.page.active [data-nav-back]').click();
+      assert.equal(await panel.evaluate(element=>element._page),'home',`back from ${modulePage} must return Home`);
+    }
+  }
   if (viewport.width >= 768) {
-    assert.equal(shell.navDisplay, 'none', 'dashboard desktop/tablet must use Home Assistant navigation');
+    assert.notEqual(shell.navDisplay, 'none', 'dashboard desktop/tablet keeps compact internal CL navigation');
+    assert.ok(shell.navHeight <= 72, 'desktop dashboard navigation must remain a compact tab rail');
     assert.ok(shell.wrapWidth >= viewport.width * .75, 'dashboard desktop must use the available width');
   } else {
     assert.notEqual(shell.navDisplay, 'none', 'dashboard smartphone keeps compact CL navigation');
@@ -421,12 +438,22 @@ for (const viewport of viewports) {
   assert.ok(await coverCards.count() >= 2);
   if (viewport.width < 768) {
     const heights=await coverCards.evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));
-    assert.ok(heights.every(height=>height<=170), 'mobile cover tiles must remain compact');
+    assert.ok(heights.every(height=>height<=150), 'mobile cover tiles must remain compact');
     await coverCards.last().scrollIntoViewIfNeeded();
     const clearance=await panel.evaluate(element=>{const root=element.shadowRoot,last=root.querySelector('#page-covers .coverEntity:last-of-type'),nav=root.querySelector('.nav');return{lastBottom:last?.getBoundingClientRect().bottom||0,navTop:nav?.getBoundingClientRect().top||innerHeight};});
     assert.ok(clearance.lastBottom<=clearance.navTop+1, 'last cover must be reachable above bottom navigation');
   }
   assert.equal(await panel.locator('#page-covers .coverSlider').first().evaluate(element=>getComputedStyle(element).touchAction), 'pan-y');
+  await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="climate"]')?.click());
+  if (viewport.width < 768) {
+    const climateHeights=await panel.locator('#page-climate .thermostatCard').evaluateAll(elements=>elements.map(element=>element.getBoundingClientRect().height));
+    assert.ok(climateHeights.every(height=>height<=175), 'mobile climate tiles must remain dense and touch-friendly');
+  }
+  await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="energy"]')?.click());
+  assert.doesNotMatch(await panel.locator('#page-energy').textContent(), /MAPPATURA INSTALLATORE/i);
+  assert.doesNotMatch(await panel.locator('#page-energy').textContent(), /Nessun sensore energia riconosciuto/i);
+  assert.doesNotMatch(await panel.locator('#page-energy').textContent(), /--/);
+  assert.equal(await panel.locator('#page-energy').evaluate(element=>element.scrollWidth<=element.clientWidth+1), true, 'capability-aware energy view must stay inside the viewport');
   await panel.evaluate(element=>element.shadowRoot.querySelector('[data-page="home"]')?.click());
   await panel.locator('#page-home [data-home-area]').first().click();
   assert.ok(await panel.locator('#page-area [data-area-section]').count() >= 1);
@@ -435,4 +462,4 @@ for (const viewport of viewports) {
 }
 
 await browser.close();
-console.log('ui interaction 3.4.1-dev: ok');
+console.log('ui interaction 3.4.2-dev: ok');

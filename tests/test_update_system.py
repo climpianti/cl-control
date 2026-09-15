@@ -183,8 +183,9 @@ class UpdateSystemTests(unittest.IsolatedAsyncioTestCase):
             component = root / "custom_components/cl_control"
             component.mkdir(parents=True)
             (component / "old.txt").write_text("old")
-            raw = signed_manifest(self.private, self.payload)
-            provider = distribution.MockDistributionProvider(raw, self.payload)
+            current_release = artifact("3.4.2")
+            raw = signed_manifest(self.private, current_release, version="3.4.2")
+            provider = distribution.MockDistributionProvider(raw, current_release)
             backup = Backup()
             entry = types.SimpleNamespace(data={"installation_id": "id"})
             manager = distribution.UpdateManager(hass=Hass(root), entry=entry, provider=provider, release_channel="stable", public_keys={"test": self.public}, backup_provider=backup)

@@ -1,7 +1,7 @@
 # CL Control
 
 CL Control is the CL Impianti customer interface for Home Assistant. The current
-development version is `3.4.1-dev`.
+development version is `3.4.2-dev`.
 
 ## Optional Home Assistant dashboard
 

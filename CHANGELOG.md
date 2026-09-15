@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.2-dev
+
+- Add contextual CL navigation with deterministic back behavior in panel and dashboard modes.
+- Refine mobile density, wrapping, area/light tiles, covers, climate and dashboard navigation.
+- Normalize capability-aware energy discovery and Installer mapping across Home and Energy views.
+
 ## 3.4.1-dev
 
 - Distinguish panel and Home Assistant dashboard presentation without duplicating runtime logic.

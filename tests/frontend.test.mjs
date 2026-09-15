@@ -14,11 +14,15 @@ import {
   classifySecurityZone,
   classifySwitchModule,
   buildResponsiveNavigation,
+  buildEnergyModel,
   deepMerge,
   escapeHtml,
   looksTechnicalName,
   selectMobileNavigation,
   unreachableNavigationItems,
+  navigationSnapshot,
+  pushNavigation,
+  popNavigation,
   visibleAtExperience,
   emptyLayout,
   effectiveLayout,
@@ -201,6 +205,8 @@ const technicalPowerLight = classifyCustomerEntity(
 assert.equal(technicalPowerLight.customer_facing, false);
 assert.equal(technicalPowerLight.classification_reason, "integration_internal_entity");
 assert.equal(classifySwitchModule("light.cl_power_control_status", {}, { platform: "cl_power_control" }).customer_facing, false);
+const clPowerControlFleet = Array.from({ length: 137 }, (_, index) => classifyCustomerEntity(`light.cl_power_control_${index + 1}`, { friendly_name: `CL Power Control ${index + 1}` }, { platform: "cl_power_control", entity_category: "diagnostic" }));
+assert.equal(clPowerControlFleet.filter(result => !result.customer_facing).length, 137, "all CL Power Control technical entities remain excluded from Customer UI");
 assert.equal(classifyCustomerEntity("light.cucina", { friendly_name: "Cucina" }, { platform: "hue" }).customer_facing, true);
 assert.equal(classifyCustomerEntity("switch.calibrazione", {}, { platform: "shelly", entity_category: "config" }).customer_facing, false);
 assert.equal(classifyCustomerEntity("sensor.segnale", {}, { platform: "demo", disabled_by: "integration" }).customer_facing, false);
@@ -215,6 +221,45 @@ assert.deepEqual(unreachableNavigationItems(fullNavigation, responsiveNavigation
 for (const required of ["energy", "security", "cameras", "support", "more"]) {
   assert.ok(responsiveNavigation.primary.includes(required) || responsiveNavigation.overflow.includes(required));
 }
+const homeNav = navigationSnapshot();
+const areaNav = navigationSnapshot("area", "Cucina");
+const lightsInArea = navigationSnapshot("lights", "Cucina", "Cucina");
+let navigation = pushNavigation([], homeNav, areaNav);
+navigation = pushNavigation(navigation.stack, navigation.current, lightsInArea);
+assert.deepEqual(navigation.stack, [homeNav, areaNav]);
+navigation = popNavigation(navigation.stack);
+assert.deepEqual(navigation.current, areaNav, "back from an Area module must return to that Area");
+navigation = popNavigation(navigation.stack);
+assert.deepEqual(navigation.current, homeNav, "back from an Area must return Home");
+
+const energyState = (entity_id, state, unit, friendly_name, device_class = unit === "%" ? "battery" : "power") => ({ entity_id, state: String(state), attributes: { unit_of_measurement: unit, friendly_name, device_class } });
+const solar = energyState("sensor.pv_power", 3200, "W", "Produzione fotovoltaica");
+const solarManual = energyState("sensor.inverter_output", 2800, "W", "Uscita inverter");
+const homePower = energyState("sensor.house_load", 1800, "W", "Consumo casa");
+const grid = energyState("sensor.grid_power", 400, "W", "Potenza rete");
+const batteryPower = energyState("sensor.battery_power", 650, "W", "Potenza batteria");
+const batterySoc = energyState("sensor.battery_soc", 78, "%", "SOC batteria");
+assert.equal(buildEnergyModel().has_data, false, "no energy sensor produces one compact empty state");
+assert.deepEqual(buildEnergyModel({ [solar.entity_id]: solar }, {}, [solar]).nodes.map(node => node.id), ["solar"]);
+assert.deepEqual(buildEnergyModel(Object.fromEntries([solar, homePower].map(entity => [entity.entity_id, entity])), {}, [solar, homePower]).nodes.map(node => node.id), ["solar", "home"]);
+assert.deepEqual(buildEnergyModel(Object.fromEntries([grid, homePower].map(entity => [entity.entity_id, entity])), {}, [grid, homePower]).nodes.map(node => node.id), ["home", "grid"]);
+assert.deepEqual(buildEnergyModel(Object.fromEntries([solar, grid, homePower].map(entity => [entity.entity_id, entity])), {}, [solar, grid, homePower]).nodes.map(node => node.id), ["solar", "home", "grid"]);
+const completeEnergy = buildEnergyModel(Object.fromEntries([solar, grid, homePower, batteryPower, batterySoc].map(entity => [entity.entity_id, entity])), {}, [solar, grid, homePower, batteryPower, batterySoc]);
+assert.deepEqual(completeEnergy.nodes.map(node => node.id), ["solar", "home", "grid", "battery"]);
+assert.equal(completeEnergy.roles.battery.entity_id, batterySoc.entity_id, "SOC remains usable without requiring battery power");
+assert.ok(completeEnergy.flows.some(flow => flow.from === "battery" && flow.to === "home"), "positive battery power is represented as discharge to the home");
+const chargingBattery = { ...batteryPower, state: "-650" };
+const solarCharging = buildEnergyModel(Object.fromEntries([solar, homePower, chargingBattery].map(entity => [entity.entity_id, entity])), {}, [solar, homePower, chargingBattery]);
+assert.ok(solarCharging.flows.some(flow => flow.from === "solar" && flow.to === "battery"), "a single valid charging source determines the battery flow");
+const socOnly = buildEnergyModel({ [batterySoc.entity_id]: batterySoc }, {}, [batterySoc]);
+assert.deepEqual(socOnly.nodes.map(node => node.id), ["battery"]);
+const unavailableSolar = { ...solar, state: "unavailable" };
+assert.equal(buildEnergyModel({ [solar.entity_id]: unavailableSolar }, {}, [unavailableSolar]).has_data, false);
+const manualEnergy = buildEnergyModel({ [solar.entity_id]: solar, [solarManual.entity_id]: solarManual }, { solar: solarManual.entity_id }, [solar]);
+assert.equal(manualEnergy.roles.solar.entity_id, solarManual.entity_id, "Installer mapping must override automatic discovery");
+assert.equal(manualEnergy.roles.solar.source, "manual");
+assert.equal(buildEnergyModel({ [solar.entity_id]: solar }, { solar: "__none__" }, [solar]).roles.solar, undefined, "explicit None disables discovery");
+assert.equal(buildEnergyModel({ [solar.entity_id]: solar }, {}, [solar]).roles.solar.source, "auto");
 assert.deepEqual(classifyCover("cover.finestra", { device_class: "window" }), { type: "window", label: "Finestra", confidence: 0.96, entity_id: "cover.finestra" });
 const riscoZone = classifySecurityZone("binary_sensor.bar_serranda", {}, { platform: "risco", original_device_class: "motion", manufacturer: "Risco", identifiers: ["risco", "zone_32"] });
 assert.equal(riscoZone.module, "security");

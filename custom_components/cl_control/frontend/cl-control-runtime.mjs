@@ -616,6 +616,117 @@ export function buildResponsiveNavigation(items, { maxItems = 5 } = {}) {
   return { primary: [...home, ...direct, "overflow"].slice(0, maxItems), overflow };
 }
 
+export function navigationSnapshot(page = "home", area = null, moduleArea = null) {
+  return { page: String(page || "home"), area: area || null, module_area: moduleArea || null };
+}
+
+export function pushNavigation(stack = [], current = navigationSnapshot(), next = navigationSnapshot()) {
+  const history = Array.isArray(stack) ? [...stack] : [];
+  const same = current.page === next.page && current.area === next.area && current.module_area === next.module_area;
+  if (!same) history.push({ ...current });
+  return { stack: history, current: { ...next } };
+}
+
+export function popNavigation(stack = [], fallback = navigationSnapshot()) {
+  const history = Array.isArray(stack) ? [...stack] : [];
+  return { stack: history.slice(0, -1), current: history.at(-1) || { ...fallback } };
+}
+
+export const ENERGY_ROLE_DEFINITIONS = Object.freeze({
+  solar: { label: "Produzione FV", kind: "power" },
+  home: { label: "Consumo casa", kind: "power" },
+  grid: { label: "Potenza rete", kind: "power" },
+  import: { label: "Prelievo rete", kind: "power" },
+  export: { label: "Immissione rete", kind: "power" },
+  battery_power: { label: "Potenza batteria", kind: "power" },
+  battery: { label: "SOC batteria", kind: "soc" },
+  solar_daily: { label: "Energia FV giornaliera", kind: "energy" },
+  import_daily: { label: "Energia prelevata", kind: "energy" },
+  export_daily: { label: "Energia immessa", kind: "energy" },
+  home_daily: { label: "Consumo giornaliero", kind: "energy" },
+});
+
+function energyEntityValid(entity, kind) {
+  if (!entity || ["unknown", "unavailable", "none", ""].includes(String(entity.state ?? "").toLowerCase())) return false;
+  if (!Number.isFinite(Number(entity.state))) return false;
+  const attributes = entity.attributes || {};
+  const unit = String(attributes.unit_of_measurement || "").toLowerCase();
+  const deviceClass = String(attributes.device_class || "").toLowerCase();
+  if (kind === "soc") return deviceClass === "battery" || unit === "%";
+  if (kind === "energy") return deviceClass === "energy" || ["wh", "kwh", "mwh"].includes(unit);
+  return deviceClass === "power" || ["w", "kw", "mw"].includes(unit);
+}
+
+function discoveredEnergyRole(entity) {
+  const attributes = entity?.attributes || {};
+  const text = `${entity?.entity_id || ""} ${attributes.friendly_name || ""}`.toLowerCase();
+  const unit = String(attributes.unit_of_measurement || "").toLowerCase();
+  const deviceClass = String(attributes.device_class || "").toLowerCase();
+  const energy = deviceClass === "energy" || ["wh", "kwh", "mwh"].includes(unit);
+  if (/battery|batteria|soc/.test(text)) return energy ? null : (unit === "%" || deviceClass === "battery" ? "battery" : "battery_power");
+  if (/solar|fotovolta|\bpv\b|produz|generated|generation/.test(text)) return energy ? "solar_daily" : "solar";
+  if (/export|immission|feed.?in/.test(text)) return energy ? "export_daily" : "export";
+  if (/import|preliev/.test(text)) return energy ? "import_daily" : "import";
+  if (/grid|rete/.test(text)) return energy ? null : "grid";
+  if (/consum|load|casa|house|home/.test(text)) return energy ? "home_daily" : "home";
+  return null;
+}
+
+export function buildEnergyModel(states = {}, mapping = {}, discovered = []) {
+  const stateMap = states && !Array.isArray(states) ? states : Object.fromEntries((states || []).map(entity => [entity.entity_id, entity]));
+  const candidates = (discovered || []).map(item => typeof item === "string" ? stateMap[item] : item).filter(Boolean);
+  const used = new Set();
+  const roles = {};
+  const mapping_status = {};
+  for (const [role, definition] of Object.entries(ENERGY_ROLE_DEFINITIONS)) {
+    const configured = mapping?.[role];
+    const mode = configured === "__none__" ? "none" : configured ? "manual" : "auto";
+    let entity = null;
+    if (mode === "manual") entity = stateMap[configured] || null;
+    if (mode === "auto") entity = candidates.find(candidate => !used.has(candidate.entity_id) && discoveredEnergyRole(candidate) === role && energyEntityValid(candidate, definition.kind)) || null;
+    const valid = mode !== "none" && energyEntityValid(entity, definition.kind);
+    mapping_status[role] = {
+      role, label: definition.label, mode, entity_id: mode === "manual" ? String(configured) : entity?.entity_id || "",
+      available: valid, unit: entity?.attributes?.unit_of_measurement || "",
+    };
+    if (!valid) continue;
+    used.add(entity.entity_id);
+    roles[role] = { role, label: definition.label, kind: definition.kind, source: mode, entity_id: entity.entity_id, entity };
+  }
+  const nodes = [];
+  if (roles.solar) nodes.push({ id: "solar", role: roles.solar });
+  if (roles.home) nodes.push({ id: "home", role: roles.home });
+  if (roles.grid || roles.import || roles.export) nodes.push({ id: "grid", role: roles.grid || roles.import || roles.export });
+  if (roles.battery_power || roles.battery) nodes.push({ id: "battery", role: roles.battery_power || roles.battery, secondary: roles.battery });
+  const flows = [];
+  const watts = role => {
+    const selected = roles[role]?.entity; if (!selected) return null;
+    const value = Number(selected.state), unit = String(selected.attributes?.unit_of_measurement || "").toLowerCase();
+    return Number.isFinite(value) ? value * (unit === "kw" ? 1000 : unit === "mw" ? 1000000 : 1) : null;
+  };
+  if (roles.solar && roles.home) flows.push({ from: "solar", to: "home", active: Math.abs(watts("solar") || 0) > 5 });
+  if (nodes.some(node => node.id === "grid") && roles.home) {
+    const exported = watts("export"), imported = watts("import"), grid = watts("grid");
+    const exporting = exported != null ? Math.abs(exported) > 5 : grid != null && grid < -5;
+    const active = Math.abs(exported || 0) > 5 || Math.abs(imported || 0) > 5 || Math.abs(grid || 0) > 5;
+    flows.push({ from: exporting ? "home" : "grid", to: exporting ? "grid" : "home", active });
+  }
+  if (roles.battery_power) {
+    const battery = watts("battery_power");
+    if (battery != null && battery > 5 && roles.home) flows.push({ from: "battery", to: "home", active: true });
+    if (battery != null && battery < -5) {
+      const chargingSources = [];
+      if ((watts("solar") || 0) > 5) chargingSources.push("solar");
+      const gridInput = watts("import") ?? watts("grid");
+      if (gridInput != null && gridInput > 5) chargingSources.push("grid");
+      if (chargingSources.length === 1) flows.push({ from: chargingSources[0], to: "battery", active: true });
+    }
+  }
+  const metrics = Object.values(roles);
+  const summary = roles.solar || roles.home || roles.battery || roles.grid || roles.import || roles.export || null;
+  return { roles, nodes, flows, metrics, mapping_status, summary, has_data: metrics.length > 0 };
+}
+
 export function unreachableNavigationItems(items, model = buildResponsiveNavigation(items)) {
   const ids = items.map(item => Array.isArray(item) ? item[0] : item).filter(Boolean);
   const reachable = new Set(model.primary.filter(id => id !== "overflow"));
