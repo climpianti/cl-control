@@ -1,16 +1,48 @@
 # CL Control
 
 CL Control is the CL Impianti customer interface for Home Assistant. The current
-development version is `3.4.2-dev`.
+beta candidate version is `3.4.2-beta.1`. The repository is private; publishing a
+tag or prerelease remains a separate authorized operation.
 
 ## Optional Home Assistant dashboard
 
 CL Control remains available as the automatically registered `/cl-control` panel. It
 also bundles `cl-control-dashboard-strategy.mjs`, an optional dashboard strategy that
-reuses the same panel, discovery and design-system runtime. Register the versioned
-internal URL as a Home Assistant JavaScript module resource, then choose **CL Control**
+reuses the same panel, discovery and design-system runtime. Register this stable
+URL once as a Home Assistant JavaScript module resource:
+
+```text
+/cl_control_static/cl-control-dashboard-strategy.mjs
+```
+
+In **Settings → Dashboards → Resources** (advanced mode enabled), edit the existing
+CL Control resource from `/cl_control_static/3.4.2-dev/cl-control-dashboard-strategy.mjs`
+to that URL, with type **JavaScript module**. Do not add a duplicate. This one-time
+manual migration does not edit dashboard contents. The integration never rewrites
+Lovelace storage or resources. Existing versioned URLs still work for the installed
+version, but are not retained after a version upgrade.
+
+For future explicitly authorized tooling, HA 2026.9.1 provides admin-only WebSocket
+resource create/update/delete commands under `lovelace/resources`, plus resource
+listing. The [official resource implementation](https://github.com/home-assistant/core/blob/2026.9.1/homeassistant/components/lovelace/resources.py)
+uses HA's storage collection API. This candidate does not call those commands;
+resource migration remains a manual UI operation.
+
+Then choose **CL Control**
 from the Community dashboards picker (Home Assistant 2026.5 or newer). CL Control does
 not change the user's default dashboard automatically.
+
+Create a separate dashboard with its own URL and leave the default selection
+unchanged while testing. The HA sidebar/header belongs to HA; navigation inside the
+CL card uses the same runtime as `/cl-control`. After validation, use Home Assistant's
+dashboard **Set as default** action for the global default, or the dashboard selection
+in your user profile for a user-specific default; these choices are never automatic.
+See the official [Home Assistant dashboard instructions](https://www.home-assistant.io/dashboards/dashboards/).
+
+The stable entrypoint returns `Cache-Control: no-store` and imports the currently
+installed versioned strategy. Panel/runtime assets retain versioned cache-busting
+URLs. After an upgrade/downgrade and HA restart, refresh open browser tabs: already
+loaded JavaScript modules cannot be replaced in a running page.
 
 Example strategy configuration for an explicitly created dashboard:
 
@@ -32,10 +64,13 @@ Home Assistant sidebar. A new installation no longer needs files in
 `/config/www/cl_control`, a `panel_custom` entry, or a `cl_control:` block in
 `configuration.yaml`.
 
-Copy the component folder, restart Home Assistant, then open **Settings → Devices
+For manual installation, download the authorized release ZIP, extract
+`custom_components/cl_control`, and copy that folder into `/config/custom_components/`.
+Restart Home Assistant, then open **Settings → Devices
 & services → Add integration → CL Control**. The Italian onboarding asks for the
 site, assistance, interface and Installer settings, performs a read-only initial
 inventory, and creates the panel. Product defaults are bundled in the integration.
+No Installer secret in YAML is needed: set the PIN during Config Flow.
 
 The generated installation ID is random and persistent. Mutable site settings are
 kept in Config Entry options; layout, entity overrides, favorites and Assistance
@@ -86,3 +121,14 @@ Assistant backup. Only `custom_components/cl_control` is staged and swapped;
 Config Entry, customer storage and credential storage are never included in an
 artifact or overwritten by the updater. See [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)
 for the manifest contract, rollback model and signing-key rotation procedure.
+
+## Local validation
+
+Run `python -m unittest discover -s tests -p "test_*.py"`, then
+`node tests/frontend.test.mjs`. HTTP tests use `aiohttp`; signing tests use
+`cryptography`. Browser tests use Playwright and a local Chromium/Chrome binary.
+Start `python tests/strategy-server.py` (loopback only), then run
+`node tests/dashboard-strategy.test.mjs`, `node tests/ui-interaction.test.mjs` and
+`node tests/visual-audit.mjs` with `CL_TEST_CONTEXT=panel` and `dashboard`.
+Set `CL_PLAYWRIGHT_URL` / `CL_CHROME_PATH` when these dependencies are outside the
+repository. The fixture server does not connect to Home Assistant.

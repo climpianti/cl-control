@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.4.2-beta.1 — private release candidate
+
+- Keep the 3.4.2 contextual navigation stack, mobile density and technical entity filter.
+- Keep capability-aware Energy, the shared HA Dashboard Strategy and Config Entry-only setup.
+- Add a stable Dashboard Strategy URL with a non-cached loader and versioned runtime imports.
+- Preserve the signed updater architecture; provide explicit unsigned staging when the release key is absent.
+- Prepare a deterministic runtime-only ZIP, checksum and beta release metadata; no publication or deploy.
+
 ## 3.4.2-dev
 
 - Add contextual CL navigation with deterministic back behavior in panel and dashboard modes.

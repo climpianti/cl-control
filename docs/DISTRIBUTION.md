@@ -21,6 +21,20 @@ Run `scripts/build_release.py` with an Ed25519 private key stored outside this r
 creates a deterministic ZIP, file inventory and signed v1 manifest. CI receives the private key
 only from a protected secret and never uploads it. The component ships only trusted public keys.
 
+Without the existing private key, use `--unsigned --channel beta` to prepare local
+staging metadata with an empty signature. It is deliberately rejected by the updater
+and is not a publishable release manifest. Never generate a replacement release key
+as a workaround. The signed builder checks the key against the embedded trusted key.
+
+Candidate: `v3.4.2-beta.1`, title `CL Control 3.4.2 Beta 1`, GitHub prerelease in
+the private repository. Planned attachments: runtime ZIP, signed manifest, SHA-256
+checksum (signature is embedded in the manifest), and optional inventory. Before
+publication, provide the existing signing key, set the final download URL with
+`--artifact-url`, regenerate and verify the signature. No tag, release or push is
+performed by the builder. Minimum HA is 2026.9.0; the last real HA validation was
+2026.9.1 with the 3.4.2-dev baseline, not this candidate. Real candidate installation
+and restart remain a subsequent authorized validation step.
+
 To rotate keys, add the next public key under a new `key_id`, publish a transition release signed
 by the old key, then sign subsequent releases with the new key. Remove the old public key only
 after all supported installations have crossed the transition release.

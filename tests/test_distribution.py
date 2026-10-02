@@ -12,6 +12,8 @@ import threading
 import types
 import unittest
 from urllib.request import urlopen
+from aiohttp import web
+from aiohttp.test_utils import TestClient, TestServer
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "custom_components" / "cl_control"
@@ -50,6 +52,7 @@ components_stub = types.ModuleType("homeassistant.components")
 components_stub.frontend = frontend_stub
 http_stub = types.ModuleType("homeassistant.components.http")
 http_stub.StaticPathConfig = StaticPathConfig
+http_stub.HomeAssistantView = object
 core_stub = types.ModuleType("homeassistant.core")
 core_stub.HomeAssistant = object
 homeassistant_stub = types.ModuleType("homeassistant")
@@ -75,6 +78,10 @@ spec.loader.exec_module(distribution)
 class FakeHttp:
     def __init__(self) -> None:
         self.paths = []
+        self.views = []
+
+    def register_view(self, view) -> None:
+        self.views.append(view)
 
     async def async_register_static_paths(self, paths) -> None:
         self.paths.extend(paths)
@@ -106,6 +113,32 @@ def settings(**frontend_overrides):
 
 
 class DistributionTests(unittest.IsolatedAsyncioTestCase):
+    async def test_stable_url_upgrade_downgrade_and_reload(self):
+        # Exercise the actual response handler over HTTP, without a running HA.
+        url = distribution.STRATEGY_URL
+        for version in ("3.4.2-beta.1", "3.4.3-beta.1", "3.4.2-beta.1"):
+            hass = FakeHass()
+            await distribution.async_register_static_path(hass, version)
+            await distribution.async_register_static_path(hass, version)
+            self.assertEqual(len(hass.http.views), 1)
+            view = hass.http.views[0]
+            self.assertFalse(view.requires_auth)
+            app = web.Application()
+            app.router.add_get(url, view.get)
+            app.router.add_static(distribution.static_url(version), PACKAGE / "frontend")
+            async with TestClient(TestServer(app)) as client:
+                response = await client.get(url)
+                self.assertEqual(response.status, 200)
+                self.assertEqual(response.headers["Cache-Control"], "no-store")
+                self.assertEqual(response.content_type, "text/javascript")
+                target = f"{distribution.static_url(version)}/cl-control-dashboard-strategy.mjs"
+                self.assertEqual(await response.text(), f"export * from {json.dumps(target)};\n")
+                strategy = await client.get(target)
+                self.assertEqual(strategy.status, 200)
+                self.assertIn("import './cl-control-panel.js'", await strategy.text())
+                panel = await client.get(f"{distribution.static_url(version)}/cl-control-panel.js")
+                self.assertEqual(panel.status, 200)
+
     def test_runtime_is_fully_bundled(self):
         for name in distribution.REQUIRED_ASSETS:
             self.assertTrue((PACKAGE / "frontend" / name).is_file(), name)
@@ -155,6 +188,8 @@ class DistributionTests(unittest.IsolatedAsyncioTestCase):
 
         await distribution.async_register_static_path(hass, "3.3.0-dev")
         self.assertEqual(len(hass.http.paths), 1)
+        self.assertEqual(len(hass.http.views), 1)
+        self.assertEqual(hass.http.views[0].url, distribution.STRATEGY_URL)
 
     async def test_panel_can_unload_without_removing_static_assets(self):
         hass = FakeHass()
@@ -224,7 +259,7 @@ class DistributionTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertEqual(manifest["domain"], "cl_control")
         self.assertEqual(manifest["name"], "CL Control")
-        self.assertEqual(manifest["version"], "3.4.2-dev")
+        self.assertEqual(manifest["version"], "3.4.2-beta.1")
         self.assertTrue(manifest["config_flow"])
         self.assertTrue(manifest["single_config_entry"])
         self.assertEqual(manifest["codeowners"], ["@climpianti"])

@@ -56,10 +56,14 @@ def build_zip(target: Path) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--signing-key", type=Path, required=True)
+    signing = parser.add_mutually_exclusive_group(required=True)
+    signing.add_argument("--signing-key", type=Path)
+    signing.add_argument("--unsigned", action="store_true", help="Create staging metadata rejected by the updater until signed")
     parser.add_argument("--channel", choices=("stable", "beta", "dev"), default="dev")
     parser.add_argument("--published-at")
     parser.add_argument("--artifact-url")
+    parser.add_argument("--summary")
+    parser.add_argument("--notes")
     args = parser.parse_args()
     component_manifest = json.loads((COMPONENT / "manifest.json").read_text(encoding="utf-8"))
     version = component_manifest["version"]
@@ -86,19 +90,32 @@ def main() -> None:
             "format": "zip", "root": str(ARCHIVE_ROOT),
         },
         "release": {
-            "summary": "CL Control 3.3 development distribution baseline",
-            "notes": "Signed local validation artifact. No automatic publication.",
+            "summary": args.summary or f"CL Control {version}",
+            "notes": args.notes or "Local validation artifact. No automatic publication.",
             "url": "https://github.com/climpianti/cl-control",
         },
         "signing": {"algorithm": "ed25519", "key_id": KEY_ID, "signature": ""},
     }
-    private_key = serialization.load_pem_private_key(args.signing_key.read_bytes(), password=None)
-    manifest["signing"]["signature"] = base64.b64encode(private_key.sign(canonical(manifest))).decode()
+    if args.signing_key:
+        private_key = serialization.load_pem_private_key(args.signing_key.read_bytes(), password=None)
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        if not isinstance(private_key, Ed25519PrivateKey):
+            raise ValueError("An Ed25519 release key is required")
+        public_key = private_key.public_key().public_bytes(
+            serialization.Encoding.Raw, serialization.PublicFormat.Raw
+        )
+        trusted = json.loads((COMPONENT / "release_public_keys.json").read_text(encoding="utf-8"))
+        if base64.b64encode(public_key).decode() != trusted["keys"][KEY_ID]:
+            raise ValueError("Signing key does not match the embedded trusted public key")
+        manifest["signing"]["signature"] = base64.b64encode(private_key.sign(canonical(manifest))).decode()
     manifest_path = args.output / f"cl-control-{version}.manifest.json"
     inventory_path = args.output / f"cl-control-{version}.inventory.json"
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     inventory_path.write_text(json.dumps({"files": inventory}, indent=2) + "\n", encoding="utf-8")
-    print(json.dumps({"artifact": str(artifact), "manifest": str(manifest_path), "inventory": str(inventory_path), "sha256": manifest["artifact"]["sha256"], "size": len(payload), "files": len(inventory)}))
+    (args.output / f"cl-control-{version}.sha256").write_text(
+        f"{manifest['artifact']['sha256']}  {artifact.name}\n", encoding="utf-8"
+    )
+    print(json.dumps({"artifact": str(artifact), "manifest": str(manifest_path), "inventory": str(inventory_path), "sha256": manifest["artifact"]["sha256"], "size": len(payload), "files": len(inventory), "signed": bool(manifest["signing"]["signature"])}))
 
 
 if __name__ == "__main__":

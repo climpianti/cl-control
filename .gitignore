@@ -12,6 +12,8 @@ secrets.yaml
 *.cer
 release-secrets/
 dist/
+artifacts/
+.venv/
 id_rsa*
 id_ed25519*
 

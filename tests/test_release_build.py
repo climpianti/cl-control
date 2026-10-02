@@ -6,6 +6,8 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 from zipfile import ZipFile
 
@@ -36,6 +38,23 @@ class ReleaseBuildTests(unittest.TestCase):
         self.assertEqual(schema["properties"]["schema"]["const"], 1)
         self.assertEqual(keys["schema"], 1)
         self.assertEqual(len(keys["keys"]), 1)
+
+    def test_unsigned_staging_cannot_be_mistaken_for_signed_release(self):
+        with tempfile.TemporaryDirectory() as temp:
+            subprocess.run([sys.executable, str(ROOT / "scripts/build_release.py"),
+                            "--output", temp, "--channel", "beta", "--unsigned"], check=True,
+                           capture_output=True)
+            manifest = json.loads(next(Path(temp).glob("*.manifest.json")).read_text())
+            self.assertEqual(manifest["channel"], "beta")
+            self.assertEqual(manifest["signing"]["signature"], "")
+            self.assertEqual(manifest["version"], "3.4.2-beta.1")
+            self.assertTrue(next(Path(temp).glob("*.sha256")).is_file())
+            verified = subprocess.run(
+                [sys.executable, str(ROOT / "scripts/verify_release.py"),
+                 str(next(Path(temp).glob("*.manifest.json")))],
+                check=True, capture_output=True, text=True,
+            )
+            self.assertTrue(json.loads(verified.stdout)["valid_artifact"])
 
 
 if __name__ == "__main__":

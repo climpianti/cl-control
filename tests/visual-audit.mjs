@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 const { chromium } = await import(process.env.CL_PLAYWRIGHT_URL || 'playwright');
 const context = process.env.CL_TEST_CONTEXT === 'dashboard' ? 'dashboard' : 'panel';
-const output = fileURLToPath(new URL(`../../backups/ui341_visual_audit_${context}/`, import.meta.url));
+const output = fileURLToPath(new URL(`../../backups/beta_strategy_visual_audit_${context}/`, import.meta.url));
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true, ...(process.env.CL_CHROME_PATH ? { executablePath: process.env.CL_CHROME_PATH } : {}) });
 const viewports = [['phone-360',360,800],['phone-390',390,844],['phone-430',430,932],['tablet-768',768,1024],['desktop-1200',1200,900],['wall-1920',1920,1080]];
@@ -17,6 +17,16 @@ for (const theme of themes) for (const [name,width,height] of viewports) {
   await page.goto(`http://127.0.0.1:8765/tests/ui3-harness.html?theme=${theme}&context=${context}`,{waitUntil:'networkidle'});
   await page.waitForSelector('cl-control-panel');await page.waitForTimeout(650);
   const common=await page.locator('cl-control-panel').evaluate(element=>{const root=element.shadowRoot;if(!root)return{upgraded:false};const app=root.querySelector('.app'),nav=root.querySelector('.nav'),buttons=[...nav.querySelectorAll('button')],visible=buttons.filter(button=>getComputedStyle(button).display!=='none'),customerPages=[...root.querySelectorAll('.page')].filter(section=>!['page-more'].includes(section.id)),customerText=customerPages.map(section=>section.textContent||'').join(' '),touch=[...root.querySelectorAll('button,input,select')].filter(node=>{if(node.type==='range')return false;const rect=node.getBoundingClientRect();return rect.width>0&&rect.height>0&&(rect.width<44||rect.height<44)}),rects=visible.map(button=>button.getBoundingClientRect()),sidebarOverlap=innerWidth>=768&&rects.some((rect,index)=>index>0&&rect.top<rects[index-1].bottom-.5),allPages=buttons.map(button=>button.dataset.page).filter(id=>id!=='overflow'),direct=visible.map(button=>button.dataset.page).filter(id=>id!=='overflow'),overflow=[...root.querySelectorAll('[data-overflow-open]')].map(button=>button.dataset.overflowOpen),missing=innerWidth<768?allPages.filter(id=>!direct.includes(id)&&!overflow.includes(id)):[];return{upgraded:true,documentOverflow:document.documentElement.scrollWidth>document.documentElement.clientWidth,appOverflow:app.scrollWidth>app.clientWidth,navItemsVisible:visible.length,touchTargetsTooSmall:touch.length,forbiddenBrand:/Home Control/.test(customerText),customerEntityId:/\b(?:light|switch|sensor|cover|climate|camera|binary_sensor|alarm_control_panel)\.[a-z0-9_]+\b/i.test(customerText),technicalName:/shelly|profile_name|cl power control/i.test(customerText),unresolvedName:/Nome da configurare|Nome non configurato/i.test(customerText),statusSeparated:getComputedStyle(root.querySelector('.statusTitle')).display==='block'&&getComputedStyle(root.querySelector('.statusMeta')).display==='block',cardBackground:getComputedStyle(root.querySelector('.quickTile')).backgroundColor,sidebarOverlap,missingPages:missing,logoSize:Math.round(root.querySelector('.logo')?.getBoundingClientRect().width||0),offenders:[...root.querySelectorAll('*')].map(node=>({node:`${node.tagName.toLowerCase()}.${node.className||''}`,rect:node.getBoundingClientRect()})).filter(item=>item.rect.width>0&&(item.rect.right>document.documentElement.clientWidth+.5||item.rect.left<-.5)).slice(0,8).map(item=>item.node)};});
+  // A horizontal dashboard rail legitimately shares Y coordinates. Detect
+  // intersection on both axes rather than assuming the panel's vertical sidebar.
+  common.sidebarOverlap=await page.locator('cl-control-panel').evaluate(element=>{
+    const rects=[...element.shadowRoot.querySelectorAll('.nav button')]
+      .filter(button=>getComputedStyle(button).display!=='none')
+      .map(button=>button.getBoundingClientRect());
+    return rects.some((rect,index)=>rects.slice(index+1).some(other=>
+      Math.min(rect.right,other.right)-Math.max(rect.left,other.left)>.5 &&
+      Math.min(rect.bottom,other.bottom)-Math.max(rect.top,other.top)>.5));
+  });
   const brandLink=await page.locator('cl-control-panel').evaluate(element=>{const link=element.shadowRoot.querySelector('.brandHome');return{href:link?.href||'',aria:link?.getAttribute('aria-label')||'',expected:new URL('/',location.origin).href};});
   if(!common.upgraded)throw new Error(`Custom element non inizializzato: ${errors.join(' | ')}`);
 

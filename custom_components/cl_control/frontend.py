@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
 import logging
 from pathlib import Path
 from typing import Any
 
 from homeassistant.components import frontend
-from homeassistant.components.http import StaticPathConfig
+from aiohttp import web
+from homeassistant.components.http import HomeAssistantView, StaticPathConfig
 from homeassistant.core import HomeAssistant
 
 from .const import DATA_STATIC_REGISTERED, DOMAIN
@@ -17,6 +19,7 @@ _LOGGER = logging.getLogger(__name__)
 
 FRONTEND_DIRECTORY = Path(__file__).parent / "frontend"
 STATIC_URL_ROOT = "/cl_control_static"
+STRATEGY_URL = f"{STATIC_URL_ROOT}/cl-control-dashboard-strategy.mjs"
 REQUIRED_ASSETS = (
     "cl-control-panel.js",
     "cl-control-runtime.mjs",
@@ -30,6 +33,25 @@ LEGACY_ASSET_ROOT = "/local/cl_control/"
 def static_url(version: str) -> str:
     """Return the immutable URL namespace for one component version."""
     return f"{STATIC_URL_ROOT}/{version}"
+
+
+class DashboardStrategyView(HomeAssistantView):
+    """Public, non-cached entrypoint containing only the installed asset URL."""
+
+    url = STRATEGY_URL
+    name = "cl_control:dashboard_strategy"
+    requires_auth = False
+
+    def __init__(self, version: str) -> None:
+        self.version = version
+
+    async def get(self, request: web.Request) -> web.Response:
+        module_url = f"{static_url(self.version)}/cl-control-dashboard-strategy.mjs"
+        return web.Response(
+            text=f"export * from {json.dumps(module_url)};\n",
+            content_type="text/javascript",
+            headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"},
+        )
 
 
 def configure_internal_frontend(settings: dict[str, Any], version: str) -> dict[str, Any]:
@@ -79,6 +101,7 @@ async def async_register_static_path(hass: HomeAssistant, version: str) -> None:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(asset_base, str(FRONTEND_DIRECTORY), True)]
     )
+    hass.http.register_view(DashboardStrategyView(version))
     domain_data[DATA_STATIC_REGISTERED] = True
 
 
@@ -140,6 +163,8 @@ __all__ = (
     "FRONTEND_DIRECTORY",
     "REQUIRED_ASSETS",
     "STATIC_URL_ROOT",
+    "STRATEGY_URL",
+    "DashboardStrategyView",
     "async_register_frontend",
     "async_register_panel",
     "async_register_static_path",
