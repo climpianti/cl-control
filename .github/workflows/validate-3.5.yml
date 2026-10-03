@@ -1,0 +1,35 @@
+name: Validate CL Control 3.5
+on:
+  push:
+    branches: [feature/lite-dashboard-strategy]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  contracts-and-benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Backend contract tests
+        run: |
+          python -m unittest discover -s tests -p 'test_backend.py'
+          python -m unittest discover -s tests -p 'test_config_entry.py'
+          python -m unittest discover -s tests -p 'test_native_dashboard.py'
+          python -m unittest discover -s tests -p 'test_ecosystem.py'
+          python -m unittest discover -s tests -p 'test_branding_runtime.py'
+          python -m unittest discover -s tests -p 'test_native_dashboard_performance.py'
+      - name: JavaScript syntax contracts
+        run: |
+          node --check custom_components/cl_control/frontend/cl-control-dashboard-strategy.mjs
+          node --check custom_components/cl_control/frontend/cl-control-branding.mjs
+      - name: Native dashboard benchmark
+        run: python scripts/benchmark_native_dashboard.py --json benchmark-native-dashboard.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cl-control-3.5-native-dashboard-benchmark
+          path: benchmark-native-dashboard.json
+          if-no-files-found: error
