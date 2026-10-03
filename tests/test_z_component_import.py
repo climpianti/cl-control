@@ -79,7 +79,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         support.issue_registry.issues.clear()
         support.issue_registry.deleted.clear()
-        self.component = self.component
+        self.component = importlib.import_module("custom_components.cl_control")
         self.component.BrandingManager = FakeBrandingManager
 
     async def test_invalid_entry_stops_before_application_storage(self):
