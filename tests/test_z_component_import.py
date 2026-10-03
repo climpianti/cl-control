@@ -16,6 +16,12 @@ sys.path.insert(0, str(ROOT))
 # Reuse the comprehensive Home Assistant fakes installed by test_config_entry.
 support = importlib.import_module("test_config_entry")
 
+aiohttp = types.ModuleType("aiohttp")
+aiohttp_web = types.ModuleType("aiohttp.web")
+aiohttp.web = aiohttp_web
+sys.modules.setdefault("aiohttp", aiohttp)
+sys.modules.setdefault("aiohttp.web", aiohttp_web)
+
 components = types.ModuleType("homeassistant.components")
 frontend = types.ModuleType("homeassistant.components.frontend")
 frontend.DATA_PANELS = "frontend_panels"
