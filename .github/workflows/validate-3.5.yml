@@ -29,8 +29,17 @@ jobs:
           node --check custom_components/cl_control/frontend/cl-control-branding.mjs
       - name: Native dashboard benchmark
         run: python scripts/benchmark_native_dashboard.py --json benchmark-native-dashboard.json
+      - name: Build installable dev package
+        run: |
+          python -m pip install cryptography
+          python scripts/build_release.py --output dist-dev --channel dev --unsigned --summary "CL Control 3.5.0-dev test build" --notes "Manual test build for Home Assistant staging installation."
       - uses: actions/upload-artifact@v4
         with:
           name: cl-control-3.5-native-dashboard-benchmark
           path: benchmark-native-dashboard.json
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cl-control-3.5.0-dev-install
+          path: dist-dev/
           if-no-files-found: error
