@@ -109,7 +109,7 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
             return
         connection.send_result(
             msg["id"],
-            service.get_payload(
+            await service.async_get_payload(
                 settings=data[DATA_SETTINGS],
                 runtime=data[DATA_RUNTIME],
             ),

@@ -22,6 +22,7 @@ RUNTIME_UI_KEYS = (
     "entity_order",
     "home_order",
     "energy",
+    "energy_provider",
     "area_switches",
     "ui",
     "experience_level",

@@ -70,6 +70,7 @@ DEFAULT_RUNTIME = {
         "support",
     ],
     "energy": {},
+    "energy_provider": "auto",
     "area_switches": {},
     "ui": {"density": "normal"},
     "experience_level": "standard",

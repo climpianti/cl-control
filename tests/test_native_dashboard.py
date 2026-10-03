@@ -78,6 +78,33 @@ class NativeDashboardTests(unittest.TestCase):
             },
             version="3.5.0-dev",
             revision=4,
+            cl_modules=[
+                {
+                    "domain": "cl_power_control",
+                    "module_id": "energy",
+                    "display_name": "CL Power Control",
+                    "customer_label": "Energia",
+                    "icon": "mdi:solar-power-variant",
+                    "installed": True,
+                    "available": True,
+                    "ready": True,
+                    "route": "/cl-power-control",
+                    "customer_visible": True,
+                },
+                {
+                    "domain": "cl_irrigation",
+                    "module_id": "irrigation",
+                    "display_name": "CL Irrigation",
+                    "customer_label": "Irrigazione",
+                    "icon": "mdi:sprinkler-variant",
+                    "installed": True,
+                    "available": True,
+                    "ready": True,
+                    "route": "/giardino-irrigazione",
+                    "customer_visible": True,
+                },
+            ],
+            home_assistant_energy_available=True,
         )
 
     def test_model_is_structural_and_filters_internal_platforms(self):
@@ -90,6 +117,8 @@ class NativeDashboardTests(unittest.TestCase):
         self.assertEqual(model["modules"]["lights"]["count"], 1)
         self.assertEqual(model["modules"]["covers"]["count"], 1)
         self.assertEqual(model["modules"]["climate"]["count"], 1)
+        self.assertEqual(model["energy"]["provider"], "cl_power_control")
+        self.assertEqual(len(model["cl_modules"]), 2)
 
     def test_installer_visibility_override_can_expose_internal_entity(self):
         model = self._model(
@@ -116,6 +145,11 @@ class NativeDashboardTests(unittest.TestCase):
             for card in section["cards"]
         }
         self.assertTrue({"markdown", "heading", "tile", "area", "button"} <= card_types)
+        home = config["views"][0]
+        rendered_home = repr(home)
+        self.assertIn("Sistemi CL", rendered_home)
+        self.assertIn("/cl-power-control", rendered_home)
+        self.assertIn("/giardino-irrigazione", rendered_home)
 
     def test_area_override_creates_a_native_navigation_view_without_state_data(self):
         model = self._model(entity_areas={"light.salone": "Terrazza"})

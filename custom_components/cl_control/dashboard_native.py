@@ -7,6 +7,8 @@ import re
 import unicodedata
 from typing import Any
 
+from .ecosystem import async_discover_cl_modules, module_signature, resolve_energy_provider
+
 DOMAIN_MODULE = {
     "light": "lights",
     "cover": "covers",
@@ -123,9 +125,12 @@ def build_dashboard_model(
     branding: dict[str, Any],
     version: str,
     revision: int,
+    cl_modules: list[dict[str, Any]] | None = None,
+    home_assistant_energy_available: bool = False,
 ) -> dict[str, Any]:
     """Build a structural model without copying Home Assistant runtime states."""
     ui = _runtime_ui(runtime)
+    cl_modules = deepcopy(cl_modules or [])
     effective_site = _runtime_site(runtime, site)
     profile = str(ui.get("experience_level") or "standard")
     entity_levels = ui.get("entity_levels") or {}
@@ -253,6 +258,13 @@ def build_dashboard_model(
         or "Impianto"
     )
 
+    requested_energy_provider = str(ui.get("energy_provider") or "auto")
+    resolved_energy_provider = resolve_energy_provider(
+        requested_energy_provider,
+        cl_modules,
+        home_assistant_energy_available=home_assistant_energy_available,
+    )
+
     return {
         "schema_version": 1,
         "revision": revision,
@@ -266,6 +278,11 @@ def build_dashboard_model(
         "favorites": favorites,
         "areas": active_areas,
         "modules": modules,
+        "cl_modules": cl_modules,
+        "energy": {
+            "requested_provider": requested_energy_provider,
+            "provider": resolved_energy_provider,
+        },
     }
 
 
@@ -402,6 +419,20 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     if len(system_cards) > 1:
         sections.append({"type": "grid", "cards": system_cards})
 
+    cl_system_cards = [_heading("Sistemi CL", "mdi:apps")]
+    for module in model.get("cl_modules", []):
+        if not module.get("customer_visible") or not module.get("route"):
+            continue
+        cl_system_cards.append(
+            _navigation_button(
+                name=str(module.get("customer_label") or module.get("display_name") or "CL"),
+                icon=str(module.get("icon") or "mdi:puzzle"),
+                path=str(module["route"]),
+            )
+        )
+    if len(cl_system_cards) > 1:
+        sections.append({"type": "grid", "cards": cl_system_cards})
+
     views: list[dict[str, Any]] = [
         {
             "type": "sections",
@@ -474,11 +505,13 @@ class NativeDashboardService:
         self.revision = 1
         self.build_count = 0
         self._cached: dict[str, Any] | None = None
+        self._module_signature: tuple[tuple[Any, ...], ...] | None = None
 
     def invalidate(self, _event: Any = None) -> None:
         """Invalidate structural data without observing entity state changes."""
         self.revision += 1
         self._cached = None
+        self._module_signature = None
 
     def _registry_snapshot(
         self,
@@ -521,15 +554,20 @@ class NativeDashboardService:
             )
         return entities, areas
 
-    def get_payload(
+    async def async_get_payload(
         self,
         *,
         settings: dict[str, Any],
         runtime: dict[str, Any],
     ) -> dict[str, Any]:
         """Return cached model and native Lovelace config."""
-        if self._cached is not None:
+        cl_modules = await async_discover_cl_modules(self.hass)
+        signature = module_signature(cl_modules)
+        if self._cached is not None and signature == self._module_signature:
             return deepcopy(self._cached)
+        if self._cached is not None and signature != self._module_signature:
+            self.revision += 1
+            self._cached = None
 
         entities, areas = self._registry_snapshot()
         model = build_dashboard_model(
@@ -540,9 +578,14 @@ class NativeDashboardService:
             branding=settings.get("branding") or {},
             version=self.version,
             revision=self.revision,
+            cl_modules=cl_modules,
+            home_assistant_energy_available=(
+                "energy" in getattr(getattr(self.hass, "config", None), "components", set())
+            ),
         )
         config = build_native_lovelace(model)
         self.build_count += 1
+        self._module_signature = signature
         self._cached = {
             "schema_version": 1,
             "revision": self.revision,
@@ -552,6 +595,7 @@ class NativeDashboardService:
                 "build_count": self.build_count,
                 "entity_count": len(entities),
                 "area_count": len(areas),
+                "cl_module_count": sum(1 for item in cl_modules if item.get("installed")),
             },
         }
         return deepcopy(self._cached)
