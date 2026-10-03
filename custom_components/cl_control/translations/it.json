@@ -2,7 +2,9 @@
   "title": "CL Control",
   "entity": {
     "update": {
-      "cl_control": { "name": "CL Control" }
+      "cl_control": {
+        "name": "CL Control"
+      }
     }
   },
   "config": {
@@ -25,10 +27,16 @@
       },
       "interface": {
         "title": "Interfaccia",
-        "description": "Scegli il livello esperienza iniziale e il profilo grafico.",
+        "description": "Scegli il livello esperienza iniziale e come CL Control deve personalizzare Home Assistant. La rinomina dell’istanza Home Assistant è sempre facoltativa.",
         "data": {
           "experience_level": "Livello esperienza",
-          "branding_template": "Profilo branding"
+          "branding_template": "Profilo branding",
+          "branding_mode": "Modalità branding globale",
+          "branding_rename_instance": "Rinomina istanza Home Assistant",
+          "branding_pwa": "Personalizza PWA / app installata",
+          "branding_browser_title": "Usa titolo browser CL Control",
+          "branding_sidebar_title": "Usa titolo sidebar CL Control",
+          "branding_favicon": "Usa favicon CL Control"
         }
       },
       "installer": {
@@ -64,7 +72,8 @@
         "title": "Impostazioni CL Control",
         "menu_options": {
           "general": "Impostazioni generali",
-          "installer": "Cambia PIN Installer"
+          "installer": "Cambia PIN Installer",
+          "branding": "Branding globale"
         }
       },
       "general": {
@@ -86,6 +95,19 @@
           "current_installer_pin": "PIN Installer attuale",
           "new_installer_pin": "Nuovo PIN Installer",
           "new_installer_pin_confirm": "Conferma nuovo PIN Installer"
+        }
+      },
+      "branding": {
+        "title": "Branding globale",
+        "description": "Il branding Enhanced agisce solo sulla presentazione ed è fail-safe. Ripristina disattiva il branding globale CL e ripristina i valori Home Assistant precedentemente gestiti da CL Control.",
+        "data": {
+          "branding_mode": "Modalità branding globale",
+          "branding_rename_instance": "Rinomina istanza Home Assistant",
+          "branding_pwa": "Personalizza PWA / app installata",
+          "branding_browser_title": "Usa titolo browser CL Control",
+          "branding_sidebar_title": "Usa titolo sidebar CL Control",
+          "branding_favicon": "Usa favicon CL Control",
+          "restore_home_assistant_branding": "Ripristina branding Home Assistant"
         }
       }
     },
@@ -120,6 +142,13 @@
         "stable": "Stabile",
         "beta": "Beta",
         "dev": "Sviluppo"
+      }
+    },
+    "branding_mode": {
+      "options": {
+        "native": "Solo nativo",
+        "enhanced": "Enhanced",
+        "disabled": "Disattivato"
       }
     }
   },

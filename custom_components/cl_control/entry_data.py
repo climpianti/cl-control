@@ -11,6 +11,12 @@ from uuid import UUID
 from .const import (
     CONF_ASSISTANCE_PROVIDER,
     CONF_BRANDING_TEMPLATE,
+    CONF_BRANDING_MODE,
+    CONF_BRANDING_RENAME_INSTANCE,
+    CONF_BRANDING_PWA,
+    CONF_BRANDING_BROWSER_TITLE,
+    CONF_BRANDING_SIDEBAR_TITLE,
+    CONF_BRANDING_FAVICON,
     CONF_CUSTOMER_NAME,
     CONF_EXPERIENCE_LEVEL,
     CONF_INSTALLATION_ID,
@@ -26,6 +32,7 @@ from .models import deep_merge, normalize_settings
 ASSISTANCE_PROVIDERS = ("whatsapp", "openai", "hybrid")
 EXPERIENCE_LEVELS = ("essential", "standard", "pro")
 BRANDING_TEMPLATES = ("cl_control",)
+BRANDING_MODES = ("native", "enhanced", "disabled")
 RELEASE_CHANNELS = ("stable", "beta", "dev")
 
 DEFAULT_ENTRY_OPTIONS = {
@@ -35,6 +42,12 @@ DEFAULT_ENTRY_OPTIONS = {
     CONF_ASSISTANCE_PROVIDER: "whatsapp",
     CONF_EXPERIENCE_LEVEL: "standard",
     CONF_BRANDING_TEMPLATE: "cl_control",
+    CONF_BRANDING_MODE: "enhanced",
+    CONF_BRANDING_RENAME_INSTANCE: False,
+    CONF_BRANDING_PWA: True,
+    CONF_BRANDING_BROWSER_TITLE: True,
+    CONF_BRANDING_SIDEBAR_TITLE: True,
+    CONF_BRANDING_FAVICON: True,
     CONF_RELEASE_CHANNEL: "stable",
     CONF_LEGACY_SETTINGS: {},
     CONF_LEGACY_IMPORTED: False,
@@ -83,6 +96,16 @@ def normalize_entry_options(value: Any) -> dict[str, Any]:
         result[CONF_EXPERIENCE_LEVEL] = "standard"
     if result.get(CONF_BRANDING_TEMPLATE) not in BRANDING_TEMPLATES:
         result[CONF_BRANDING_TEMPLATE] = "cl_control"
+    if result.get(CONF_BRANDING_MODE) not in BRANDING_MODES:
+        result[CONF_BRANDING_MODE] = "enhanced"
+    for key in (
+        CONF_BRANDING_RENAME_INSTANCE,
+        CONF_BRANDING_PWA,
+        CONF_BRANDING_BROWSER_TITLE,
+        CONF_BRANDING_SIDEBAR_TITLE,
+        CONF_BRANDING_FAVICON,
+    ):
+        result[key] = bool(result.get(key))
     if result.get(CONF_RELEASE_CHANNEL) not in RELEASE_CHANNELS:
         result[CONF_RELEASE_CHANNEL] = "stable"
     result[CONF_LEGACY_SETTINGS] = sanitize_legacy_settings(
@@ -143,6 +166,13 @@ def settings_from_entry(options: dict[str, Any]) -> dict[str, Any]:
     raw.setdefault("customer_ui", {}).setdefault("experience", {})[
         "default_level"
     ] = normalized[CONF_EXPERIENCE_LEVEL]
+    branding = raw.setdefault("branding", {})
+    branding["mode"] = normalized[CONF_BRANDING_MODE]
+    branding["rename_instance"] = normalized[CONF_BRANDING_RENAME_INSTANCE]
+    branding["pwa_branding"] = normalized[CONF_BRANDING_PWA]
+    branding["browser_title"] = normalized[CONF_BRANDING_BROWSER_TITLE]
+    branding["sidebar_title"] = normalized[CONF_BRANDING_SIDEBAR_TITLE]
+    branding["favicon"] = normalized[CONF_BRANDING_FAVICON]
     return normalize_settings(raw)
 
 
@@ -180,6 +210,7 @@ def sync_options_from_runtime(
 
 __all__ = (
     "ASSISTANCE_PROVIDERS",
+    "BRANDING_MODES",
     "BRANDING_TEMPLATES",
     "DEFAULT_ENTRY_OPTIONS",
     "EXPERIENCE_LEVELS",

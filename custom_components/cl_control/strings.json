@@ -2,7 +2,9 @@
   "title": "CL Control",
   "entity": {
     "update": {
-      "cl_control": { "name": "CL Control" }
+      "cl_control": {
+        "name": "CL Control"
+      }
     }
   },
   "config": {
@@ -25,10 +27,16 @@
       },
       "interface": {
         "title": "Interface",
-        "description": "Choose the initial experience level and branding preset.",
+        "description": "Choose the initial experience level and how CL Control should brand Home Assistant. Renaming the Home Assistant instance is opt-in.",
         "data": {
           "experience_level": "Experience level",
-          "branding_template": "Branding preset"
+          "branding_template": "Branding preset",
+          "branding_mode": "Global branding mode",
+          "branding_rename_instance": "Rename Home Assistant instance",
+          "branding_pwa": "Brand PWA / installed app",
+          "branding_browser_title": "Use CL Control browser title",
+          "branding_sidebar_title": "Use CL Control sidebar title",
+          "branding_favicon": "Use CL Control favicon"
         }
       },
       "installer": {
@@ -64,7 +72,8 @@
         "title": "CL Control settings",
         "menu_options": {
           "general": "General settings",
-          "installer": "Change Installer PIN"
+          "installer": "Change Installer PIN",
+          "branding": "Global branding"
         }
       },
       "general": {
@@ -86,6 +95,19 @@
           "current_installer_pin": "Current Installer PIN",
           "new_installer_pin": "New Installer PIN",
           "new_installer_pin_confirm": "Confirm new Installer PIN"
+        }
+      },
+      "branding": {
+        "title": "Global branding",
+        "description": "Enhanced branding is presentation-only and fail-safe. Restore disables global CL branding and restores Home Assistant values previously managed by CL Control.",
+        "data": {
+          "branding_mode": "Global branding mode",
+          "branding_rename_instance": "Rename Home Assistant instance",
+          "branding_pwa": "Brand PWA / installed app",
+          "branding_browser_title": "Use CL Control browser title",
+          "branding_sidebar_title": "Use CL Control sidebar title",
+          "branding_favicon": "Use CL Control favicon",
+          "restore_home_assistant_branding": "Restore Home Assistant branding"
         }
       }
     },
@@ -120,6 +142,13 @@
         "stable": "Stable",
         "beta": "Beta",
         "dev": "Development"
+      }
+    },
+    "branding_mode": {
+      "options": {
+        "native": "Native only",
+        "enhanced": "Enhanced",
+        "disabled": "Disabled"
       }
     }
   },

@@ -6,6 +6,12 @@ DEFAULT_CONFIG = {
     "company_name": "CL Impianti",
     "product_name": "CL Control",
     "tagline": "Home & Building Control",
+    "mode": "enhanced",
+    "rename_instance": False,
+    "pwa_branding": True,
+    "browser_title": True,
+    "sidebar_title": True,
+    "favicon": True,
     "assets": {
         "logo": "frontend:logo.png",
         "logo_compact": "frontend:logo.png",

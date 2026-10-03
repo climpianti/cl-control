@@ -25,6 +25,7 @@ REQUIRED_ASSETS = (
     "cl-control-runtime.mjs",
     "cl-control-ui3.mjs",
     "cl-control-dashboard-strategy.mjs",
+    "cl-control-branding.mjs",
     "logo.png",
 )
 LEGACY_ASSET_ROOT = "/local/cl_control/"

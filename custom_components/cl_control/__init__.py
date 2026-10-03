@@ -22,6 +22,7 @@ from .const import (
     CONF_INSTALLATION_ID,
     CONF_INSTALLER_PIN_LEGACY,
     DATA_ASSISTANCE_GATEWAY,
+    DATA_BRANDING_MANAGER,
     DATA_CONFIG_ENTRY,
     DATA_CREDENTIALS,
     DATA_CREDENTIAL_STORE,
@@ -42,6 +43,7 @@ from .const import (
 from .credentials import CredentialStore
 from .distribution import MockDistributionProvider, UpdateManager
 from .dashboard_native import NativeDashboardService
+from .branding_runtime import BrandingManager
 from .entry_data import (
     entry_data_is_valid,
     normalize_entry_options,
@@ -63,6 +65,7 @@ _LOGGER = logging.getLogger(__name__)
 
 _RUNTIME_KEYS = (
     DATA_ASSISTANCE_GATEWAY,
+    DATA_BRANDING_MANAGER,
     DATA_CONFIG_ENTRY,
     DATA_CREDENTIALS,
     DATA_CREDENTIAL_STORE,
@@ -177,6 +180,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # supplies an authorized DistributionProvider.
         provider = MockDistributionProvider.offline()
     native_dashboard = NativeDashboardService(hass, VERSION)
+    branding_manager = BrandingManager(hass, settings, VERSION)
+    await branding_manager.async_apply()
     update_manager = UpdateManager(
         hass=hass,
         entry=entry,
@@ -186,6 +191,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     domain_data.update(
         {
             DATA_SETTINGS: settings,
+            DATA_BRANDING_MANAGER: branding_manager,
             DATA_RUNTIME: runtime,
             DATA_STORE: store,
             DATA_CONFIG_ENTRY: entry,
@@ -232,6 +238,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         return False
     settings = domain_data.get(DATA_SETTINGS, {})
+    branding_manager = domain_data.get(DATA_BRANDING_MANAGER)
+    if branding_manager is not None:
+        await branding_manager.async_restore(clear=False)
     async_unregister_panel(hass, settings)
     for key in _RUNTIME_KEYS:
         domain_data.pop(key, None)
@@ -240,8 +249,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Preserve layout, tickets, overrides and credentials on normal removal."""
-    return None
+    """Restore global Home Assistant branding while preserving CL customer data."""
+    settings = configure_internal_frontend(
+        settings_from_entry(normalize_entry_options(entry.options)), VERSION
+    )
+    manager = BrandingManager(hass, settings, VERSION)
+    await manager.async_restore(clear=True)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

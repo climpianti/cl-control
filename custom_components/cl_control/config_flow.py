@@ -27,6 +27,12 @@ from .const import (
     CONFIG_ENTRY_VERSION,
     CONF_ASSISTANCE_PROVIDER,
     CONF_BRANDING_TEMPLATE,
+    CONF_BRANDING_MODE,
+    CONF_BRANDING_RENAME_INSTANCE,
+    CONF_BRANDING_PWA,
+    CONF_BRANDING_BROWSER_TITLE,
+    CONF_BRANDING_SIDEBAR_TITLE,
+    CONF_BRANDING_FAVICON,
     CONF_CUSTOMER_NAME,
     CONF_EXPERIENCE_LEVEL,
     CONF_INSTALLATION_ID,
@@ -41,6 +47,7 @@ from .const import (
 from .credentials import CredentialStore, async_verify_pin
 from .entry_data import (
     ASSISTANCE_PROVIDERS,
+    BRANDING_MODES,
     BRANDING_TEMPLATES,
     EXPERIENCE_LEVELS,
     RELEASE_CHANNELS,
@@ -180,8 +187,67 @@ class CLControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_BRANDING_TEMPLATE,
                         default=self._options[CONF_BRANDING_TEMPLATE],
                     ): _select_selector(BRANDING_TEMPLATES, "branding_template"),
+                    vol.Required(
+                        CONF_BRANDING_MODE,
+                        default=self._options[CONF_BRANDING_MODE],
+                    ): _select_selector(BRANDING_MODES, "branding_mode"),
+                    vol.Required(
+                        CONF_BRANDING_RENAME_INSTANCE,
+                        default=self._options[CONF_BRANDING_RENAME_INSTANCE],
+                    ): bool,
+                    vol.Required(
+                        CONF_BRANDING_PWA,
+                        default=self._options[CONF_BRANDING_PWA],
+                    ): bool,
+                    vol.Required(
+                        CONF_BRANDING_BROWSER_TITLE,
+                        default=self._options[CONF_BRANDING_BROWSER_TITLE],
+                    ): bool,
+                    vol.Required(
+                        CONF_BRANDING_SIDEBAR_TITLE,
+                        default=self._options[CONF_BRANDING_SIDEBAR_TITLE],
+                    ): bool,
+                    vol.Required(
+                        CONF_BRANDING_FAVICON,
+                        default=self._options[CONF_BRANDING_FAVICON],
+                    ): bool,
                 }
             ),
+        )
+
+    async def async_step_branding(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage global CL branding and expose an explicit restore action."""
+        current = normalize_entry_options(self.config_entry.options)
+        if user_input is not None:
+            user_input = dict(user_input)
+            restore = bool(user_input.pop("restore_home_assistant_branding", False))
+            updated = normalize_entry_options({**current, **user_input})
+            if restore:
+                updated[CONF_BRANDING_MODE] = "disabled"
+                updated[CONF_BRANDING_RENAME_INSTANCE] = False
+                updated[CONF_BRANDING_PWA] = False
+                updated[CONF_BRANDING_BROWSER_TITLE] = False
+                updated[CONF_BRANDING_SIDEBAR_TITLE] = False
+                updated[CONF_BRANDING_FAVICON] = False
+            return self.async_create_entry(data=updated)
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_BRANDING_MODE): _select_selector(
+                    BRANDING_MODES, "branding_mode"
+                ),
+                vol.Required(CONF_BRANDING_RENAME_INSTANCE): bool,
+                vol.Required(CONF_BRANDING_PWA): bool,
+                vol.Required(CONF_BRANDING_BROWSER_TITLE): bool,
+                vol.Required(CONF_BRANDING_SIDEBAR_TITLE): bool,
+                vol.Required(CONF_BRANDING_FAVICON): bool,
+                vol.Optional("restore_home_assistant_branding", default=False): bool,
+            }
+        )
+        return self.async_show_form(
+            step_id="branding",
+            data_schema=self.add_suggested_values_to_schema(schema, current),
         )
 
     async def async_step_installer(
@@ -338,7 +404,7 @@ class CLControlOptionsFlow(config_entries.OptionsFlowWithReload):
     ) -> ConfigFlowResult:
         """Separate ordinary settings from credential management."""
         return self.async_show_menu(
-            step_id="init", menu_options=["general", "installer"]
+            step_id="init", menu_options=["general", "branding", "installer"]
         )
 
     async def async_step_general(
