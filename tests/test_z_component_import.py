@@ -30,9 +30,13 @@ http = types.ModuleType("homeassistant.components.http")
 http.StaticPathConfig = object
 http.HomeAssistantView = object
 entity_registry = types.ModuleType("homeassistant.helpers.entity_registry")
+entity_registry.EVENT_ENTITY_REGISTRY_UPDATED = "entity_registry_updated"
 entity_registry.async_get = lambda _hass: types.SimpleNamespace(
     async_get=lambda _entity_id: None
 )
+area_registry = types.ModuleType("homeassistant.helpers.area_registry")
+area_registry.EVENT_AREA_REGISTRY_UPDATED = "area_registry_updated"
+support.device_registry.EVENT_DEVICE_REGISTRY_UPDATED = "device_registry_updated"
 exceptions = types.ModuleType("homeassistant.exceptions")
 exceptions.ConfigEntryError = RuntimeError
 components.frontend = frontend
@@ -44,18 +48,42 @@ sys.modules.update(
         "homeassistant.components.websocket_api": websocket_api,
         "homeassistant.components.http": http,
         "homeassistant.helpers.entity_registry": entity_registry,
+        "homeassistant.helpers.area_registry": area_registry,
         "homeassistant.exceptions": exceptions,
     }
 )
+
+support._ConfigEntry.async_on_unload = lambda self, callback: callback
+
+
+class FakeBrandingManager:
+    def __init__(self, hass, settings, version):
+        self.hass = hass
+        self.settings = settings
+        self.version = version
+
+    async def async_apply(self):
+        return None
+
+    async def async_restore(self, *, clear):
+        return None
+
+
+def _prepare_hass(hass):
+    hass.bus = types.SimpleNamespace(async_listen=lambda *_args, **_kwargs: (lambda: None))
+    hass.config = types.SimpleNamespace(components=set(), location_name="Home")
+    return hass
 
 
 class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         support.issue_registry.issues.clear()
         support.issue_registry.deleted.clear()
+        self.component = self.component
+        self.component.BrandingManager = FakeBrandingManager
 
     async def test_invalid_entry_stops_before_application_storage(self):
-        component = importlib.import_module("custom_components.cl_control")
+        component = self.component
 
         class ForbiddenStore:
             def __init__(self, _hass):
@@ -63,7 +91,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
 
         original = component.RuntimeStore
         component.RuntimeStore = ForbiddenStore
-        hass = support._Hass()
+        hass = _prepare_hass(support._Hass())
         entry = support._ConfigEntry({"installation_id": "invalid"}, {})
         try:
             with self.assertRaisesRegex(RuntimeError, "incomplete or invalid"):
@@ -78,7 +106,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
             component.RuntimeStore = original
 
     async def test_missing_credential_stops_before_application_storage(self):
-        component = importlib.import_module("custom_components.cl_control")
+        component = self.component
 
         class ForbiddenStore:
             def __init__(self, _hass):
@@ -86,7 +114,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
 
         original = component.RuntimeStore
         component.RuntimeStore = ForbiddenStore
-        hass = support._Hass()
+        hass = _prepare_hass(support._Hass())
         entry = support._ConfigEntry(
             {"installation_id": "00000000-0000-4000-8000-000000000099"},
             {},
@@ -98,7 +126,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
             component.RuntimeStore = original
 
     async def test_yaml_schedules_import_without_loading_runtime(self):
-        component = importlib.import_module("custom_components.cl_control")
+        component = self.component
         component.async_register_static_path = AsyncMock()
         component.async_register_commands = Mock()
         flow_init = AsyncMock()
@@ -107,6 +135,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
         class Hass(support._Hass):
             def __init__(self):
                 super().__init__()
+                _prepare_hass(self)
                 self.http = types.SimpleNamespace()
                 self.config_entries.flow = types.SimpleNamespace(async_init=flow_init)
 
@@ -127,9 +156,9 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
         component.async_register_commands.assert_not_called()
 
     async def test_setup_entry_preserves_storage_and_unload_keeps_credentials(self):
-        component = importlib.import_module("custom_components.cl_control")
+        component = self.component
         installation_id = "00000000-0000-4000-8000-000000000001"
-        hass = support._Hass()
+        hass = _prepare_hass(support._Hass())
         hass.data = {"cl_control": {"static_registered": True}}
         await support.credentials_module.CredentialStore(hass).async_set_pin(
             installation_id, "installer_pin", "2468"
@@ -192,7 +221,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
             hass.data["cl_control"]["settings"]["site"]["site_name"],
             "Existing site",
         )
-        component.async_register_commands.assert_called_once_with(hass, "3.4.2-beta.1")
+        component.async_register_commands.assert_called_once_with(hass, "3.5.0-dev")
         self.assertIn(
             ((hass, "cl_control", f"invalid_config_entry_{entry.entry_id}"), {}),
             support.issue_registry.deleted,
@@ -211,7 +240,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(support._Store.records, credentials_before)
         self.assertNotIn("runtime", hass.data["cl_control"])
         self.assertTrue(await component.async_setup_entry(hass, entry))
-        component.async_register_commands.assert_called_once_with(hass, "3.4.2-beta.1")
+        component.async_register_commands.assert_called_once_with(hass, "3.5.0-dev")
         self.assertTrue(await component.async_unload_entry(hass, entry))
         invalid_cleanup = [
             args
