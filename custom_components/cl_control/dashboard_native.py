@@ -21,7 +21,7 @@ MODULE_LABELS = {
     "climate": ("Clima", "mdi:thermostat"),
 }
 
-LEVEL_RANK = {"essential": 0, "standard": 1, "pro": 2}
+LEVEL_RANK = {"essential": 0, "standard": 1, "pro": 2, "installer": 3}
 TECHNICAL_PLATFORMS = {"cl_control", "cl_power_control", "cl_irrigation"}
 
 
@@ -34,9 +34,12 @@ def _slug(value: str) -> str:
 
 
 def _allowed(level: str | None, current: str) -> bool:
-    """Return whether a configured experience level is visible."""
-    return LEVEL_RANK.get(str(level or "essential"), 0) <= LEVEL_RANK.get(
-        str(current or "standard"), 1
+    """Return whether an entity level is visible at the active experience."""
+    item_level = str(level or "essential")
+    if item_level == "installer":
+        return False
+    return LEVEL_RANK.get(item_level, LEVEL_RANK["standard"]) <= LEVEL_RANK.get(
+        str(current or "standard"), LEVEL_RANK["standard"]
     )
 
 
@@ -167,9 +170,11 @@ def build_dashboard_model(
         platform = str(raw.get("platform") or "")
         if platform in TECHNICAL_PLATFORMS and explicit_visibility is not True:
             continue
-        if not _allowed(module_levels.get(module), profile):
-            continue
-        if not _allowed(entity_levels.get(entity_id), profile):
+        # Compatibility with the 3.4 experience model:
+        # module_levels is an active experience override for that module, not
+        # the minimum level required to show the whole module.
+        active_module_level = str(module_levels.get(module) or profile)
+        if not _allowed(entity_levels.get(entity_id), active_module_level):
             continue
 
         area = _resolve_area(

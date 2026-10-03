@@ -120,6 +120,30 @@ class NativeDashboardTests(unittest.TestCase):
         self.assertEqual(model["energy"]["provider"], "cl_power_control")
         self.assertEqual(len(model["cl_modules"]), 2)
 
+
+    def test_module_levels_override_active_experience_instead_of_hiding_module(self):
+        model = self._model(
+            experience_level="essential",
+            module_levels={"lights": "pro", "climate": "standard"},
+        )
+        self.assertEqual(model["modules"]["lights"]["count"], 1)
+        self.assertEqual(model["modules"]["climate"]["count"], 1)
+        cucina = next(area for area in model["areas"] if area["name"] == "Salone")
+        self.assertEqual(len(cucina["entities"]["lights"]), 1)
+
+    def test_entity_level_uses_module_experience_override(self):
+        model = self._model(
+            experience_level="essential",
+            module_levels={"lights": "pro"},
+            entity_levels={"light.salone": "pro", "climate.camera": "standard"},
+        )
+        self.assertEqual(model["modules"]["lights"]["count"], 1)
+        self.assertEqual(model["modules"]["climate"]["count"], 0)
+
+    def test_installer_only_entity_never_leaks_to_customer_dashboard(self):
+        model = self._model(entity_levels={"light.salone": "installer"})
+        self.assertEqual(model["modules"]["lights"]["count"], 0)
+
     def test_installer_visibility_override_can_expose_internal_entity(self):
         model = self._model(
             entity_visibility={"light.cl_power_debug": True},
