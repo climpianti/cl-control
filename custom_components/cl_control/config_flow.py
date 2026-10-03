@@ -215,41 +215,6 @@ class CLControlConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
-    async def async_step_branding(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        """Manage global CL branding and expose an explicit restore action."""
-        current = normalize_entry_options(self.config_entry.options)
-        if user_input is not None:
-            user_input = dict(user_input)
-            restore = bool(user_input.pop("restore_home_assistant_branding", False))
-            updated = normalize_entry_options({**current, **user_input})
-            if restore:
-                updated[CONF_BRANDING_MODE] = "disabled"
-                updated[CONF_BRANDING_RENAME_INSTANCE] = False
-                updated[CONF_BRANDING_PWA] = False
-                updated[CONF_BRANDING_BROWSER_TITLE] = False
-                updated[CONF_BRANDING_SIDEBAR_TITLE] = False
-                updated[CONF_BRANDING_FAVICON] = False
-            return self.async_create_entry(data=updated)
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_BRANDING_MODE): _select_selector(
-                    BRANDING_MODES, "branding_mode"
-                ),
-                vol.Required(CONF_BRANDING_RENAME_INSTANCE): bool,
-                vol.Required(CONF_BRANDING_PWA): bool,
-                vol.Required(CONF_BRANDING_BROWSER_TITLE): bool,
-                vol.Required(CONF_BRANDING_SIDEBAR_TITLE): bool,
-                vol.Required(CONF_BRANDING_FAVICON): bool,
-                vol.Optional("restore_home_assistant_branding", default=False): bool,
-            }
-        )
-        return self.async_show_form(
-            step_id="branding",
-            data_schema=self.add_suggested_values_to_schema(schema, current),
-        )
-
     async def async_step_installer(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -439,6 +404,41 @@ class CLControlOptionsFlow(config_entries.OptionsFlowWithReload):
         )
         return self.async_show_form(
             step_id="general",
+            data_schema=self.add_suggested_values_to_schema(schema, current),
+        )
+
+    async def async_step_branding(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage global CL branding and expose an explicit restore action."""
+        current = normalize_entry_options(self.config_entry.options)
+        if user_input is not None:
+            user_input = dict(user_input)
+            restore = bool(user_input.pop("restore_home_assistant_branding", False))
+            updated = normalize_entry_options({**current, **user_input})
+            if restore:
+                updated[CONF_BRANDING_MODE] = "disabled"
+                updated[CONF_BRANDING_RENAME_INSTANCE] = False
+                updated[CONF_BRANDING_PWA] = False
+                updated[CONF_BRANDING_BROWSER_TITLE] = False
+                updated[CONF_BRANDING_SIDEBAR_TITLE] = False
+                updated[CONF_BRANDING_FAVICON] = False
+            return self.async_create_entry(data=updated)
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_BRANDING_MODE): _select_selector(
+                    BRANDING_MODES, "branding_mode"
+                ),
+                vol.Required(CONF_BRANDING_RENAME_INSTANCE): bool,
+                vol.Required(CONF_BRANDING_PWA): bool,
+                vol.Required(CONF_BRANDING_BROWSER_TITLE): bool,
+                vol.Required(CONF_BRANDING_SIDEBAR_TITLE): bool,
+                vol.Required(CONF_BRANDING_FAVICON): bool,
+                vol.Optional("restore_home_assistant_branding", default=False): bool,
+            }
+        )
+        return self.async_show_form(
+            step_id="branding",
             data_schema=self.add_suggested_values_to_schema(schema, current),
         )
 
