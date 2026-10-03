@@ -10,6 +10,9 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 
 from .config import CONFIG_SCHEMA
@@ -25,6 +28,7 @@ from .const import (
     DATA_DISTRIBUTION_PROVIDER,
     DATA_INSTALLER_LIMITER,
     DATA_INSTALLER_SESSIONS,
+    DATA_NATIVE_DASHBOARD,
     DATA_RUNTIME,
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
@@ -37,6 +41,7 @@ from .const import (
 )
 from .credentials import CredentialStore
 from .distribution import MockDistributionProvider, UpdateManager
+from .dashboard_native import NativeDashboardService
 from .entry_data import (
     entry_data_is_valid,
     normalize_entry_options,
@@ -63,6 +68,7 @@ _RUNTIME_KEYS = (
     DATA_CREDENTIAL_STORE,
     DATA_INSTALLER_LIMITER,
     DATA_INSTALLER_SESSIONS,
+    DATA_NATIVE_DASHBOARD,
     DATA_RUNTIME,
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
@@ -170,6 +176,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # Phase C intentionally performs no network call until CL Impianti
         # supplies an authorized DistributionProvider.
         provider = MockDistributionProvider.offline()
+    native_dashboard = NativeDashboardService(hass, VERSION)
     update_manager = UpdateManager(
         hass=hass,
         entry=entry,
@@ -184,6 +191,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DATA_CONFIG_ENTRY: entry,
             DATA_CREDENTIAL_STORE: credential_store,
             DATA_CREDENTIALS: credentials,
+            DATA_NATIVE_DASHBOARD: native_dashboard,
             DATA_INSTALLER_SESSIONS: InstallerSessions(
                 settings["installer"]["session_minutes"]
             ),
@@ -196,6 +204,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DATA_UPDATE_MANAGER: update_manager,
         }
     )
+    for event_type in (
+        er.EVENT_ENTITY_REGISTRY_UPDATED,
+        dr.EVENT_DEVICE_REGISTRY_UPDATED,
+        ar.EVENT_AREA_REGISTRY_UPDATED,
+    ):
+        entry.async_on_unload(
+            hass.bus.async_listen(event_type, native_dashboard.invalidate)
+        )
     if not domain_data.get(DATA_WEBSOCKET_REGISTERED):
         async_register_commands(hass, VERSION)
         domain_data[DATA_WEBSOCKET_REGISTERED] = True

@@ -18,6 +18,7 @@ from .const import (
     DATA_CONFIG_ENTRY,
     DATA_CREDENTIALS,
     DATA_INSTALLER_SESSIONS,
+    DATA_NATIVE_DASHBOARD,
     DATA_RUNTIME,
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
@@ -95,6 +96,26 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         )
 
     @websocket_api.websocket_command(
+        {vol.Required("type"): "cl_control/dashboard/native_config"}
+    )
+    @websocket_api.async_response
+    async def ws_get_native_dashboard(hass, connection, msg):
+        data = _data(hass)
+        service = data.get(DATA_NATIVE_DASHBOARD)
+        if service is None:
+            connection.send_error(
+                msg["id"], "not_ready", "Dashboard nativa CL Control non disponibile"
+            )
+            return
+        connection.send_result(
+            msg["id"],
+            service.get_payload(
+                settings=data[DATA_SETTINGS],
+                runtime=data[DATA_RUNTIME],
+            ),
+        )
+
+    @websocket_api.websocket_command(
         {
             vol.Required("type"): "cl_control/config/set",
             vol.Required("config"): dict,
@@ -118,6 +139,8 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         ]
         data[DATA_RUNTIME] = runtime
         await data[DATA_STORE].async_save(runtime)
+        if data.get(DATA_NATIVE_DASHBOARD) is not None:
+            data[DATA_NATIVE_DASHBOARD].invalidate()
         entry = data.get(DATA_CONFIG_ENTRY)
         if entry is not None:
             options = sync_options_from_runtime(dict(entry.options), runtime)
@@ -193,6 +216,8 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         runtime["customer_ui"]["favorites"] = favorites
         data[DATA_RUNTIME] = runtime
         await data[DATA_STORE].async_save(runtime)
+        if data.get(DATA_NATIVE_DASHBOARD) is not None:
+            data[DATA_NATIVE_DASHBOARD].invalidate()
         connection.send_result(msg["id"], favorites)
 
     @websocket_api.websocket_command(
@@ -580,6 +605,7 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
     for command in (
         ws_get_bootstrap,
         ws_get_config,
+        ws_get_native_dashboard,
         ws_set_config,
         ws_set_layout,
         ws_reset_layout,

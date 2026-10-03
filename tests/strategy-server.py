@@ -2,11 +2,11 @@
 from aiohttp import web
 from test_distribution import distribution, PACKAGE, ROOT
 
-view = distribution.DashboardStrategyView("3.4.2-beta.1")
+view = distribution.DashboardStrategyView("3.5.0-dev")
 
 async def install_fixture(request):
     version = request.match_info["version"]
-    if version not in ("3.4.2-beta.1", "3.4.3-beta.1"):
+    if version not in ("3.5.0-dev", "3.5.1-dev"):
         raise web.HTTPBadRequest()
     view.version = version
     return web.Response(text=version)
@@ -14,7 +14,7 @@ async def install_fixture(request):
 app = web.Application()
 app.router.add_get(distribution.STRATEGY_URL, view.get)
 app.router.add_post("/_test/install/{version}", install_fixture)
-for version in ("3.4.2-beta.1", "3.4.3-beta.1"):
+for version in ("3.5.0-dev", "3.5.1-dev"):
     app.router.add_static(distribution.static_url(version), PACKAGE / "frontend")
 app.router.add_static("/", ROOT)
 if __name__ == "__main__":
