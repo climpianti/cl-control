@@ -291,22 +291,27 @@ def build_dashboard_model(
     }
 
 
-def _branding_section(model: dict[str, Any], context: str) -> dict[str, Any]:
+def _branding_section(
+    model: dict[str, Any], context: str, *, column_span: int
+) -> dict[str, Any]:
+    """Return a compact native brand strip for Home and subviews."""
     logo = model["branding"].get("logo_url") or ""
     brand = model["branding"].get("brand_name") or "CL Control"
     site_name = model["site"].get("site_name") or "Impianto"
     title = brand if context == "home" else f"{brand} · {context}"
     logo_html = (
-        f'<img src="{logo}" alt="CL Impianti" width="120">'
+        f'<img src="{logo}" alt="CL Impianti" width="72">'
         if logo
         else "**CL Impianti**"
     )
     return {
         "type": "grid",
+        "column_span": column_span,
         "cards": [
             {
                 "type": "markdown",
-                "content": f"{logo_html}\n\n# {title}\n**{site_name}**",
+                "content": f"{logo_html}\n\n### {title}\n{site_name}",
+                "grid_options": {"columns": "full", "rows": "auto"},
             }
         ],
     }
@@ -327,15 +332,17 @@ def _heading(label: str, icon: str) -> dict[str, Any]:
     return {"type": "heading", "heading": label, "icon": icon}
 
 
-def _navigation_button(
+def _navigation_shortcut(
     *, name: str, icon: str, path: str
 ) -> dict[str, Any]:
+    """Use Home Assistant's compact one-row native navigation card."""
     return {
-        "type": "button",
-        "name": name,
+        "type": "shortcut",
+        "label": name,
         "icon": icon,
         "tap_action": {"action": "navigate", "navigation_path": path},
         "hold_action": {"action": "none"},
+        "grid_options": {"columns": 6, "rows": 1},
     }
 
 
@@ -376,7 +383,7 @@ def _module_sections(
 
 def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     """Translate the structural model into native Lovelace configuration."""
-    sections: list[dict[str, Any]] = [_branding_section(model, "home")]
+    sections: list[dict[str, Any]] = [_branding_section(model, "home", column_span=3)]
 
     if model["favorites"]:
         sections.append(
@@ -404,7 +411,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 )
             else:
                 area_cards.append(
-                    _navigation_button(
+                    _navigation_shortcut(
                         name=area["name"],
                         icon="mdi:floor-plan",
                         path=area["path"],
@@ -417,7 +424,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         data = model["modules"][module]
         if data["count"]:
             system_cards.append(
-                _navigation_button(
+                _navigation_shortcut(
                     name=data["label"], icon=data["icon"], path=data["path"]
                 )
             )
@@ -429,7 +436,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         if not module.get("customer_visible") or not module.get("route"):
             continue
         cl_system_cards.append(
-            _navigation_button(
+            _navigation_shortcut(
                 name=str(module.get("customer_label") or module.get("display_name") or "CL"),
                 icon=str(module.get("icon") or "mdi:puzzle"),
                 path=str(module["route"]),
@@ -450,7 +457,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     ]
 
     for area in model["areas"]:
-        area_sections = [_branding_section(model, area["name"])]
+        area_sections = [_branding_section(model, area["name"], column_span=2)]
         for module in ("lights", "covers", "climate"):
             items = area["entities"][module]
             if items:
@@ -471,6 +478,8 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "type": "sections",
                 "title": area["name"],
                 "path": area["path"],
+                "subview": True,
+                "back_path": "home",
                 "max_columns": 2,
                 "sections": area_sections,
             }
@@ -481,7 +490,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         if not data["count"]:
             continue
         module_sections = [
-            _branding_section(model, data["label"]),
+            _branding_section(model, data["label"], column_span=3),
             *_module_sections(data["entities"], model["areas"], module),
         ]
         views.append(
@@ -490,6 +499,8 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "title": data["label"],
                 "path": data["path"],
                 "icon": data["icon"],
+                "subview": True,
+                "back_path": "home",
                 "max_columns": 3,
                 "sections": module_sections,
             }

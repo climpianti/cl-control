@@ -168,12 +168,46 @@ class NativeDashboardTests(unittest.TestCase):
             for section in view["sections"]
             for card in section["cards"]
         }
-        self.assertTrue({"markdown", "heading", "tile", "area", "button"} <= card_types)
+        self.assertTrue({"markdown", "heading", "tile", "area", "shortcut"} <= card_types)
         home = config["views"][0]
         rendered_home = repr(home)
         self.assertIn("Sistemi CL", rendered_home)
         self.assertIn("/cl-power-control", rendered_home)
         self.assertIn("/giardino-irrigazione", rendered_home)
+
+
+    def test_secondary_views_are_subviews_and_home_is_the_only_top_level_tab(self):
+        config = dashboard.build_native_lovelace(self._model())
+        self.assertFalse(config["views"][0].get("subview", False))
+        secondary = config["views"][1:]
+        self.assertTrue(secondary)
+        self.assertTrue(all(view.get("subview") is True for view in secondary))
+        self.assertTrue(all(view.get("back_path") == "home" for view in secondary))
+
+    def test_home_navigation_uses_compact_native_shortcuts(self):
+        config = dashboard.build_native_lovelace(self._model())
+        home = config["views"][0]
+        shortcuts = [
+            card
+            for section in home["sections"]
+            for card in section["cards"]
+            if card.get("type") == "shortcut"
+        ]
+        self.assertTrue(shortcuts)
+        self.assertTrue(
+            all(card.get("grid_options") == {"columns": 6, "rows": 1} for card in shortcuts)
+        )
+
+    def test_branding_strip_is_compact_and_spans_home_width(self):
+        config = dashboard.build_native_lovelace(self._model())
+        brand_section = config["views"][0]["sections"][0]
+        self.assertEqual(brand_section["column_span"], 3)
+        brand_card = brand_section["cards"][0]
+        self.assertEqual(brand_card["type"], "markdown")
+        self.assertEqual(
+            brand_card["grid_options"], {"columns": "full", "rows": "auto"}
+        )
+        self.assertNotIn("\n\n# ", brand_card["content"])
 
     def test_area_override_creates_a_native_navigation_view_without_state_data(self):
         model = self._model(entity_areas={"light.salone": "Terrazza"})
