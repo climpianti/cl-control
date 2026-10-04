@@ -60,8 +60,17 @@ def _runtime_ui(runtime: dict[str, Any]) -> dict[str, Any]:
 
 
 def _runtime_site(runtime: dict[str, Any], fallback: dict[str, Any]) -> dict[str, Any]:
+    """Merge runtime site identity over configured support defaults."""
+    result = deepcopy(fallback if isinstance(fallback, dict) else {})
     site = runtime.get("site")
-    return site if isinstance(site, dict) else fallback
+    if not isinstance(site, dict):
+        return result
+    for key, value in site.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = {**result[key], **value}
+        else:
+            result[key] = deepcopy(value)
+    return result
 
 
 def _area_lookup(
@@ -788,7 +797,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    for module in ("lights", "covers", "climate", "security"):
+    for module in ("lights", "covers", "climate", "cameras", "security"):
         data = model["modules"][module]
         if not data["count"]:
             continue
