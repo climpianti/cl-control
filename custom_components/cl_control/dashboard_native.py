@@ -413,6 +413,17 @@ def _branding_section(
     }
 
 
+def _tile(entity: dict[str, Any]) -> dict[str, Any]:
+    card: dict[str, Any] = {
+        "type": "tile",
+        "entity": entity["entity_id"],
+        "name": entity["name"],
+    }
+    if entity.get("icon"):
+        card["icon"] = entity["icon"]
+    return card
+
+
 def _camera_card(entity: dict[str, Any]) -> dict[str, Any]:
     """Return a visual native camera card without a CL custom renderer."""
     return {
@@ -432,16 +443,6 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
     if entity.get("module") == "cameras":
         return _camera_card(entity)
     return _tile(entity)
-
-
-    card: dict[str, Any] = {
-        "type": "tile",
-        "entity": entity["entity_id"],
-        "name": entity["name"],
-    }
-    if entity.get("icon"):
-        card["icon"] = entity["icon"]
-    return card
 
 
 def _heading(label: str, icon: str) -> dict[str, Any]:
