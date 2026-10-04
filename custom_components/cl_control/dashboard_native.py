@@ -301,7 +301,7 @@ def _branding_section(
     site_name = model["site"].get("site_name") or "Impianto"
     title = brand if context == "home" else f"{brand} · {context}"
     logo_html = (
-        f'<img src="{logo}" alt="CL Impianti" width="58" align="left">'
+        f'<img src="{logo}" alt="CL Impianti" width="52" align="left">'
         if logo
         else "<strong>CL Impianti</strong>"
     )
@@ -319,7 +319,7 @@ def _branding_section(
                     "navigation_path": "home",
                 },
                 "hold_action": {"action": "none"},
-                "grid_options": {"columns": "full", "rows": 1},
+                "grid_options": {"columns": "full", "rows": 2},
             }
         ],
     }
