@@ -22,8 +22,11 @@ async def async_setup_entry(hass, entry, async_add_entities) -> None:
     area_registry = ar.async_get(hass)
     async_add_entities(
         [
-            CLControlAreaPowerSensor(entry, manager, area.id, area.name)
-            for area in area_registry.async_list_areas()
+            CLControlHomePowerSensor(entry, manager),
+            *[
+                CLControlAreaPowerSensor(entry, manager, area.id, area.name)
+                for area in area_registry.async_list_areas()
+            ],
         ],
         True,
     )
@@ -140,3 +143,24 @@ class CLControlAreaPowerSensor(SensorEntity):
             "available_source_count": self._available_sources,
             "sources": list(self._sources),
         }
+
+
+
+class CLControlHomePowerSensor(CLControlAreaPowerSensor):
+    """Sum configured instantaneous power sources for the whole home."""
+
+    def __init__(self, entry, manager) -> None:
+        super().__init__(entry, manager, "__home__", "Casa")
+        installation_id = str(entry.data["installation_id"])
+        self.area_id = ""
+        self.area_name = "Casa"
+        self._attr_unique_id = f"{installation_id}_home_power"
+        self._attr_name = "Potenza casa"
+        self._attr_icon = "mdi:home-lightning-bolt"
+
+    async def async_added_to_hass(self) -> None:
+        self.manager.attach_home_power(self)
+
+    async def async_will_remove_from_hass(self) -> None:
+        self.manager.detach_home_power(self)
+        self._unsubscribe()
