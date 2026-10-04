@@ -119,6 +119,13 @@ class NativeDashboardTests(unittest.TestCase):
                 "name": "Ingresso",
             },
             {
+                "entity_id": "weather.casa",
+                "domain": "weather",
+                "platform": "met",
+                "area_id": "",
+                "name": "Meteo casa",
+            },
+            {
                 "entity_id": "light.cl_power_debug",
                 "domain": "light",
                 "platform": "cl_power_control",
@@ -390,6 +397,52 @@ class NativeDashboardTests(unittest.TestCase):
                 badge["tap_action"]["target"] == {"area_id": "salone"}
                 for badge in light_heading["badges"]
             )
+        )
+
+    def test_weather_header_uses_native_weather_tile(self):
+        model = self._model()
+        self.assertEqual(model["weather_entity"], "weather.casa")
+        config = dashboard.build_native_lovelace(model)
+        header = config["views"][0]["sections"][0]
+        weather = next(
+            card for card in header["cards"] if card.get("entity") == "weather.casa"
+        )
+        self.assertEqual(weather["type"], "tile")
+        self.assertEqual(weather["state_content"], ["state", "temperature"])
+        brand = header["cards"][0]
+        self.assertIn('width="64"', brand["content"])
+        self.assertIn("<table", brand["content"])
+
+    def test_weather_can_be_disabled_or_selected_manually(self):
+        disabled = self._model(weather={"mode": "off", "entity": ""})
+        self.assertEqual(disabled["weather_entity"], "")
+        manual = self._model(
+            weather={"mode": "manual", "entity": "weather.casa"}
+        )
+        self.assertEqual(manual["weather_entity"], "weather.casa")
+
+    def test_home_power_badge_and_admin_installer_shortcut(self):
+        model = self._model(experience_level="pro")
+        model["home_power_entity"] = "sensor.cl_control_potenza_casa"
+        model["admin_user_ids"] = ["admin-1"]
+        config = dashboard.build_native_lovelace(model)
+        home = config["views"][0]
+        self.assertEqual(
+            home["badges"][0]["entity"], "sensor.cl_control_potenza_casa"
+        )
+        installer = next(
+            card
+            for section in home["sections"]
+            for card in section["cards"]
+            if card.get("label") == "Configurazione Installatore"
+        )
+        self.assertEqual(
+            installer["tap_action"]["navigation_path"],
+            "/cl-control?installer=1",
+        )
+        self.assertEqual(
+            installer["visibility"],
+            [{"condition": "user", "users": ["admin-1"]}],
         )
 
     def test_cameras_are_visual_native_cards_and_grouped_by_area(self):
