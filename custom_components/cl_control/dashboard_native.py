@@ -529,6 +529,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "path": data["path"],
                 "icon": data["icon"],
                 "subview": True,
+                "visible": False,
                 "back_path": "home",
                 "max_columns": 3,
                 "sections": module_sections,
