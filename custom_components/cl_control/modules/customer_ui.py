@@ -2,6 +2,7 @@
 
 DEFAULT_CONFIG = {
     "schema_version": 1,
+    "layout_schema_version": 1,
     "default_theme": "cl_blue",
     "default_page": "home",
     "experience": {
@@ -13,6 +14,7 @@ DEFAULT_CONFIG = {
         "lights",
         "covers",
         "climate",
+        "environment",
         "energy",
         "security",
         "cameras",
@@ -30,6 +32,23 @@ DEFAULT_CONFIG = {
         "support": "Assistenza",
         "installer": "Installatore",
     },
+    "environment": {
+        "classification_confidence_threshold": 0.75,
+        "thresholds": {
+            "temperature": {"warning_low": 18, "warning_high": 27, "high": 30},
+            "humidity": {"warning_low": 30, "warning_high": 65, "high": 75},
+            "co2": {"warning_high": 1000, "high": 1500},
+            "voc": {"warning_high": 250, "high": 500},
+            "pm1": {"warning_high": 10, "high": 25},
+            "pm25": {"warning_high": 15, "high": 35},
+            "pm10": {"warning_high": 45, "high": 75},
+            "aqi": {"warning_high": 50, "high": 100},
+            "radon": {"warning_high": 100, "high": 300},
+            "formaldehyde": {"warning_high": 0.1, "high": 0.3},
+            "co": {"warning_high": 9, "high": 35},
+            "pressure": {},
+        },
+    },
 }
 
 DEFAULT_RUNTIME = {
@@ -39,23 +58,38 @@ DEFAULT_RUNTIME = {
     "aliases": {},
     "switch_types": {},
     "area_order": [],
+    "area_visibility": {},
+    "area_picture_visibility": {},
     "entity_order": [],
     "home_order": [
         "lights",
         "covers",
         "climate",
+        "environment",
         "energy",
         "security",
         "cameras",
         "support",
     ],
     "energy": {},
+    "energy_provider": "auto",
+    "weather": {"mode": "auto", "entity": ""},
+    "power_monitoring": {
+        "home": {"mode": "auto", "entities": []},
+        "areas": {},
+    },
     "area_switches": {},
     "ui": {"density": "normal"},
+    "shell_title": {"mode": "cl_control", "custom": ""},
     "experience_level": "standard",
     "module_levels": {},
     "entity_levels": {},
+    "entity_modules": {},
+    "entity_areas": {},
+    "entity_subtypes": {},
+    "entity_visibility": {},
     "section_levels": {},
     "card_levels": {},
     "user_levels": {},
+    "layout": {"layout_schema_version": 1, "base": {}, "mobile": {}, "tablet": {}, "wall": {}},
 }

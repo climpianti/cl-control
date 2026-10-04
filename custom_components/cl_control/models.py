@@ -10,6 +10,7 @@ from .modules import MODULE_DEFAULTS
 from .modules.customer_ui import DEFAULT_RUNTIME
 from .modules.assistance import normalize_assistance_config, public_assistance_config
 from .modules.site import DEFAULT_CONFIG as SITE_DEFAULTS
+from .modules.layout import normalize_layout
 
 RUNTIME_UI_KEYS = (
     "theme",
@@ -18,17 +19,28 @@ RUNTIME_UI_KEYS = (
     "aliases",
     "switch_types",
     "area_order",
+    "area_visibility",
+    "area_picture_visibility",
     "entity_order",
     "home_order",
     "energy",
+    "energy_provider",
+    "weather",
+    "power_monitoring",
     "area_switches",
     "ui",
+    "shell_title",
     "experience_level",
     "module_levels",
     "entity_levels",
+    "entity_modules",
+    "entity_areas",
+    "entity_subtypes",
+    "entity_visibility",
     "section_levels",
     "card_levels",
     "user_levels",
+    "layout",
 )
 
 
@@ -94,6 +106,7 @@ def migrate_runtime_config(value: dict[str, Any] | None) -> dict[str, Any]:
             },
         )
         assistance = {"requests": []}
+    customer_ui["layout"] = normalize_layout(customer_ui.get("layout"))
     return {
         "schema_version": RUNTIME_SCHEMA_VERSION,
         "customer_ui": customer_ui,

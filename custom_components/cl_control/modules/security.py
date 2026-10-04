@@ -1,4 +1,4 @@
-"""Security provider policy and PIN-free service dispatch."""
+"""Security provider policy, PIN authorization and safe service dispatch."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ DEFAULT_CONFIG = {
     "schema_version": 1,
     "provider": "auto",
     "pin": "",
+    "allowed_alarm_entity_ids": [],
     "allowed_partition_entity_ids": [],
     "allowed_zone_entity_ids": [],
     "partition_modes": ["TOTAL", "PARTIAL", "INSTANT", "DISARMED"],
@@ -20,6 +21,7 @@ DEFAULT_CONFIG = {
     },
 }
 
+ALARM_PANEL_RE = re.compile(r"^alarm_control_panel\.[a-z0-9_]+$")
 PARTITION_RE = re.compile(r"^select\.partition_[a-z0-9_]+_mode$")
 INIM_ZONE_RE = re.compile(r"^switch\.zone_[a-z0-9_]+_exclusion$")
 RISCO_BYPASS_RE = re.compile(r"^switch\.[a-z0-9_]+_(?:bypassed|bypassato)$")
@@ -31,6 +33,30 @@ ZONE_RE = re.compile(
 def _explicitly_allowed(discovered: set[str], configured: Iterable[str]) -> set[str]:
     explicit = {str(item) for item in configured if isinstance(item, str)}
     return discovered if not explicit else discovered & explicit
+
+
+ALARM_COMMAND_SERVICES = {
+    "arm_away": "alarm_arm_away",
+    "arm_home": "alarm_arm_home",
+    "arm_night": "alarm_arm_night",
+    "arm_vacation": "alarm_arm_vacation",
+    "arm_custom_bypass": "alarm_arm_custom_bypass",
+    "disarm": "alarm_disarm",
+}
+
+
+def build_alarm_whitelist(
+    states: Iterable[str], security_config: dict[str, Any]
+) -> set[str]:
+    """Return alarm panels that CL Control may operate."""
+    discovered = {
+        str(entity_id)
+        for entity_id in states
+        if ALARM_PANEL_RE.fullmatch(str(entity_id))
+    }
+    return _explicitly_allowed(
+        discovered, security_config.get("allowed_alarm_entity_ids", [])
+    )
 
 
 def build_security_whitelist(
@@ -82,6 +108,24 @@ def validate_risco_zone_pair(
     return True, "authorized"
 
 
+async def async_alarm_command(
+    hass: Any, entity_id: str, command: str, context: Any = None
+) -> dict[str, Any]:
+    """Dispatch one CL-authorized alarm command without exposing the PIN."""
+    service = ALARM_COMMAND_SERVICES.get(str(command))
+    if service is None:
+        raise ValueError("Unsupported alarm command")
+    await hass.services.async_call(
+        "alarm_control_panel",
+        service,
+        {},
+        blocking=True,
+        context=context,
+        target={"entity_id": entity_id},
+    )
+    return {"entity_id": entity_id, "command": command, "service": service}
+
+
 async def async_set_partition_mode(
     hass: Any, entity_ids: list[str], mode: str, context: Any = None
 ) -> None:
@@ -89,9 +133,10 @@ async def async_set_partition_mode(
     await hass.services.async_call(
         "select",
         "select_option",
-        {"entity_id": entity_ids, "option": mode},
+        {"option": mode},
         blocking=True,
         context=context,
+        target={"entity_id": entity_ids},
     )
 
 
@@ -110,9 +155,10 @@ async def async_set_zone_exclusion(
     await hass.services.async_call(
         "switch",
         service,
-        {"entity_id": entity_id},
+        {},
         blocking=True,
         context=context,
+        target={"entity_id": entity_id},
     )
     target = "on" if excluded else "off"
     after = None

@@ -1,7 +1,0 @@
-schema_version: 1
-pin: !secret cl_control_installer_pin
-session_minutes: 30
-rate_limit:
-  max_attempts: 5
-  window_seconds: 300
-  lockout_seconds: 900

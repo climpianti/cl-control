@@ -15,13 +15,21 @@ from homeassistant.helpers import entity_registry as er
 from .const import (
     DATA_INSTALLER_LIMITER,
     DATA_ASSISTANCE_GATEWAY,
+    DATA_BRANDING_MANAGER,
+    DATA_CONFIG_ENTRY,
+    DATA_CREDENTIALS,
+    DATA_CREDENTIAL_STORE,
     DATA_INSTALLER_SESSIONS,
+    DATA_NATIVE_DASHBOARD,
     DATA_RUNTIME,
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
     DATA_STORE,
     DOMAIN,
+    CONF_INSTALLATION_ID,
 )
+from .credentials import async_verify_pin
+from .entry_data import sync_options_from_runtime
 from .models import (
     build_bootstrap,
     migrate_runtime_config,
@@ -35,12 +43,16 @@ from .modules.assistance import (
     update_request_status,
 )
 from .modules.security import (
+    ALARM_COMMAND_SERVICES,
     INIM_ZONE_RE,
+    async_alarm_command,
     async_set_partition_mode,
     async_set_zone_exclusion,
+    build_alarm_whitelist,
     build_security_whitelist,
     validate_risco_zone_pair,
 )
+from .modules.layout import LAYOUT_CONTEXTS, LAYOUT_VIEWS, layout_favorite_entity_ids, layout_write_allowed, reset_layout, update_layout_view
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -90,6 +102,26 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         )
 
     @websocket_api.websocket_command(
+        {vol.Required("type"): "cl_control/dashboard/native_config"}
+    )
+    @websocket_api.async_response
+    async def ws_get_native_dashboard(hass, connection, msg):
+        data = _data(hass)
+        service = data.get(DATA_NATIVE_DASHBOARD)
+        if service is None:
+            connection.send_error(
+                msg["id"], "not_ready", "Dashboard nativa CL Control non disponibile"
+            )
+            return
+        connection.send_result(
+            msg["id"],
+            await service.async_get_payload(
+                settings=data[DATA_SETTINGS],
+                runtime=data[DATA_RUNTIME],
+            ),
+        )
+
+    @websocket_api.websocket_command(
         {
             vol.Required("type"): "cl_control/config/set",
             vol.Required("config"): dict,
@@ -113,7 +145,71 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         ]
         data[DATA_RUNTIME] = runtime
         await data[DATA_STORE].async_save(runtime)
+        if data.get(DATA_NATIVE_DASHBOARD) is not None:
+            data[DATA_NATIVE_DASHBOARD].invalidate()
+        branding_manager = data.get(DATA_BRANDING_MANAGER)
+        if branding_manager is not None:
+            await branding_manager.async_apply(runtime)
+        entry = data.get(DATA_CONFIG_ENTRY)
+        if entry is not None:
+            options = sync_options_from_runtime(dict(entry.options), runtime)
+            if options != dict(entry.options):
+                hass.config_entries.async_update_entry(entry, options=options)
         connection.send_result(msg["id"], runtime_to_frontend(runtime))
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "cl_control/layout/set",
+            vol.Required("context"): vol.In(LAYOUT_CONTEXTS),
+            vol.Required("view"): vol.In(LAYOUT_VIEWS),
+            vol.Required("cards"): dict,
+        }
+    )
+    @websocket_api.async_response
+    async def ws_set_layout(hass, connection, msg):
+        if not _require_admin(connection, msg):
+            return
+        data = _data(hass)
+        if not layout_write_allowed(True, data[DATA_INSTALLER_SESSIONS].active(_user_key(connection))):
+            connection.send_error(msg["id"], "unauthorized", "Modalita installatore non attiva")
+            return
+        runtime = migrate_runtime_config(data[DATA_RUNTIME])
+        runtime["customer_ui"]["layout"] = update_layout_view(
+            runtime["customer_ui"].get("layout"), msg["context"], msg["view"], msg["cards"]
+        )
+        data[DATA_RUNTIME] = runtime
+        await data[DATA_STORE].async_save(runtime)
+        connection.send_result(msg["id"], runtime["customer_ui"]["layout"])
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "cl_control/layout/reset",
+            vol.Required("context"): vol.In(LAYOUT_CONTEXTS),
+            vol.Optional("view"): vol.In(LAYOUT_VIEWS),
+        }
+    )
+    @websocket_api.async_response
+    async def ws_reset_layout(hass, connection, msg):
+        if not _require_admin(connection, msg):
+            return
+        data = _data(hass)
+        if not layout_write_allowed(True, data[DATA_INSTALLER_SESSIONS].active(_user_key(connection))):
+            connection.send_error(msg["id"], "unauthorized", "Modalita installatore non attiva")
+            return
+        runtime = migrate_runtime_config(data[DATA_RUNTIME])
+        preserved_favorites = layout_favorite_entity_ids(
+            runtime["customer_ui"].get("layout"), msg["context"], msg.get("view")
+        )
+        if preserved_favorites:
+            runtime["customer_ui"]["favorites"] = list(dict.fromkeys([
+                *runtime["customer_ui"].get("favorites", []), *sorted(preserved_favorites)
+            ]))[:500]
+        runtime["customer_ui"]["layout"] = reset_layout(
+            runtime["customer_ui"].get("layout"), msg["context"], msg.get("view")
+        )
+        data[DATA_RUNTIME] = runtime
+        await data[DATA_STORE].async_save(runtime)
+        connection.send_result(msg["id"], runtime["customer_ui"]["layout"])
 
     @websocket_api.websocket_command(
         {
@@ -129,6 +225,8 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         runtime["customer_ui"]["favorites"] = favorites
         data[DATA_RUNTIME] = runtime
         await data[DATA_STORE].async_save(runtime)
+        if data.get(DATA_NATIVE_DASHBOARD) is not None:
+            data[DATA_NATIVE_DASHBOARD].invalidate()
         connection.send_result(msg["id"], favorites)
 
     @websocket_api.websocket_command(
@@ -150,8 +248,15 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
                 msg["id"], {"unlocked": False, "retry_after": retry_after}
             )
             return
+        entered = str(msg.get("pin") or "")
+        credential = data.get(DATA_CREDENTIALS, {}).get("installer_pin")
         expected = data[DATA_SETTINGS]["installer"]["pin"]
-        if secrets.compare_digest(str(msg.get("pin") or ""), expected):
+        valid = (
+            await async_verify_pin(hass, entered, credential)
+            if credential
+            else secrets.compare_digest(entered, expected)
+        )
+        if valid:
             limiter.record_success(user_key)
             data[DATA_INSTALLER_SESSIONS].unlock(user_key)
             minutes = data[DATA_SETTINGS]["installer"]["session_minutes"]
@@ -202,12 +307,27 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
             )
             return False
         expected = data[DATA_SETTINGS]["security"]["pin"]
-        if not expected:
+        credential = data.get(DATA_CREDENTIALS, {}).get("security_pin")
+        if not expected and not credential:
             connection.send_error(
                 msg["id"], "not_configured", "PIN sicurezza non configurato"
             )
             return False
-        if secrets.compare_digest(str(msg["pin"]), expected):
+        try:
+            valid = (
+                await async_verify_pin(hass, str(msg["pin"]), credential)
+                if credential
+                else secrets.compare_digest(str(msg["pin"]), expected)
+            )
+        except Exception as err:
+            _LOGGER.exception("CL Control security PIN verification failed: %s", err)
+            connection.send_error(
+                msg["id"],
+                "security_validation_error",
+                "Impossibile verificare il Codice Sicurezza",
+            )
+            return False
+        if valid:
             limiter.record_success(user_key)
             return True
         retry_after = limiter.record_failure(user_key)
@@ -382,6 +502,106 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         )
 
     @websocket_api.websocket_command(
+        {vol.Required("type"): "cl_control/security/pin/status"}
+    )
+    @websocket_api.async_response
+    async def ws_security_pin_status(hass, connection, msg):
+        if not _require_admin(connection, msg):
+            return
+        data = _data(hass)
+        if not data[DATA_INSTALLER_SESSIONS].active(_user_key(connection)):
+            connection.send_error(
+                msg["id"], "unauthorized", "Modalita installatore non attiva"
+            )
+            return
+        credential = data.get(DATA_CREDENTIALS, {}).get("security_pin")
+        legacy = str(data[DATA_SETTINGS].get("security", {}).get("pin") or "")
+        connection.send_result(msg["id"], {"configured": bool(credential or legacy)})
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "cl_control/security/pin/set",
+            vol.Required("pin"): str,
+        }
+    )
+    @websocket_api.async_response
+    async def ws_security_pin_set(hass, connection, msg):
+        if not _require_admin(connection, msg):
+            return
+        data = _data(hass)
+        user_key = _user_key(connection)
+        if not data[DATA_INSTALLER_SESSIONS].active(user_key):
+            connection.send_error(
+                msg["id"], "unauthorized", "Modalita installatore non attiva"
+            )
+            return
+        pin = str(msg.get("pin") or "")
+        if not pin.isdigit() or not 4 <= len(pin) <= 12:
+            connection.send_error(
+                msg["id"],
+                "invalid_pin_format",
+                "Usa un PIN numerico da 4 a 12 cifre",
+            )
+            return
+        entry = data.get(DATA_CONFIG_ENTRY)
+        installation_id = str(
+            getattr(entry, "data", {}).get(CONF_INSTALLATION_ID) if entry else ""
+        )
+        if not installation_id:
+            connection.send_error(
+                msg["id"], "not_ready", "Identificativo installazione non disponibile"
+            )
+            return
+        record = await data[DATA_CREDENTIAL_STORE].async_set_pin(
+            installation_id, "security_pin", pin
+        )
+        data.setdefault(DATA_CREDENTIALS, {})["security_pin"] = record
+        data[DATA_SECURITY_LIMITER].record_success(user_key)
+        if data.get(DATA_NATIVE_DASHBOARD) is not None:
+            data[DATA_NATIVE_DASHBOARD].invalidate()
+        connection.send_result(msg["id"], {"configured": True})
+
+    @websocket_api.websocket_command(
+        {
+            vol.Required("type"): "cl_control/security/alarm_command",
+            vol.Required("pin"): str,
+            vol.Required("entity_id"): str,
+            vol.Required("command"): vol.In(sorted(ALARM_COMMAND_SERVICES)),
+        }
+    )
+    @websocket_api.async_response
+    async def ws_alarm_command(hass, connection, msg):
+        if not await _validate_security_pin(hass, connection, msg):
+            return
+        data = _data(hass)
+        security = data[DATA_SETTINGS]["security"]
+        entity_id = str(msg["entity_id"])
+        allowed = build_alarm_whitelist(hass.states.async_entity_ids(), security)
+        if entity_id not in allowed:
+            connection.send_error(
+                msg["id"], "not_allowed", "Pannello allarme non autorizzato"
+            )
+            return
+        try:
+            result = await async_alarm_command(
+                hass, entity_id, str(msg["command"]), _context(connection, msg)
+            )
+        except Exception as err:
+            _LOGGER.exception(
+                "CL Control alarm service failed: entity=%s command=%s error=%s",
+                entity_id,
+                msg["command"],
+                err,
+            )
+            connection.send_error(
+                msg["id"],
+                "service_error",
+                f"Home Assistant non ha eseguito il comando allarme: {type(err).__name__}",
+            )
+            return
+        connection.send_result(msg["id"], {"success": True, **result})
+
+    @websocket_api.websocket_command(
         {
             vol.Required("type"): "cl_control/security/partition_command",
             vol.Required("pin"): str,
@@ -396,7 +616,7 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         security = _data(hass)[DATA_SETTINGS]["security"]
         mode = str(msg["mode"]).upper()
         requested = set(msg["entity_ids"])
-        partitions, _ = build_security_whitelist(hass.states.keys(), security)
+        partitions, _ = build_security_whitelist(hass.states.async_entity_ids(), security)
         if (
             not requested
             or not requested.issubset(partitions)
@@ -428,7 +648,7 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         if INIM_ZONE_RE.fullmatch(entity_id):
             if not await _validate_security_pin(hass, connection, msg):
                 return
-            _, zones = build_security_whitelist(hass.states.keys(), security)
+            _, zones = build_security_whitelist(hass.states.async_entity_ids(), security)
             authorized = entity_id in zones
             reason = "authorized" if authorized else "switch_not_whitelisted"
         else:
@@ -438,7 +658,7 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
             authorized, reason = validate_risco_zone_pair(
                 zone_entity_id,
                 entity_id,
-                hass.states.keys(),
+                hass.states.async_entity_ids(),
                 security,
                 {
                     "platform": getattr(zone_entry, "platform", ""),
@@ -503,7 +723,10 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
     for command in (
         ws_get_bootstrap,
         ws_get_config,
+        ws_get_native_dashboard,
         ws_set_config,
+        ws_set_layout,
+        ws_reset_layout,
         ws_set_favorites,
         ws_unlock_installer,
         ws_lock_installer,
@@ -513,6 +736,9 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         ws_assistance_requests,
         ws_assistance_ai_message,
         ws_assistance_telemetry,
+        ws_security_pin_status,
+        ws_security_pin_set,
+        ws_alarm_command,
         ws_partition_command,
         ws_zone_exclusion,
     ):

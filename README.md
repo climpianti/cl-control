@@ -24,20 +24,29 @@ La versione 3.5.0 è la prima baseline pubblica stabile della nuova architettura
 - Potenza totale casa e potenza per area con modalità automatica, manuale o disattivata.
 - Ricerca rapida delle entità nel configuratore Installatore.
 - Telecamere raggruppate per area con riepilogo online/non disponibile.
-- Modulo Sicurezza con partizioni, zone e bypass.
+- Modulo Sicurezza con partizioni, zone e bypass; supporto per `alarm_control_panel` e logiche specifiche Risco/INIM presenti nella build.
 - **Codice Sicurezza CL** separato dal PIN Installatore.
 - Accesso **Installatore** protetto da PIN hashato e salato.
 - Assistenza CL contestualizzata via WhatsApp.
 - Branding CL e titolo Home Assistant configurabile.
-- Integrazione con **CL Power Control** e **CL Irrigation** quando presenti.
+- Integrazione con i moduli dell'ecosistema **CL Power Control** e **CL Irrigation** quando presenti.
+
+## Requisiti
+
+- Home Assistant con supporto alle API frontend/registry utilizzate dalla versione corrente.
+- È consigliata una versione Home Assistant recente. CL Control 3.5.0 è stato validato sul ramo Home Assistant 2026.9/2026.10 utilizzato durante lo sviluppo.
+- Browser moderno per le card frontend incluse.
+
+> La compatibilità con versioni Home Assistant precedenti non è garantita finché non viene esplicitamente testata.
 
 ## Installazione con HACS
 
 Quando questo repository è pubblico:
 
 1. Apri **HACS → Integrazioni**.
-2. Apri i repository personalizzati.
-3. Aggiungi `https://github.com/climpianti/cl-control`.
+2. Apri il menu dei repository personalizzati.
+3. Aggiungi:
+   `https://github.com/climpianti/cl-control`
 4. Categoria: **Integration**.
 5. Installa **CL Control**.
 6. Riavvia Home Assistant.
@@ -48,22 +57,55 @@ Non sono necessari `panel_custom`, file in `/config/www/cl_control` o configuraz
 
 ## Installazione manuale
 
-Copia `custom_components/cl_control` in `/config/custom_components/cl_control`, riavvia Home Assistant e aggiungi l'integrazione dalla UI.
+Copia la cartella:
 
-## Profili
+```text
+custom_components/cl_control
+```
+
+in:
+
+```text
+/config/custom_components/cl_control
+```
+
+La struttura finale deve contenere, tra gli altri:
+
+```text
+/config/custom_components/cl_control/manifest.json
+/config/custom_components/cl_control/__init__.py
+/config/custom_components/cl_control/frontend/
+```
+
+Riavvia Home Assistant e aggiungi l'integrazione dalla UI.
+
+## Prima configurazione
+
+Il Config Flow richiede:
+
+- nome impianto;
+- eventuale nome cliente;
+- contatto assistenza;
+- profilo esperienza;
+- impostazioni branding;
+- PIN Installatore.
+
+Il PIN Installatore viene memorizzato esclusivamente come hash salato.
+
+## Dashboard e profili
 
 ### Essential
-Comandi principali senza telemetria ambientale/potenza sulle card delle aree.
+Interfaccia essenziale con comandi principali e senza telemetria ambientale/potenza sulle card delle aree.
 
 ### Standard
-Aggiunge temperatura, umidità, CO₂ e presenza quando disponibili.
+Aggiunge i dati ambientali disponibili, come temperatura, umidità, CO₂ e presenza.
 
 ### Pro
-Aggiunge anche la potenza istantanea aggregata della casa e delle aree quando configurata.
+Aggiunge anche la potenza istantanea aggregata della casa e delle aree, quando configurata.
 
 ## Installatore
 
-La sezione Installatore permette di configurare senza modificare manualmente Lovelace:
+La sezione Installatore consente di configurare senza modificare manualmente Lovelace:
 
 - profilo dashboard;
 - organizzazione e ordinamento;
@@ -77,7 +119,9 @@ La sezione Installatore permette di configurare senza modificare manualmente Lov
 
 ## Sicurezza
 
-Il Codice Sicurezza CL autorizza l'azione nell'interfaccia CL Control; il comando reale viene poi inviato all'entità Home Assistant rispettando il comportamento dell'integrazione sottostante.
+CL Control utilizza un proprio codice di autorizzazione lato interfaccia, separato dal codice della centrale. Il comando reale viene poi inviato all'entità Home Assistant rispettando il comportamento dell'integrazione sottostante.
+
+I bypass di zona vengono esposti solo quando CL Control riesce ad associarli in modo coerente alla zona/dispositivo supportato.
 
 ## Privacy e assistenza
 
@@ -85,16 +129,18 @@ L'assistenza WhatsApp prepara richieste contestualizzate e applica una redazione
 
 La parte AI è predisposta nell'architettura ma **non effettua chiamate OpenAI reali in questa release stabile**.
 
-## Compatibilità
+## Aggiornamenti
 
-CL Control 3.5.0 è stato validato sugli ambienti Home Assistant recenti utilizzati durante lo sviluppo. La compatibilità con versioni precedenti non è garantita finché non viene esplicitamente testata.
+Per installazioni HACS, gli aggiornamenti verranno distribuiti attraverso il repository CL Control.
+
+Prima di aggiornare un impianto di produzione è consigliato effettuare un backup Home Assistant.
 
 ## Segnalazioni
 
-Per bug e richieste di miglioramento usa la sezione **Issues** del repository.
+Per bug e richieste di miglioramento usa la sezione **Issues** del repository GitHub.
 
 ## Versione
 
 **3.5.0 — Stable**
 
-Vedi [CHANGELOG.md](CHANGELOG.md).
+Vedi [CHANGELOG.md](CHANGELOG.md) per le modifiche principali.
