@@ -144,6 +144,122 @@ def _entity_name(entity: dict[str, Any], ui: dict[str, Any]) -> str:
     return entity_id.split(".", 1)[-1].replace("_", " ").strip().title()
 
 
+def _resolve_weather_entity(
+    registry_entities: list[dict[str, Any]], ui: dict[str, Any]
+) -> str:
+    """Resolve the configured weather entity without observing runtime state."""
+    config = ui.get("weather")
+    config = config if isinstance(config, dict) else {}
+    mode = str(config.get("mode") or "auto").lower()
+    if mode in {"off", "disabled", "none"}:
+        return ""
+    candidates = sorted(
+        str(item.get("entity_id") or "")
+        for item in registry_entities
+        if str(item.get("domain") or "") == "weather"
+        and not item.get("disabled")
+        and str(item.get("entity_id") or "")
+    )
+    selected = str(config.get("entity") or "")
+    if mode == "manual":
+        return selected if selected in candidates else ""
+    return candidates[0] if candidates else ""
+
+
+def _power_sources(
+    registry_entities: list[dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    """Return valid raw power sensors, excluding CL Control aggregates."""
+    result: dict[str, dict[str, Any]] = {}
+    for item in registry_entities:
+        entity_id = str(item.get("entity_id") or "")
+        if str(item.get("domain") or "") != "sensor":
+            continue
+        if str(item.get("device_class") or "") != "power":
+            continue
+        if item.get("disabled") or str(item.get("platform") or "") == DOMAIN:
+            continue
+        result[entity_id] = item
+    return result
+
+
+def _selected_power_sources(
+    *,
+    registry_entities: list[dict[str, Any]],
+    model: dict[str, Any],
+    ui: dict[str, Any],
+) -> tuple[list[str], dict[str, list[str]]]:
+    """Resolve Auto/Manual/Off power source selections structurally."""
+    candidates = _power_sources(registry_entities)
+    monitoring = ui.get("power_monitoring")
+    monitoring = monitoring if isinstance(monitoring, dict) else {}
+    area_cfg = monitoring.get("areas")
+    area_cfg = area_cfg if isinstance(area_cfg, dict) else {}
+
+    area_sources: dict[str, list[str]] = {}
+    for area in model.get("areas", []):
+        config = area_cfg.get(area["id"])
+        config = config if isinstance(config, dict) else {}
+        mode = str(config.get("mode") or "auto").lower()
+        if mode in {"off", "disabled", "none"}:
+            selected: list[str] = []
+        elif mode == "manual":
+            selected = [
+                entity_id
+                for entity_id in dict.fromkeys(config.get("entities") or [])
+                if entity_id in candidates
+            ]
+        else:
+            selected = sorted(
+                entity_id
+                for entity_id, item in candidates.items()
+                if str(item.get("area_id") or "") == area["id"]
+            )
+        area_sources[area["id"]] = selected
+
+    home_cfg = monitoring.get("home")
+    home_cfg = home_cfg if isinstance(home_cfg, dict) else {}
+    home_mode = str(home_cfg.get("mode") or "auto").lower()
+    if home_mode in {"off", "disabled", "none"}:
+        home_sources: list[str] = []
+    elif home_mode == "manual":
+        home_sources = [
+            entity_id
+            for entity_id in dict.fromkeys(home_cfg.get("entities") or [])
+            if entity_id in candidates
+        ]
+    else:
+        mapped_home = str((ui.get("energy") or {}).get("home") or "")
+        if mapped_home in candidates:
+            home_sources = [mapped_home]
+        else:
+            preferred: list[str] = []
+            for entity_id, item in candidates.items():
+                text = " ".join(
+                    str(item.get(key) or "")
+                    for key in ("entity_id", "name", "original_name")
+                ).casefold()
+                if re.search(r"consum|load|casa|house|home", text):
+                    preferred.append(entity_id)
+            preferred.sort(
+                key=lambda entity_id: (
+                    bool(candidates[entity_id].get("area_id")),
+                    entity_id,
+                )
+            )
+            if preferred:
+                home_sources = [preferred[0]]
+            else:
+                home_sources = list(
+                    dict.fromkeys(
+                        entity_id
+                        for values in area_sources.values()
+                        for entity_id in values
+                    )
+                )
+    return home_sources, area_sources
+
+
 def build_dashboard_model(
     *,
     registry_entities: list[dict[str, Any]],
@@ -359,6 +475,7 @@ def build_dashboard_model(
     support = effective_site.get("support")
     support = support if isinstance(support, dict) else {}
     whatsapp = re.sub(r"\D", "", str(support.get("whatsapp") or ""))
+    weather_entity = _resolve_weather_entity(registry_entities, ui)
 
     return {
         "schema_version": 1,
@@ -370,6 +487,7 @@ def build_dashboard_model(
             "logo_url": logo_url,
         },
         "site": {"site_name": site_name},
+        "weather_entity": weather_entity,
         "favorites": favorites,
         "areas": active_areas,
         "modules": modules,
@@ -392,33 +510,52 @@ def build_dashboard_model(
 def _branding_section(
     model: dict[str, Any], context: str, *, column_span: int
 ) -> dict[str, Any]:
-    """Return a compact native brand strip for Home and subviews."""
+    """Return compact CL branding with optional native weather tile."""
     logo = model["branding"].get("logo_url") or ""
     brand = model["branding"].get("brand_name") or "CL Control"
     site_name = model["site"].get("site_name") or "Impianto"
     title = brand if context == "home" else f"{brand} · {context}"
     logo_html = (
-        f'<img src="{logo}" alt="CL Impianti" width="52" align="left">'
+        f'<img src="{logo}" alt="CL Impianti" width="64">'
         if logo
         else "<strong>CL Impianti</strong>"
     )
+    weather_entity = str(model.get("weather_entity") or "")
+    brand_columns: int | str = 8 if weather_entity else "full"
+    cards: list[dict[str, Any]] = [
+        {
+            "type": "markdown",
+            "content": (
+                '<table role="presentation" width="100%"><tr>'
+                f'<td width="78" valign="middle">{logo_html}</td>'
+                f'<td valign="middle"><strong>{title}</strong><br>'
+                f'<span>{site_name}</span></td>'
+                '</tr></table>'
+            ),
+            "tap_action": {
+                "action": "navigate",
+                "navigation_path": "home",
+            },
+            "hold_action": {"action": "none"},
+            "grid_options": {"columns": brand_columns, "rows": 2},
+        }
+    ]
+    if weather_entity:
+        cards.append(
+            {
+                "type": "tile",
+                "entity": weather_entity,
+                "name": "Meteo",
+                "state_content": ["state", "temperature"],
+                "tap_action": {"action": "more-info"},
+                "hold_action": {"action": "none"},
+                "grid_options": {"columns": 4, "rows": 2},
+            }
+        )
     return {
         "type": "grid",
         "column_span": column_span,
-        "cards": [
-            {
-                "type": "markdown",
-                "content": (
-                    f"{logo_html}<strong>{title}</strong><br>{site_name}"
-                ),
-                "tap_action": {
-                    "action": "navigate",
-                    "navigation_path": "home",
-                },
-                "hold_action": {"action": "none"},
-                "grid_options": {"columns": "full", "rows": 2},
-            }
-        ],
+        "cards": cards,
     }
 
 
@@ -493,6 +630,34 @@ def _assistance_section(
                 "icon": "mdi:headset",
                 "tap_action": {"action": "url", "url_path": url},
                 "hold_action": {"action": "none"},
+                "grid_options": {"columns": 6, "rows": 1},
+            }
+        ],
+    }
+
+
+def _installer_section(model: dict[str, Any]) -> dict[str, Any] | None:
+    """Expose installer configuration only to Home Assistant administrators."""
+    users = [
+        str(user_id)
+        for user_id in model.get("admin_user_ids") or []
+        if str(user_id)
+    ]
+    if not users:
+        return None
+    return {
+        "type": "grid",
+        "cards": [
+            {
+                "type": "shortcut",
+                "label": "Configurazione Installatore",
+                "icon": "mdi:cog-outline",
+                "tap_action": {
+                    "action": "navigate",
+                    "navigation_path": "/cl-control?installer=1",
+                },
+                "hold_action": {"action": "none"},
+                "visibility": [{"condition": "user", "users": users}],
                 "grid_options": {"columns": 6, "rows": 1},
             }
         ],
@@ -739,22 +904,40 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     if len(cl_system_cards) > 1:
         sections.append({"type": "grid", "cards": cl_system_cards})
 
+    installer_section = _installer_section(model)
+    if installer_section is not None:
+        sections.append(installer_section)
+
     home_assistance = _assistance_section(
         model, context="Home", category="Altro"
     )
     if home_assistance is not None:
         sections.append(home_assistance)
 
-    views: list[dict[str, Any]] = [
-        {
-            "type": "sections",
-            "title": "Home",
-            "path": "home",
-            "icon": "mdi:home",
-            "max_columns": 3,
-            "sections": sections,
-        }
-    ]
+    home_view: dict[str, Any] = {
+        "type": "sections",
+        "title": "Home",
+        "path": "home",
+        "icon": "mdi:home",
+        "max_columns": 3,
+        "sections": sections,
+    }
+    if (
+        LEVEL_RANK.get(str(model.get("profile") or "standard"), 1)
+        >= LEVEL_RANK["pro"]
+        and model.get("home_power_entity")
+    ):
+        home_view["badges"] = [
+            {
+                "type": "entity",
+                "entity": model["home_power_entity"],
+                "name": "Potenza casa",
+                "show_name": True,
+                "show_state": True,
+                "show_icon": True,
+            }
+        ]
+    views: list[dict[str, Any]] = [home_view]
 
     for area in model["areas"]:
         area_sections = [_branding_section(model, area["name"], column_span=2)]
@@ -944,20 +1127,30 @@ class NativeDashboardService:
                     for module in ("lights", "covers", "climate")
                 }
             )
-            summary_manager.set_area_power_sources(
-                {
-                    area["id"]: [
-                        item["entity_id"]
-                        for item in (area.get("telemetry") or {}).get("power", [])
-                    ]
-                    for area in model["areas"]
-                }
+            home_power_sources, area_power_sources = _selected_power_sources(
+                registry_entities=entities,
+                model=model,
+                ui=_runtime_ui(runtime),
             )
+            summary_manager.set_area_power_sources(area_power_sources)
+            summary_manager.set_home_power_sources(home_power_sources)
             model["summary_entities"] = summary_manager.entity_ids()
             model["area_power_entities"] = summary_manager.area_power_entity_ids()
+            model["home_power_entity"] = summary_manager.home_power_entity_id()
         else:
             model["summary_entities"] = {}
             model["area_power_entities"] = {}
+            model["home_power_entity"] = ""
+        try:
+            users = await self.hass.auth.async_get_users()
+            model["admin_user_ids"] = [
+                str(user.id)
+                for user in users
+                if bool(getattr(user, "is_admin", False))
+                and bool(getattr(user, "is_active", True))
+            ]
+        except (AttributeError, RuntimeError):
+            model["admin_user_ids"] = []
         config = build_native_lovelace(model)
         self.build_count += 1
         self._module_signature = signature
