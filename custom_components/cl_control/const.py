@@ -14,7 +14,7 @@ MODULE_SCHEMA_VERSION = 1
 CONFIG_ENTRY_VERSION = 1
 LAYOUT_SCHEMA_VERSION = 1
 UPDATE_MANIFEST_SCHEMA_VERSION = 1
-PLATFORMS = ("update",)
+PLATFORMS = ("update", "binary_sensor")
 
 DATA_SETTINGS = "settings"
 DATA_RUNTIME = "runtime"
@@ -33,6 +33,7 @@ DATA_UPDATE_MANAGER = "update_manager"
 DATA_DISTRIBUTION_PROVIDER = "distribution_provider"
 DATA_NATIVE_DASHBOARD = "native_dashboard"
 DATA_BRANDING_MANAGER = "branding_manager"
+DATA_SUMMARY_MANAGER = "summary_manager"
 
 CONF_INSTALLATION_ID = "installation_id"
 CONF_SITE_NAME = "site_name"
