@@ -40,6 +40,20 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(summary.format_summary("climate", 0, 4), "Tutto spento")
         self.assertEqual(summary.format_summary("climate", 2, 4), "2 zone attive")
 
+    def test_manager_tracks_area_power_sources(self):
+        manager = summary.SummaryManager("fixture")
+        manager.set_area_power_sources(
+            {
+                "salone": ["sensor.power_a", "sensor.power_b", "sensor.power_a"],
+                "camera": [],
+            }
+        )
+        self.assertEqual(
+            manager._area_power_sources["salone"],
+            ("sensor.power_a", "sensor.power_b"),
+        )
+        self.assertEqual(manager.area_power_entity_ids(), {})
+
     def test_manager_updates_sources_without_runtime_states(self):
         manager = summary.SummaryManager("fixture")
         manager.set_sources(

@@ -210,7 +210,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
             ),
         )
         self.assertTrue(await component.async_setup_entry(hass, entry))
-        self.assertEqual(hass.config_entries.forwarded, [(entry, ("update", "binary_sensor"))])
+        self.assertEqual(hass.config_entries.forwarded, [(entry, ("update", "binary_sensor", "sensor"))])
         self.assertIs(hass.data["cl_control"]["runtime"], existing_runtime)
         self.assertEqual(
             existing_runtime["customer_ui"]["favorites"], ["light.cucina"]

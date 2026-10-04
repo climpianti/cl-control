@@ -24,6 +24,12 @@ jobs:
           python -m unittest discover -s tests -p 'test_branding_runtime.py'
           python -m unittest discover -s tests -p 'test_native_dashboard_performance.py'
           python -m unittest discover -s tests -p 'test_z_component_import.py'
+      - name: Python syntax contracts
+        run: |
+          python -m py_compile custom_components/cl_control/dashboard_native.py
+          python -m py_compile custom_components/cl_control/summary.py
+          python -m py_compile custom_components/cl_control/binary_sensor.py
+          python -m py_compile custom_components/cl_control/sensor.py
       - name: JavaScript syntax contracts
         run: |
           node --check custom_components/cl_control/frontend/cl-control-dashboard-strategy.mjs
