@@ -296,7 +296,8 @@ class NativeDashboardTests(unittest.TestCase):
             brand_card["tap_action"],
             {"action": "navigate", "navigation_path": "home"},
         )
-        self.assertIn('align="left"', brand_card["content"])
+        self.assertIn('width="64"', brand_card["content"])
+        self.assertIn("<table", brand_card["content"])
 
     def test_standard_area_cards_and_views_surface_native_environment_data(self):
         model = self._model(experience_level="standard")
