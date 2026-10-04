@@ -112,6 +112,13 @@ class NativeDashboardTests(unittest.TestCase):
                 "name": "Allarme",
             },
             {
+                "entity_id": "camera.ingresso",
+                "domain": "camera",
+                "platform": "generic",
+                "area_id": "salone",
+                "name": "Ingresso",
+            },
+            {
                 "entity_id": "light.cl_power_debug",
                 "domain": "light",
                 "platform": "cl_power_control",
@@ -130,7 +137,11 @@ class NativeDashboardTests(unittest.TestCase):
                 {"id": "camera", "name": "Camera"},
             ],
             runtime=runtime,
-            site={},
+            site={
+                "support": {
+                    "whatsapp": "+39 333 1234567",
+                }
+            },
             branding={
                 "brand_name": "CL Control",
                 "assets": {"logo": "/cl_control_static/3.5.0-dev/logo.png"},
@@ -164,6 +175,11 @@ class NativeDashboardTests(unittest.TestCase):
                 },
             ],
             home_assistant_energy_available=True,
+            assistance={
+                "provider": "whatsapp",
+                "ai_enabled": False,
+                "fallback_whatsapp": True,
+            },
         )
 
     def test_model_is_structural_and_filters_internal_platforms(self):
@@ -177,6 +193,7 @@ class NativeDashboardTests(unittest.TestCase):
         self.assertEqual(model["modules"]["covers"]["count"], 1)
         self.assertEqual(model["modules"]["climate"]["count"], 1)
         self.assertEqual(model["modules"]["security"]["count"], 1)
+        self.assertEqual(model["modules"]["cameras"]["count"], 1)
         self.assertEqual(model["energy"]["provider"], "cl_power_control")
         self.assertEqual(len(model["cl_modules"]), 2)
 
@@ -374,6 +391,49 @@ class NativeDashboardTests(unittest.TestCase):
                 for badge in light_heading["badges"]
             )
         )
+
+    def test_cameras_are_visual_native_cards_and_grouped_by_area(self):
+        model = self._model()
+        config = dashboard.build_native_lovelace(model)
+        camera_view = next(view for view in config["views"] if view["path"] == "cameras")
+        picture_cards = [
+            card
+            for section in camera_view["sections"]
+            for card in section["cards"]
+            if card.get("type") == "picture-entity"
+        ]
+        self.assertEqual(len(picture_cards), 1)
+        self.assertEqual(picture_cards[0]["entity"], "camera.ingresso")
+        self.assertEqual(picture_cards[0]["camera_view"], "auto")
+        home = config["views"][0]
+        self.assertIn("Telecamere", repr(home))
+
+    def test_assistance_shortcut_is_contextual_and_uses_whatsapp(self):
+        model = self._model()
+        config = dashboard.build_native_lovelace(model)
+        home = config["views"][0]
+        shortcuts = [
+            card
+            for section in home["sections"]
+            for card in section["cards"]
+            if card.get("type") == "shortcut"
+            and card.get("label") == "Assistenza CL"
+        ]
+        self.assertEqual(len(shortcuts), 1)
+        action = shortcuts[0]["tap_action"]
+        self.assertEqual(action["action"], "url")
+        self.assertIn("https://wa.me/393331234567", action["url_path"])
+        self.assertIn("Contesto%3A%20Home", action["url_path"])
+
+        camera_view = next(view for view in config["views"] if view["path"] == "cameras")
+        assistance = [
+            card
+            for section in camera_view["sections"]
+            for card in section["cards"]
+            if card.get("label") == "Assistenza CL"
+        ]
+        self.assertEqual(len(assistance), 1)
+        self.assertIn("Categoria%3A%20Telecamere", assistance[0]["tap_action"]["url_path"])
 
     def test_security_is_exposed_as_native_system_and_subview(self):
         model = self._model()
