@@ -33,6 +33,7 @@ jobs:
       - name: JavaScript syntax contracts
         run: |
           node --check custom_components/cl_control/frontend/cl-control-dashboard-strategy.mjs
+          node --check custom_components/cl_control/frontend/cl-control-panel.js
           node --check custom_components/cl_control/frontend/cl-control-branding.mjs
       - name: Native dashboard benchmark
         run: python scripts/benchmark_native_dashboard.py --json benchmark-native-dashboard.json
