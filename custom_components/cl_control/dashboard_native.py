@@ -14,13 +14,19 @@ DOMAIN_MODULE = {
     "light": "lights",
     "cover": "covers",
     "climate": "climate",
+    "alarm_control_panel": "security",
 }
 
 MODULE_LABELS = {
     "lights": ("Luci", "mdi:lightbulb-group"),
     "covers": ("Aperture", "mdi:window-shutter"),
     "climate": ("Clima", "mdi:thermostat"),
+    "security": ("Sicurezza", "mdi:shield-home"),
 }
+
+AREA_SENSOR_CLASSES = ("temperature", "humidity", "carbon_dioxide")
+AREA_ALERT_CLASSES = ("motion", "occupancy", "presence")
+AREA_TELEMETRY_CLASSES = (*AREA_SENSOR_CLASSES, *AREA_ALERT_CLASSES, "power")
 
 LEVEL_RANK = {"essential": 0, "standard": 1, "pro": 2, "installer": 3}
 TECHNICAL_PLATFORMS = {"cl_control", "cl_power_control", "cl_irrigation"}
@@ -72,7 +78,8 @@ def _area_lookup(
             "native": True,
             "picture": str(raw.get("picture") or ""),
             "icon": str(raw.get("icon") or ""),
-            "entities": {"lights": [], "covers": [], "climate": []},
+            "entities": {module: [] for module in MODULE_LABELS},
+            "telemetry": {device_class: [] for device_class in AREA_TELEMETRY_CLASSES},
         }
         by_id[area_id] = item
         by_name[name.casefold()] = item
@@ -103,7 +110,8 @@ def _resolve_area(
                 "native": False,
                 "picture": "",
                 "icon": "",
-                "entities": {"lights": [], "covers": [], "climate": []},
+                "entities": {module: [] for module in MODULE_LABELS},
+                "telemetry": {device_class: [] for device_class in AREA_TELEMETRY_CLASSES},
             }
             by_id[synthetic_id] = item
             by_name[override.casefold()] = item
@@ -203,6 +211,58 @@ def build_dashboard_model(
         if area is not None:
             area["entities"][module].append(item)
 
+
+
+    # Area telemetry is structural metadata only. Runtime values remain owned by
+    # Home Assistant native cards/badges so normal state changes never rebuild
+    # the CL Control dashboard model.
+    if LEVEL_RANK.get(profile, 1) >= LEVEL_RANK["standard"]:
+        for raw in registry_entities:
+            entity_id = str(raw.get("entity_id") or "")
+            if "." not in entity_id:
+                continue
+            domain = str(raw.get("domain") or entity_id.split(".", 1)[0])
+            telemetry_class = str(raw.get("device_class") or "")
+            allowed_classes = set(AREA_SENSOR_CLASSES + AREA_ALERT_CLASSES)
+            if LEVEL_RANK.get(profile, 1) >= LEVEL_RANK["pro"]:
+                allowed_classes.add("power")
+            if telemetry_class not in allowed_classes:
+                continue
+            if domain not in {"sensor", "binary_sensor"}:
+                continue
+            explicit_visibility = visibility.get(entity_id)
+            if explicit_visibility is False or (
+                entity_id in hidden and explicit_visibility is not True
+            ):
+                continue
+            if raw.get("disabled"):
+                continue
+            if raw.get("hidden") and explicit_visibility is not True:
+                continue
+            if raw.get("entity_category") and explicit_visibility is not True:
+                continue
+            platform = str(raw.get("platform") or "")
+            if platform in TECHNICAL_PLATFORMS and explicit_visibility is not True:
+                continue
+            if not _allowed(entity_levels.get(entity_id), profile):
+                continue
+            area = _resolve_area(
+                entity_id,
+                str(raw.get("area_id") or "") or None,
+                ui,
+                by_id,
+                by_name,
+            )
+            if area is None:
+                continue
+            area["telemetry"][telemetry_class].append(
+                {
+                    "entity_id": entity_id,
+                    "name": _entity_name(raw, ui),
+                    "device_class": telemetry_class,
+                }
+            )
+
     visible_entities.sort(
         key=lambda item: (
             entity_order.get(item["entity_id"], 10**9),
@@ -217,6 +277,13 @@ def build_dashboard_model(
                 key=lambda item: (
                     entity_order.get(item["entity_id"], 10**9),
                     item["name"].casefold(),
+                )
+            )
+        for telemetry_items in area["telemetry"].values():
+            telemetry_items.sort(
+                key=lambda item: (
+                    item["name"].casefold(),
+                    item["entity_id"],
                 )
             )
 
@@ -382,6 +449,84 @@ def _system_summary_card(
     }
 
 
+def _area_badges(model: dict[str, Any], area: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return native state badges allowed by the active experience profile."""
+    if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) < LEVEL_RANK["standard"]:
+        return []
+    badges: list[dict[str, Any]] = []
+    telemetry = area.get("telemetry") or {}
+    for device_class in AREA_SENSOR_CLASSES + AREA_ALERT_CLASSES:
+        items = telemetry.get(device_class) or []
+        if not items:
+            continue
+        badges.append(
+            {
+                "type": "entity",
+                "entity": items[0]["entity_id"],
+                "show_name": False,
+                "show_state": True,
+                "show_icon": True,
+            }
+        )
+    if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) >= LEVEL_RANK["pro"]:
+        power_entity = str((model.get("area_power_entities") or {}).get(area["id"]) or "")
+        if power_entity:
+            badges.append(
+                {
+                    "type": "entity",
+                    "entity": power_entity,
+                    "name": "Potenza",
+                    "show_name": False,
+                    "show_state": True,
+                    "show_icon": True,
+                }
+            )
+    return badges
+
+
+def _light_heading(area: dict[str, Any]) -> dict[str, Any]:
+    """Return a native lights heading with state-aware area ON/OFF actions."""
+    lights = [item["entity_id"] for item in area["entities"]["lights"]]
+    heading = _heading(MODULE_LABELS["lights"][0], MODULE_LABELS["lights"][1])
+    if not lights:
+        return heading
+    any_on = {
+        "condition": "or",
+        "conditions": [
+            {"condition": "state", "entity": entity_id, "state": "on"}
+            for entity_id in lights
+        ],
+    }
+    heading["badges"] = [
+        {
+            "type": "button",
+            "icon": "mdi:power",
+            "text": "Accendi tutte",
+            "tap_action": {
+                "action": "perform-action",
+                "perform_action": "light.turn_on",
+                "target": {"area_id": area["id"]},
+            },
+            "visibility": [
+                {"condition": "not", "conditions": [any_on]},
+            ],
+        },
+        {
+            "type": "button",
+            "icon": "mdi:power",
+            "color": "orange",
+            "text": "Spegni tutte",
+            "tap_action": {
+                "action": "perform-action",
+                "perform_action": "light.turn_off",
+                "target": {"area_id": area["id"]},
+            },
+            "visibility": [any_on],
+        },
+    ]
+    return heading
+
+
 def _module_sections(
     entities: list[dict[str, Any]], areas: list[dict[str, Any]], module: str
 ) -> list[dict[str, Any]]:
@@ -443,6 +588,9 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                     "display_type": "picture" if area.get("picture") else "compact",
                     "navigation_path": area["path"],
                 }
+                if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) >= LEVEL_RANK["standard"]:
+                    area_card["sensor_classes"] = list(AREA_SENSOR_CLASSES)
+                    area_card["alert_classes"] = list(AREA_ALERT_CLASSES)
                 if area.get("picture"):
                     area_card["aspect_ratio"] = "16:9"
                 area_cards.append(area_card)
@@ -457,7 +605,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         sections.append({"type": "grid", "cards": area_cards})
 
     system_cards = [_heading("Sistemi", "mdi:view-grid-outline")]
-    for module in ("lights", "covers", "climate"):
+    for module in ("lights", "covers", "climate", "security"):
         data = model["modules"][module]
         if data["count"]:
             system_cards.append(_system_summary_card(model, module, data))
@@ -491,17 +639,22 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
 
     for area in model["areas"]:
         area_sections = [_branding_section(model, area["name"], column_span=2)]
-        for module in ("lights", "covers", "climate"):
+        for module in ("lights", "covers", "climate", "security"):
             items = area["entities"][module]
             if items:
+                heading = (
+                    _light_heading(area)
+                    if module == "lights"
+                    else _heading(
+                        MODULE_LABELS[module][0],
+                        MODULE_LABELS[module][1],
+                    )
+                )
                 area_sections.append(
                     {
                         "type": "grid",
                         "cards": [
-                            _heading(
-                                MODULE_LABELS[module][0],
-                                MODULE_LABELS[module][1],
-                            ),
+                            heading,
                             *[_tile(item) for item in items],
                         ],
                     }
@@ -515,11 +668,12 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "visible": False,
                 "back_path": "home",
                 "max_columns": 2,
+                "badges": _area_badges(model, area),
                 "sections": area_sections,
             }
         )
 
-    for module in ("lights", "covers", "climate"):
+    for module in ("lights", "covers", "climate", "security"):
         data = model["modules"][module]
         if not data["count"]:
             continue
@@ -606,6 +760,13 @@ class NativeDashboardService:
                     "original_name": entry.original_name,
                     "icon": entry.icon or entry.original_icon,
                     "supported_features": entry.supported_features or 0,
+                    "device_class": str(
+                        getattr(
+                            entry.device_class or entry.original_device_class,
+                            "value",
+                            entry.device_class or entry.original_device_class or "",
+                        )
+                    ),
                 }
             )
         return entities, areas
