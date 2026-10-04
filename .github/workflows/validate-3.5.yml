@@ -19,6 +19,7 @@ jobs:
           python -m unittest discover -s tests -p 'test_backend.py'
           python -m unittest discover -s tests -p 'test_config_entry.py'
           python -m unittest discover -s tests -p 'test_native_dashboard.py'
+          python -m unittest discover -s tests -p 'test_summary.py'
           python -m unittest discover -s tests -p 'test_ecosystem.py'
           python -m unittest discover -s tests -p 'test_branding_runtime.py'
           python -m unittest discover -s tests -p 'test_native_dashboard_performance.py'
