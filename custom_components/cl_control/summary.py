@@ -54,6 +54,8 @@ class SummaryManager:
             module: () for module in SUMMARY_MODULES
         }
         self._entities: dict[str, Any] = {}
+        self._area_power_sources: dict[str, tuple[str, ...]] = {}
+        self._area_power_entities: dict[str, Any] = {}
 
     def attach(self, module: str, entity: Any) -> None:
         if module not in SUMMARY_MODULES:
@@ -86,6 +88,43 @@ class SummaryManager:
             entity_id = str(getattr(entity, "entity_id", "") or "")
             if entity_id:
                 result[module] = entity_id
+        return result
+
+    def attach_area_power(self, area_id: str, entity: Any) -> None:
+        """Attach one native aggregate power sensor for an area."""
+        self._area_power_entities[area_id] = entity
+        entity.set_sources(self._area_power_sources.get(area_id, ()))
+
+    def detach_area_power(self, area_id: str, entity: Any) -> None:
+        if self._area_power_entities.get(area_id) is entity:
+            self._area_power_entities.pop(area_id, None)
+
+    def set_area_power_sources(
+        self, sources: dict[str, Iterable[str]]
+    ) -> None:
+        """Update structural source lists without reading runtime states."""
+        area_ids = set(self._area_power_sources) | set(sources)
+        for area_id in area_ids:
+            normalized = tuple(
+                dict.fromkeys(str(item) for item in sources.get(area_id, ()))
+            )
+            if normalized == self._area_power_sources.get(area_id, ()):
+                continue
+            self._area_power_sources[area_id] = normalized
+            entity = self._area_power_entities.get(area_id)
+            if entity is not None:
+                entity.set_sources(normalized)
+
+    def area_power_entity_ids(self) -> dict[str, str]:
+        """Return aggregate sensors only for areas that have power sources."""
+        result: dict[str, str] = {}
+        for area_id, sources in self._area_power_sources.items():
+            if not sources:
+                continue
+            entity = self._area_power_entities.get(area_id)
+            entity_id = str(getattr(entity, "entity_id", "") or "")
+            if entity_id:
+                result[area_id] = entity_id
         return result
 
 
