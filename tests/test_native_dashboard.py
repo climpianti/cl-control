@@ -57,6 +57,61 @@ class NativeDashboardTests(unittest.TestCase):
                 "name": "Camera",
             },
             {
+                "entity_id": "sensor.temperatura_salone",
+                "domain": "sensor",
+                "platform": "knx",
+                "area_id": "salone",
+                "name": "Temperatura salone",
+                "device_class": "temperature",
+            },
+            {
+                "entity_id": "sensor.umidita_salone",
+                "domain": "sensor",
+                "platform": "knx",
+                "area_id": "salone",
+                "name": "Umidità salone",
+                "device_class": "humidity",
+            },
+            {
+                "entity_id": "sensor.co2_salone",
+                "domain": "sensor",
+                "platform": "knx",
+                "area_id": "salone",
+                "name": "CO2 salone",
+                "device_class": "carbon_dioxide",
+            },
+            {
+                "entity_id": "binary_sensor.movimento_salone",
+                "domain": "binary_sensor",
+                "platform": "knx",
+                "area_id": "salone",
+                "name": "Movimento salone",
+                "device_class": "motion",
+            },
+            {
+                "entity_id": "sensor.potenza_prese_salone",
+                "domain": "sensor",
+                "platform": "knx",
+                "area_id": "salone",
+                "name": "Potenza prese salone",
+                "device_class": "power",
+            },
+            {
+                "entity_id": "sensor.potenza_luci_salone",
+                "domain": "sensor",
+                "platform": "knx",
+                "area_id": "salone",
+                "name": "Potenza luci salone",
+                "device_class": "power",
+            },
+            {
+                "entity_id": "alarm_control_panel.risco",
+                "domain": "alarm_control_panel",
+                "platform": "risco",
+                "area_id": "",
+                "name": "Allarme",
+            },
+            {
                 "entity_id": "light.cl_power_debug",
                 "domain": "light",
                 "platform": "cl_power_control",
@@ -121,6 +176,7 @@ class NativeDashboardTests(unittest.TestCase):
         self.assertEqual(model["modules"]["lights"]["count"], 1)
         self.assertEqual(model["modules"]["covers"]["count"], 1)
         self.assertEqual(model["modules"]["climate"]["count"], 1)
+        self.assertEqual(model["modules"]["security"]["count"], 1)
         self.assertEqual(model["energy"]["provider"], "cl_power_control")
         self.assertEqual(len(model["cl_modules"]), 2)
 
@@ -217,6 +273,115 @@ class NativeDashboardTests(unittest.TestCase):
             {"action": "navigate", "navigation_path": "home"},
         )
         self.assertIn('align="left"', brand_card["content"])
+
+    def test_standard_area_cards_and_views_surface_native_environment_data(self):
+        model = self._model(experience_level="standard")
+        salone = next(area for area in model["areas"] if area["id"] == "salone")
+        self.assertEqual(
+            [item["entity_id"] for item in salone["telemetry"]["temperature"]],
+            ["sensor.temperatura_salone"],
+        )
+        self.assertEqual(
+            [item["entity_id"] for item in salone["telemetry"]["motion"]],
+            ["binary_sensor.movimento_salone"],
+        )
+        self.assertEqual(salone["telemetry"]["power"], [])
+
+        config = dashboard.build_native_lovelace(model)
+        home = config["views"][0]
+        area_card = next(
+            card
+            for section in home["sections"]
+            for card in section["cards"]
+            if card.get("type") == "area" and card.get("area") == "salone"
+        )
+        self.assertEqual(
+            area_card["sensor_classes"],
+            ["temperature", "humidity", "carbon_dioxide"],
+        )
+        self.assertEqual(
+            area_card["alert_classes"],
+            ["motion", "occupancy", "presence"],
+        )
+        self.assertNotIn("power", area_card["sensor_classes"])
+
+        area_view = next(view for view in config["views"] if view["path"] == "area-salone")
+        badge_entities = [badge["entity"] for badge in area_view["badges"]]
+        self.assertIn("sensor.temperatura_salone", badge_entities)
+        self.assertIn("sensor.umidita_salone", badge_entities)
+        self.assertIn("sensor.co2_salone", badge_entities)
+        self.assertIn("binary_sensor.movimento_salone", badge_entities)
+
+    def test_essential_profile_keeps_area_telemetry_hidden(self):
+        model = self._model(experience_level="essential")
+        salone = next(area for area in model["areas"] if area["id"] == "salone")
+        self.assertTrue(all(not items for items in salone["telemetry"].values()))
+        config = dashboard.build_native_lovelace(model)
+        home = config["views"][0]
+        area_card = next(
+            card
+            for section in home["sections"]
+            for card in section["cards"]
+            if card.get("type") == "area" and card.get("area") == "salone"
+        )
+        self.assertNotIn("sensor_classes", area_card)
+        self.assertNotIn("alert_classes", area_card)
+        area_view = next(view for view in config["views"] if view["path"] == "area-salone")
+        self.assertEqual(area_view["badges"], [])
+
+    def test_pro_profile_uses_aggregate_power_in_area_card_and_badge(self):
+        model = self._model(experience_level="pro")
+        model["area_power_entities"] = {
+            "salone": "sensor.cl_control_potenza_salone",
+        }
+        config = dashboard.build_native_lovelace(model)
+        home = config["views"][0]
+        area_card = next(
+            card
+            for section in home["sections"]
+            for card in section["cards"]
+            if card.get("type") == "area" and card.get("area") == "salone"
+        )
+        self.assertIn("power", area_card["sensor_classes"])
+        self.assertCountEqual(
+            area_card["exclude_entities"],
+            [
+                "sensor.potenza_prese_salone",
+                "sensor.potenza_luci_salone",
+            ],
+        )
+        area_view = next(view for view in config["views"] if view["path"] == "area-salone")
+        self.assertIn(
+            "sensor.cl_control_potenza_salone",
+            [badge["entity"] for badge in area_view["badges"]],
+        )
+
+    def test_area_light_heading_has_state_aware_all_on_off_actions(self):
+        config = dashboard.build_native_lovelace(self._model())
+        area_view = next(view for view in config["views"] if view["path"] == "area-salone")
+        light_heading = next(
+            card
+            for section in area_view["sections"]
+            for card in section["cards"]
+            if card.get("type") == "heading" and card.get("heading") == "Luci"
+        )
+        self.assertEqual(len(light_heading["badges"]), 2)
+        actions = [badge["tap_action"]["perform_action"] for badge in light_heading["badges"]]
+        self.assertEqual(actions, ["light.turn_on", "light.turn_off"])
+        self.assertTrue(
+            all(
+                badge["tap_action"]["target"] == {"area_id": "salone"}
+                for badge in light_heading["badges"]
+            )
+        )
+
+    def test_security_is_exposed_as_native_system_and_subview(self):
+        model = self._model()
+        self.assertEqual(model["modules"]["security"]["count"], 1)
+        config = dashboard.build_native_lovelace(model)
+        self.assertTrue(any(view["path"] == "security" for view in config["views"]))
+        rendered_home = repr(config["views"][0])
+        self.assertIn("Sicurezza", rendered_home)
 
     def test_area_picture_uses_native_picture_display_with_compact_fallback(self):
         config = dashboard.build_native_lovelace(self._model())
