@@ -419,8 +419,11 @@ class NativeDashboardTests(unittest.TestCase):
         tiles = [
             card for card in system_section["cards"] if card.get("type") == "tile"
         ]
-        self.assertEqual(len(tiles), 3)
-        self.assertTrue(all(card["state_content"] == "summary" for card in tiles))
+        self.assertEqual(len(tiles), 4)
+        summary_tiles = [card for card in tiles if card["name"] != "Sicurezza"]
+        self.assertTrue(all(card["state_content"] == "summary" for card in summary_tiles))
+        security_tile = next(card for card in tiles if card["name"] == "Sicurezza")
+        self.assertEqual(security_tile["state_content"], "state")
         self.assertTrue(
             all(
                 card["grid_options"] == {"columns": 6, "rows": 1}
