@@ -5,6 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 import re
 import unicodedata
+from urllib.parse import quote
 from typing import Any
 
 from .const import DATA_SUMMARY_MANAGER, DOMAIN
@@ -15,6 +16,7 @@ DOMAIN_MODULE = {
     "cover": "covers",
     "climate": "climate",
     "alarm_control_panel": "security",
+    "camera": "cameras",
 }
 
 MODULE_LABELS = {
@@ -22,6 +24,7 @@ MODULE_LABELS = {
     "covers": ("Aperture", "mdi:window-shutter"),
     "climate": ("Clima", "mdi:thermostat"),
     "security": ("Sicurezza", "mdi:shield-home"),
+    "cameras": ("Telecamere", "mdi:cctv"),
 }
 
 AREA_SENSOR_CLASSES = ("temperature", "humidity", "carbon_dioxide")
@@ -143,10 +146,12 @@ def build_dashboard_model(
     revision: int,
     cl_modules: list[dict[str, Any]] | None = None,
     home_assistant_energy_available: bool = False,
+    assistance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build a structural model without copying Home Assistant runtime states."""
     ui = _runtime_ui(runtime)
     cl_modules = deepcopy(cl_modules or [])
+    assistance = deepcopy(assistance or {})
     effective_site = _runtime_site(runtime, site)
     profile = str(ui.get("experience_level") or "standard")
     entity_levels = ui.get("entity_levels") or {}
@@ -342,6 +347,10 @@ def build_dashboard_model(
         home_assistant_energy_available=home_assistant_energy_available,
     )
 
+    support = effective_site.get("support")
+    support = support if isinstance(support, dict) else {}
+    whatsapp = re.sub(r"\D", "", str(support.get("whatsapp") or ""))
+
     return {
         "schema_version": 1,
         "revision": revision,
@@ -359,6 +368,14 @@ def build_dashboard_model(
         "energy": {
             "requested_provider": requested_energy_provider,
             "provider": resolved_energy_provider,
+        },
+        "assistance": {
+            "provider": str(assistance.get("provider") or "whatsapp"),
+            "ai_enabled": bool(assistance.get("ai_enabled")),
+            "fallback_whatsapp": bool(
+                assistance.get("fallback_whatsapp", True)
+            ),
+            "whatsapp": whatsapp,
         },
     }
 
@@ -396,7 +413,27 @@ def _branding_section(
     }
 
 
-def _tile(entity: dict[str, Any]) -> dict[str, Any]:
+def _camera_card(entity: dict[str, Any]) -> dict[str, Any]:
+    """Return a visual native camera card without a CL custom renderer."""
+    return {
+        "type": "picture-entity",
+        "entity": entity["entity_id"],
+        "name": entity["name"],
+        "camera_view": "auto",
+        "fit_mode": "cover",
+        "show_name": True,
+        "show_state": False,
+        "tap_action": {"action": "more-info"},
+        "hold_action": {"action": "none"},
+    }
+
+
+def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
+    if entity.get("module") == "cameras":
+        return _camera_card(entity)
+    return _tile(entity)
+
+
     card: dict[str, Any] = {
         "type": "tile",
         "entity": entity["entity_id"],
@@ -409,6 +446,47 @@ def _tile(entity: dict[str, Any]) -> dict[str, Any]:
 
 def _heading(label: str, icon: str) -> dict[str, Any]:
     return {"type": "heading", "heading": label, "icon": icon}
+
+
+def _assistance_url(
+    model: dict[str, Any], *, context: str, category: str
+) -> str:
+    """Build a contextual WhatsApp handoff without exposing backend secrets."""
+    assistance = model.get("assistance") or {}
+    phone = re.sub(r"\D", "", str(assistance.get("whatsapp") or ""))
+    if not phone:
+        return ""
+    site_name = str((model.get("site") or {}).get("site_name") or "Casa")
+    lines = [
+        "Richiesta assistenza CL Impianti",
+        f"Impianto: {site_name}",
+        f"Categoria: {category or 'Altro'}",
+        f"Contesto: {context or 'Home'}",
+        "Descrizione: ",
+    ]
+    return f"https://wa.me/{phone}?text={quote(chr(10).join(lines))}"
+
+
+def _assistance_section(
+    model: dict[str, Any], *, context: str, category: str
+) -> dict[str, Any] | None:
+    """Return a discreet support shortcut at the bottom of a view."""
+    url = _assistance_url(model, context=context, category=category)
+    if not url:
+        return None
+    return {
+        "type": "grid",
+        "cards": [
+            {
+                "type": "shortcut",
+                "label": "Assistenza CL",
+                "icon": "mdi:headset",
+                "tap_action": {"action": "url", "url_path": url},
+                "hold_action": {"action": "none"},
+                "grid_options": {"columns": 6, "rows": 1},
+            }
+        ],
+    }
 
 
 def _navigation_shortcut(
@@ -547,7 +625,7 @@ def _module_sections(
     sections: list[dict[str, Any]] = []
     assigned: set[str] = set()
     for area in areas:
-        cards = [_tile(item) for item in area["entities"][module]]
+        cards = [_entity_card(item) for item in area["entities"][module]]
         if not cards:
             continue
         assigned.update(item["entity_id"] for item in area["entities"][module])
@@ -569,7 +647,7 @@ def _module_sections(
                 "type": "grid",
                 "cards": [
                     _heading("Altri dispositivi", MODULE_LABELS[module][1]),
-                    *[_tile(item) for item in unassigned],
+                    *[_entity_card(item) for item in unassigned],
                 ],
             }
         )
@@ -586,7 +664,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "type": "grid",
                 "cards": [
                     _heading("Preferiti", "mdi:star"),
-                    *[_tile(item) for item in model["favorites"]],
+                    *[_entity_card(item) for item in model["favorites"]],
                 ],
             }
         )
@@ -630,7 +708,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         sections.append({"type": "grid", "cards": area_cards})
 
     system_cards = [_heading("Sistemi", "mdi:view-grid-outline")]
-    for module in ("lights", "covers", "climate", "security"):
+    for module in ("lights", "covers", "climate", "cameras", "security"):
         data = model["modules"][module]
         if data["count"]:
             system_cards.append(_system_summary_card(model, module, data))
@@ -651,6 +729,12 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     if len(cl_system_cards) > 1:
         sections.append({"type": "grid", "cards": cl_system_cards})
 
+    home_assistance = _assistance_section(
+        model, context="Home", category="Altro"
+    )
+    if home_assistance is not None:
+        sections.append(home_assistance)
+
     views: list[dict[str, Any]] = [
         {
             "type": "sections",
@@ -664,7 +748,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
 
     for area in model["areas"]:
         area_sections = [_branding_section(model, area["name"], column_span=2)]
-        for module in ("lights", "covers", "climate", "security"):
+        for module in ("lights", "covers", "climate", "cameras", "security"):
             items = area["entities"][module]
             if items:
                 heading = (
@@ -680,10 +764,15 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                         "type": "grid",
                         "cards": [
                             heading,
-                            *[_tile(item) for item in items],
+                            *[_entity_card(item) for item in items],
                         ],
                     }
                 )
+        area_assistance = _assistance_section(
+            model, context=area["name"], category="Altro"
+        )
+        if area_assistance is not None:
+            area_sections.append(area_assistance)
         views.append(
             {
                 "type": "sections",
@@ -706,6 +795,13 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             _branding_section(model, data["label"], column_span=3),
             *_module_sections(data["entities"], model["areas"], module),
         ]
+        module_assistance = _assistance_section(
+            model,
+            context=data["label"],
+            category=data["label"],
+        )
+        if module_assistance is not None:
+            module_sections.append(module_assistance)
         views.append(
             {
                 "type": "sections",
@@ -824,6 +920,7 @@ class NativeDashboardService:
             home_assistant_energy_available=(
                 "energy" in getattr(getattr(self.hass, "config", None), "components", set())
             ),
+            assistance=settings.get("assistance") or {},
         )
         domain_data = getattr(self.hass, "data", {}).get(DOMAIN, {})
         summary_manager = domain_data.get(DATA_SUMMARY_MANAGER)
