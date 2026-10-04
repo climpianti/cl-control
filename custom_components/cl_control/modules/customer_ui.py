@@ -71,6 +71,11 @@ DEFAULT_RUNTIME = {
     ],
     "energy": {},
     "energy_provider": "auto",
+    "weather": {"mode": "auto", "entity": ""},
+    "power_monitoring": {
+        "home": {"mode": "auto", "entities": []},
+        "areas": {},
+    },
     "area_switches": {},
     "ui": {"density": "normal"},
     "experience_level": "standard",
