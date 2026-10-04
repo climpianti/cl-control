@@ -429,6 +429,20 @@ def _system_summary_card(
     model: dict[str, Any], module: str, data: dict[str, Any]
 ) -> dict[str, Any]:
     """Prefer native entity tiles so summaries update without config rebuilds."""
+    if module == "security" and data.get("entities"):
+        return {
+            "type": "tile",
+            "entity": data["entities"][0]["entity_id"],
+            "name": data["label"],
+            "icon": data["icon"],
+            "state_content": "state",
+            "tap_action": {
+                "action": "navigate",
+                "navigation_path": data["path"],
+            },
+            "hold_action": {"action": "none"},
+            "grid_options": {"columns": 6, "rows": 1},
+        }
     entity_id = str((model.get("summary_entities") or {}).get(module) or "")
     if not entity_id:
         return _navigation_shortcut(
