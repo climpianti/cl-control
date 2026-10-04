@@ -589,8 +589,19 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                     "navigation_path": area["path"],
                 }
                 if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) >= LEVEL_RANK["standard"]:
-                    area_card["sensor_classes"] = list(AREA_SENSOR_CLASSES)
+                    sensor_classes = list(AREA_SENSOR_CLASSES)
                     area_card["alert_classes"] = list(AREA_ALERT_CLASSES)
+                    if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) >= LEVEL_RANK["pro"]:
+                        power_entity = str(
+                            (model.get("area_power_entities") or {}).get(area["id"]) or ""
+                        )
+                        if power_entity:
+                            sensor_classes.append("power")
+                            area_card["exclude_entities"] = [
+                                item["entity_id"]
+                                for item in (area.get("telemetry") or {}).get("power", [])
+                            ]
+                    area_card["sensor_classes"] = sensor_classes
                 if area.get("picture"):
                     area_card["aspect_ratio"] = "16:9"
                 area_cards.append(area_card)
@@ -812,9 +823,20 @@ class NativeDashboardService:
                     for module in ("lights", "covers", "climate")
                 }
             )
+            summary_manager.set_area_power_sources(
+                {
+                    area["id"]: [
+                        item["entity_id"]
+                        for item in (area.get("telemetry") or {}).get("power", [])
+                    ]
+                    for area in model["areas"]
+                }
+            )
             model["summary_entities"] = summary_manager.entity_ids()
+            model["area_power_entities"] = summary_manager.area_power_entity_ids()
         else:
             model["summary_entities"] = {}
+            model["area_power_entities"] = {}
         config = build_native_lovelace(model)
         self.build_count += 1
         self._module_signature = signature
