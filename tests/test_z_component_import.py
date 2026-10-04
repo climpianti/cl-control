@@ -241,7 +241,7 @@ class ComponentImportTests(unittest.IsolatedAsyncioTestCase):
         )
         credentials_before = dict(support._Store.records)
         self.assertTrue(await component.async_unload_entry(hass, entry))
-        self.assertEqual(hass.config_entries.unloaded, [(entry, ("update", "binary_sensor"))])
+        self.assertEqual(hass.config_entries.unloaded, [(entry, ("update", "binary_sensor", "sensor"))])
         await component.async_remove_entry(hass, entry)
         self.assertEqual(support._Store.records, credentials_before)
         self.assertNotIn("runtime", hass.data["cl_control"])
