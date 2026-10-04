@@ -33,6 +33,7 @@ from .const import (
     DATA_RUNTIME,
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
+    DATA_SUMMARY_MANAGER,
     DATA_STORE,
     DATA_UPDATE_MANAGER,
     DATA_WEBSOCKET_REGISTERED,
@@ -59,6 +60,7 @@ from .modules.ai_provider import MockAIProvider
 from .modules.assistance_gateway import AssistanceGateway
 from .modules.installer import InstallerSessions, PinRateLimiter
 from .storage import RuntimeStore
+from .summary import SummaryManager
 from .websocket import async_register_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -75,6 +77,7 @@ _RUNTIME_KEYS = (
     DATA_RUNTIME,
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
+    DATA_SUMMARY_MANAGER,
     DATA_STORE,
     DATA_UPDATE_MANAGER,
 )
@@ -180,6 +183,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # supplies an authorized DistributionProvider.
         provider = MockDistributionProvider.offline()
     native_dashboard = NativeDashboardService(hass, VERSION)
+    summary_manager = SummaryManager(installation_id)
     branding_manager = BrandingManager(hass, settings, VERSION)
     await branding_manager.async_apply()
     update_manager = UpdateManager(
@@ -198,6 +202,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DATA_CREDENTIAL_STORE: credential_store,
             DATA_CREDENTIALS: credentials,
             DATA_NATIVE_DASHBOARD: native_dashboard,
+            DATA_SUMMARY_MANAGER: summary_manager,
             DATA_INSTALLER_SESSIONS: InstallerSessions(
                 settings["installer"]["session_minutes"]
             ),
