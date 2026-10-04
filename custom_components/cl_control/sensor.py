@@ -8,6 +8,7 @@ from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, Sen
 from homeassistant.const import UnitOfPower
 from homeassistant.core import Event, callback
 from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import unit_conversion
@@ -59,6 +60,10 @@ class CLControlAreaPowerSensor(SensorEntity):
 
     async def async_added_to_hass(self) -> None:
         self.manager.attach_area_power(self.area_id, self)
+        registry = er.async_get(self.hass)
+        entry = registry.async_get(self.entity_id)
+        if entry is not None and entry.area_id != self.area_id:
+            registry.async_update_entity(self.entity_id, area_id=self.area_id)
 
     async def async_will_remove_from_hass(self) -> None:
         self.manager.detach_area_power(self.area_id, self)
