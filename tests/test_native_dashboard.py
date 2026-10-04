@@ -206,7 +206,7 @@ class NativeDashboardTests(unittest.TestCase):
         brand_card = brand_section["cards"][0]
         self.assertEqual(brand_card["type"], "markdown")
         self.assertEqual(
-            brand_card["grid_options"], {"columns": "full", "rows": 1}
+            brand_card["grid_options"], {"columns": "full", "rows": 2}
         )
         self.assertEqual(
             brand_card["tap_action"],
