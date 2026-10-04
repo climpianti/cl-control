@@ -182,6 +182,7 @@ class NativeDashboardTests(unittest.TestCase):
         secondary = config["views"][1:]
         self.assertTrue(secondary)
         self.assertTrue(all(view.get("subview") is True for view in secondary))
+        self.assertTrue(all(view.get("visible") is False for view in secondary))
         self.assertTrue(all(view.get("back_path") == "home" for view in secondary))
 
     def test_home_navigation_uses_compact_native_shortcuts(self):
@@ -205,9 +206,46 @@ class NativeDashboardTests(unittest.TestCase):
         brand_card = brand_section["cards"][0]
         self.assertEqual(brand_card["type"], "markdown")
         self.assertEqual(
-            brand_card["grid_options"], {"columns": "full", "rows": "auto"}
+            brand_card["grid_options"], {"columns": "full", "rows": 1}
         )
-        self.assertNotIn("\n\n# ", brand_card["content"])
+        self.assertEqual(
+            brand_card["tap_action"],
+            {"action": "navigate", "navigation_path": "home"},
+        )
+        self.assertIn('align="left"', brand_card["content"])
+
+    def test_system_cards_use_summary_entities_when_available(self):
+        model = self._model()
+        model["summary_entities"] = {
+            "lights": "binary_sensor.cl_control_luci",
+            "covers": "binary_sensor.cl_control_aperture",
+            "climate": "binary_sensor.cl_control_clima",
+        }
+        config = dashboard.build_native_lovelace(model)
+        home = config["views"][0]
+        system_section = next(
+            section
+            for section in home["sections"]
+            if any(
+                card.get("type") == "heading" and card.get("heading") == "Sistemi"
+                for card in section["cards"]
+            )
+        )
+        tiles = [
+            card for card in system_section["cards"] if card.get("type") == "tile"
+        ]
+        self.assertEqual(len(tiles), 3)
+        self.assertTrue(all(card["state_content"] == "summary" for card in tiles))
+        self.assertTrue(
+            all(
+                card["grid_options"] == {"columns": 6, "rows": 1}
+                for card in tiles
+            )
+        )
+        self.assertEqual(
+            tiles[0]["tap_action"],
+            {"action": "navigate", "navigation_path": "lights"},
+        )
 
     def test_area_override_creates_a_native_navigation_view_without_state_data(self):
         model = self._model(entity_areas={"light.salone": "Terrazza"})
