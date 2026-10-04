@@ -56,6 +56,8 @@ class SummaryManager:
         self._entities: dict[str, Any] = {}
         self._area_power_sources: dict[str, tuple[str, ...]] = {}
         self._area_power_entities: dict[str, Any] = {}
+        self._home_power_sources: tuple[str, ...] = ()
+        self._home_power_entity: Any | None = None
 
     def attach(self, module: str, entity: Any) -> None:
         if module not in SUMMARY_MODULES:
@@ -126,6 +128,30 @@ class SummaryManager:
             if entity_id:
                 result[area_id] = entity_id
         return result
+
+    def attach_home_power(self, entity: Any) -> None:
+        """Attach the aggregate whole-home power sensor."""
+        self._home_power_entity = entity
+        entity.set_sources(self._home_power_sources)
+
+    def detach_home_power(self, entity: Any) -> None:
+        if self._home_power_entity is entity:
+            self._home_power_entity = None
+
+    def set_home_power_sources(self, sources: Iterable[str]) -> None:
+        """Update whole-home structural power sources."""
+        normalized = tuple(dict.fromkeys(str(item) for item in sources))
+        if normalized == self._home_power_sources:
+            return
+        self._home_power_sources = normalized
+        if self._home_power_entity is not None:
+            self._home_power_entity.set_sources(normalized)
+
+    def home_power_entity_id(self) -> str:
+        """Return the aggregate whole-home sensor when it has sources."""
+        if not self._home_power_sources or self._home_power_entity is None:
+            return ""
+        return str(getattr(self._home_power_entity, "entity_id", "") or "")
 
 
 __all__ = (
