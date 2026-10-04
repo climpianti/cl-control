@@ -14,7 +14,7 @@ MODULE_SCHEMA_VERSION = 1
 CONFIG_ENTRY_VERSION = 1
 LAYOUT_SCHEMA_VERSION = 1
 UPDATE_MANIFEST_SCHEMA_VERSION = 1
-PLATFORMS = ("update", "binary_sensor")
+PLATFORMS = ("update", "binary_sensor", "sensor")
 
 DATA_SETTINGS = "settings"
 DATA_RUNTIME = "runtime"
