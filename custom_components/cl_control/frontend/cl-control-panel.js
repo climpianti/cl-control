@@ -67,12 +67,13 @@ class CLControlPanel extends HTMLElement {
     this._hiddenSyncLockUntil = 0;
     this._installerSearch = '';
     this._reviewFilter = 'all';
-    this._installerSectionIds = ['site','discovery','interface','layout','experience','security','assistance','diagnostics','updates','about'];
+    this._installerSectionIds = ['site','discovery','weatherpower','interface','layout','experience','security','assistance','diagnostics','updates','about'];
     this._installerOpenSections = new Set(['site','discovery']);
     this._reorderMode = false;
     this._energyLocalMap = new Map();
     this._installerUiLocked = false;
     this._installerRenderPending = false;
+    this._installerDeepLinkApplied = false;
     this._entityDrag = null;
     this._dragTimer = null;
     this._lightUiLocked = false;
@@ -87,6 +88,7 @@ class CLControlPanel extends HTMLElement {
 
   set hass(value) {
     this._hass = value;
+    if(!this._installerDeepLinkApplied&&value?.user?.is_admin&&new URLSearchParams(window.location.search).get('installer')==='1'){this._page='more';this._installerDeepLinkApplied=true;}
     this._syncPendingCommands();
     this._syncPendingAnalogCommands();
     this._lightControlSession?.reconcile?.();
@@ -134,7 +136,7 @@ class CLControlPanel extends HTMLElement {
   _defaultConfig(){
     const level=this._bootstrap?.customer_ui?.experience?.default_level||'standard';
     const site=this._bootstrap?.site||{};
-    const base={theme:this._bootstrap?.customer_ui?.default_theme||'cl_blue',hidden:[],favorites:[],aliases:{},switch_types:{},entity_modules:{},entity_areas:{},entity_subtypes:{},entity_visibility:{},area_order:[],entity_order:[],home_order:[...(this._bootstrap?.customer_ui?.modules||[])],energy:{},area_switches:{},support:{phone:site.support?.phone||'',whatsapp:site.support?.whatsapp||'',message:site.support?.message||'',customer:site.customer||'',site_name:site.site_name||'Casa'},ui:{density:'normal'},experience_level:level,module_levels:{},entity_levels:{},section_levels:{},card_levels:{},user_levels:{},layout:emptyLayout()};
+    const base={theme:this._bootstrap?.customer_ui?.default_theme||'cl_blue',hidden:[],favorites:[],aliases:{},switch_types:{},entity_modules:{},entity_areas:{},entity_subtypes:{},entity_visibility:{},area_order:[],entity_order:[],home_order:[...(this._bootstrap?.customer_ui?.modules||[])],energy:{},weather:{mode:'auto',entity:''},power_monitoring:{home:{mode:'auto',entities:[]},areas:{}},area_switches:{},support:{phone:site.support?.phone||'',whatsapp:site.support?.whatsapp||'',message:site.support?.message||'',customer:site.customer||'',site_name:site.site_name||'Casa'},ui:{density:'normal'},experience_level:level,module_levels:{},entity_levels:{},section_levels:{},card_levels:{},user_levels:{},layout:emptyLayout()};
     return deepMerge(base,this._bootstrap?.runtime||{});
   }
 
