@@ -67,7 +67,11 @@ class NativeDashboardTests(unittest.TestCase):
         return dashboard.build_dashboard_model(
             registry_entities=entities,
             areas=[
-                {"id": "salone", "name": "Salone"},
+                {
+                    "id": "salone",
+                    "name": "Salone",
+                    "picture": "/api/image/serve/salone/original",
+                },
                 {"id": "camera", "name": "Camera"},
             ],
             runtime=runtime,
@@ -213,6 +217,22 @@ class NativeDashboardTests(unittest.TestCase):
             {"action": "navigate", "navigation_path": "home"},
         )
         self.assertIn('align="left"', brand_card["content"])
+
+    def test_area_picture_uses_native_picture_display_with_compact_fallback(self):
+        config = dashboard.build_native_lovelace(self._model())
+        home = config["views"][0]
+        area_cards = [
+            card
+            for section in home["sections"]
+            for card in section["cards"]
+            if card.get("type") == "area"
+        ]
+        salone = next(card for card in area_cards if card["area"] == "salone")
+        camera = next(card for card in area_cards if card["area"] == "camera")
+        self.assertEqual(salone["display_type"], "picture")
+        self.assertEqual(salone["aspect_ratio"], "16:9")
+        self.assertEqual(camera["display_type"], "compact")
+        self.assertNotIn("aspect_ratio", camera)
 
     def test_system_cards_use_summary_entities_when_available(self):
         model = self._model()

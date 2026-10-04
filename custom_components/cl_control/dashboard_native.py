@@ -70,6 +70,8 @@ def _area_lookup(
             "name": name,
             "path": f"area-{_slug(area_id)}",
             "native": True,
+            "picture": str(raw.get("picture") or ""),
+            "icon": str(raw.get("icon") or ""),
             "entities": {"lights": [], "covers": [], "climate": []},
         }
         by_id[area_id] = item
@@ -99,6 +101,8 @@ def _resolve_area(
                 "name": override,
                 "path": f"area-{_slug(override)}",
                 "native": False,
+                "picture": "",
+                "icon": "",
                 "entities": {"lights": [], "covers": [], "climate": []},
             }
             by_id[synthetic_id] = item
@@ -432,15 +436,16 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         area_cards: list[dict[str, Any]] = [_heading("Aree", "mdi:floor-plan")]
         for area in model["areas"]:
             if area["native"]:
-                area_cards.append(
-                    {
-                        "type": "area",
-                        "area": area["id"],
-                        "name": area["name"],
-                        "display_type": "compact",
-                        "navigation_path": area["path"],
-                    }
-                )
+                area_card = {
+                    "type": "area",
+                    "area": area["id"],
+                    "name": area["name"],
+                    "display_type": "picture" if area.get("picture") else "compact",
+                    "navigation_path": area["path"],
+                }
+                if area.get("picture"):
+                    area_card["aspect_ratio"] = "16:9"
+                area_cards.append(area_card)
             else:
                 area_cards.append(
                     _navigation_shortcut(
@@ -571,7 +576,12 @@ class NativeDashboardService:
         entity_registry = er.async_get(self.hass)
 
         areas = [
-            {"id": area.id, "name": area.name}
+            {
+                "id": area.id,
+                "name": area.name,
+                "picture": str(getattr(area, "picture", "") or ""),
+                "icon": str(getattr(area, "icon", "") or ""),
+            }
             for area in area_registry.async_list_areas()
         ]
         entities: list[dict[str, Any]] = []
