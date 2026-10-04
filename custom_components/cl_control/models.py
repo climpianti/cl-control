@@ -23,6 +23,8 @@ RUNTIME_UI_KEYS = (
     "home_order",
     "energy",
     "energy_provider",
+    "weather",
+    "power_monitoring",
     "area_switches",
     "ui",
     "experience_level",
