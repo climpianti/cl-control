@@ -7,6 +7,7 @@ import re
 import unicodedata
 from typing import Any
 
+from .const import DATA_SUMMARY_MANAGER, DOMAIN
 from .ecosystem import async_discover_cl_modules, module_signature, resolve_energy_provider
 
 DOMAIN_MODULE = {
@@ -300,9 +301,9 @@ def _branding_section(
     site_name = model["site"].get("site_name") or "Impianto"
     title = brand if context == "home" else f"{brand} · {context}"
     logo_html = (
-        f'<img src="{logo}" alt="CL Impianti" width="72">'
+        f'<img src="{logo}" alt="CL Impianti" width="58" align="left">'
         if logo
-        else "**CL Impianti**"
+        else "<strong>CL Impianti</strong>"
     )
     return {
         "type": "grid",
@@ -310,8 +311,15 @@ def _branding_section(
         "cards": [
             {
                 "type": "markdown",
-                "content": f"{logo_html}\n\n### {title}\n{site_name}",
-                "grid_options": {"columns": "full", "rows": "auto"},
+                "content": (
+                    f"{logo_html}<strong>{title}</strong><br>{site_name}"
+                ),
+                "tap_action": {
+                    "action": "navigate",
+                    "navigation_path": "home",
+                },
+                "hold_action": {"action": "none"},
+                "grid_options": {"columns": "full", "rows": 1},
             }
         ],
     }
@@ -341,6 +349,30 @@ def _navigation_shortcut(
         "label": name,
         "icon": icon,
         "tap_action": {"action": "navigate", "navigation_path": path},
+        "hold_action": {"action": "none"},
+        "grid_options": {"columns": 6, "rows": 1},
+    }
+
+
+def _system_summary_card(
+    model: dict[str, Any], module: str, data: dict[str, Any]
+) -> dict[str, Any]:
+    """Prefer native entity tiles so summaries update without config rebuilds."""
+    entity_id = str((model.get("summary_entities") or {}).get(module) or "")
+    if not entity_id:
+        return _navigation_shortcut(
+            name=data["label"], icon=data["icon"], path=data["path"]
+        )
+    return {
+        "type": "tile",
+        "entity": entity_id,
+        "name": data["label"],
+        "icon": data["icon"],
+        "state_content": "summary",
+        "tap_action": {
+            "action": "navigate",
+            "navigation_path": data["path"],
+        },
         "hold_action": {"action": "none"},
         "grid_options": {"columns": 6, "rows": 1},
     }
@@ -423,11 +455,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     for module in ("lights", "covers", "climate"):
         data = model["modules"][module]
         if data["count"]:
-            system_cards.append(
-                _navigation_shortcut(
-                    name=data["label"], icon=data["icon"], path=data["path"]
-                )
-            )
+            system_cards.append(_system_summary_card(model, module, data))
     if len(system_cards) > 1:
         sections.append({"type": "grid", "cards": system_cards})
 
@@ -479,6 +507,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "title": area["name"],
                 "path": area["path"],
                 "subview": True,
+                "visible": False,
                 "back_path": "home",
                 "max_columns": 2,
                 "sections": area_sections,
@@ -599,6 +628,21 @@ class NativeDashboardService:
                 "energy" in getattr(getattr(self.hass, "config", None), "components", set())
             ),
         )
+        domain_data = getattr(self.hass, "data", {}).get(DOMAIN, {})
+        summary_manager = domain_data.get(DATA_SUMMARY_MANAGER)
+        if summary_manager is not None:
+            summary_manager.set_sources(
+                {
+                    module: [
+                        item["entity_id"]
+                        for item in model["modules"][module]["entities"]
+                    ]
+                    for module in ("lights", "covers", "climate")
+                }
+            )
+            model["summary_entities"] = summary_manager.entity_ids()
+        else:
+            model["summary_entities"] = {}
         config = build_native_lovelace(model)
         self.build_count += 1
         self._module_signature = signature
