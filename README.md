@@ -1,8 +1,8 @@
 # CL Control
 
-**CL Control 3.5.0** è una custom integration per Home Assistant progettata per generare una dashboard nativa, ordinata e configurabile a partire dalle aree e dalle entità già presenti nell'impianto.
+**CL Control 3.5.1** è una custom integration per Home Assistant progettata per generare una dashboard nativa, ordinata e configurabile a partire dalle aree e dalle entità già presenti nell'impianto.
 
-La versione 3.5.0 è la prima baseline pubblica stabile della nuova architettura CL Control.
+La versione 3.5.1 aggiorna la baseline pubblica stabile della nuova architettura CL Control con installazione frontend e dashboard automatica.
 
 ## Funzioni principali
 
@@ -34,14 +34,14 @@ La versione 3.5.0 è la prima baseline pubblica stabile della nuova architettura
 ## Requisiti
 
 - Home Assistant con supporto alle API frontend/registry utilizzate dalla versione corrente.
-- È consigliata una versione Home Assistant recente. CL Control 3.5.0 è stato validato sul ramo Home Assistant 2026.9/2026.10 utilizzato durante lo sviluppo.
+- È consigliata una versione Home Assistant recente sul ramo 2026.9/2026.10 utilizzato durante lo sviluppo.
 - Browser moderno per le card frontend incluse.
 
 > La compatibilità con versioni Home Assistant precedenti non è garantita finché non viene esplicitamente testata.
 
 ## Installazione con HACS
 
-Quando questo repository è pubblico:
+HACS installa CL Control come custom integration:
 
 1. Apri **HACS → Integrazioni**.
 2. Apri il menu dei repository personalizzati.
@@ -53,7 +53,9 @@ Quando questo repository è pubblico:
 7. Vai in **Impostazioni → Dispositivi e servizi → Aggiungi integrazione**.
 8. Cerca **CL Control** e completa la configurazione guidata.
 
-Non sono necessari `panel_custom`, file in `/config/www/cl_control` o configurazioni YAML legacy.
+CL Control registra automaticamente il proprio frontend Lovelace. Dopo la configurazione crea automaticamente la dashboard CL Control e la mostra nella sidebar. Non è necessario aggiungere manualmente risorse Lovelace.
+
+Non sono necessari `panel_custom` legacy, file in `/config/www/cl_control` o configurazioni YAML legacy.
 
 ## Installazione manuale
 
@@ -141,6 +143,6 @@ Per bug e richieste di miglioramento usa la sezione **Issues** del repository Gi
 
 ## Versione
 
-**3.5.0 — Stable**
+**3.5.1 — Stable**
 
 Vedi [CHANGELOG.md](CHANGELOG.md) per le modifiche principali.

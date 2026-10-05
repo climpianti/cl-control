@@ -43,8 +43,9 @@ from .const import (
     VERSION,
 )
 from .credentials import CredentialStore
-from .distribution import MockDistributionProvider, UpdateManager
+from .distribution import MockDistributionProvider, UpdateManager, load_public_keys
 from .dashboard_native import NativeDashboardService
+from .dashboard_registration import async_ensure_dashboard, async_remove_managed_dashboard
 from .branding_runtime import BrandingManager
 from .entry_data import (
     entry_data_is_valid,
@@ -186,11 +187,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     summary_manager = SummaryManager(installation_id)
     branding_manager = BrandingManager(hass, settings, VERSION, runtime)
     await branding_manager.async_apply()
+    # Reading the bundled signing key file is blocking filesystem I/O.
+    # Home Assistant requires it to run outside the event loop.
+    public_keys = await hass.async_add_executor_job(load_public_keys)
     update_manager = UpdateManager(
         hass=hass,
         entry=entry,
         provider=provider,
         release_channel=options["release_channel"],
+        public_keys=public_keys,
     )
     domain_data.update(
         {
@@ -229,6 +234,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         domain_data[DATA_WEBSOCKET_REGISTERED] = True
     entry.runtime_data = domain_data
     async_unregister_panel(hass, settings)
+    await async_ensure_dashboard(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     ir.async_delete_issue(
         hass, DOMAIN, f"installer_credential_missing_{entry.entry_id}"
@@ -261,6 +267,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     )
     manager = BrandingManager(hass, settings, VERSION)
     await manager.async_restore(clear=True)
+    await async_remove_managed_dashboard(hass)
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

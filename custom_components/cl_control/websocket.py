@@ -614,22 +614,60 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         if not await _validate_security_pin(hass, connection, msg):
             return
         security = _data(hass)[DATA_SETTINGS]["security"]
-        mode = str(msg["mode"]).upper()
+        requested_mode = str(msg["mode"] or "").strip()
         requested = set(msg["entity_ids"])
         partitions, _ = build_security_whitelist(hass.states.async_entity_ids(), security)
-        if (
-            not requested
-            or not requested.issubset(partitions)
-            or mode not in security["partition_modes"]
-        ):
+        if not requested_mode or not requested or not requested.issubset(partitions):
             connection.send_error(
                 msg["id"], "not_allowed", "Comando sicurezza non autorizzato"
             )
             return
+
+        # INIM select entities expose their real command vocabulary in the
+        # live ``options`` attribute (for example ARM AWAY / ARM HOME /
+        # DISARMED).  Validate against those options and preserve the exact
+        # spelling/casing expected by the integration instead of forcing the
+        # old TOTAL/PARTIAL/INSTANT aliases.
+        canonical_mode: str | None = None
+        live_options_seen = False
+        for entity_id in sorted(requested):
+            state = hass.states.get(entity_id)
+            options = state.attributes.get("options") if state is not None else None
+            if isinstance(options, (list, tuple)) and options:
+                live_options_seen = True
+                match = next(
+                    (str(option) for option in options if str(option).casefold() == requested_mode.casefold()),
+                    None,
+                )
+                if match is None:
+                    connection.send_error(
+                        msg["id"], "not_allowed", "Modalita partizione non disponibile"
+                    )
+                    return
+                if canonical_mode is None:
+                    canonical_mode = match
+                elif canonical_mode.casefold() != match.casefold():
+                    connection.send_error(
+                        msg["id"], "not_allowed", "Modalita partizione non compatibile"
+                    )
+                    return
+
+        if canonical_mode is None:
+            allowed_fallback = {str(value).casefold() for value in security.get("partition_modes", [])}
+            if requested_mode.casefold() not in allowed_fallback:
+                connection.send_error(
+                    msg["id"], "not_allowed", "Comando sicurezza non autorizzato"
+                )
+                return
+            canonical_mode = requested_mode
+
         await async_set_partition_mode(
-            hass, sorted(requested), mode, _context(connection, msg)
+            hass, sorted(requested), canonical_mode, _context(connection, msg)
         )
-        connection.send_result(msg["id"], {"success": True})
+        connection.send_result(
+            msg["id"],
+            {"success": True, "mode": canonical_mode, "validated_live": live_options_seen},
+        )
 
     @websocket_api.websocket_command(
         {

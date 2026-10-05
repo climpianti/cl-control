@@ -195,6 +195,20 @@ def _entity_name(entity: dict[str, Any], ui: dict[str, Any]) -> str:
     return entity_id.split(".", 1)[-1].replace("_", " ").strip().title()
 
 
+def _partition_name(entity: dict[str, Any], ui: dict[str, Any]) -> str:
+    """Return the actual INIM partition name instead of generic 'Arming Status'."""
+    entity_id = str(entity.get("entity_id") or "")
+    aliases = ui.get("aliases") or {}
+    alias = str(aliases.get(entity_id) or "").strip()
+    if alias:
+        return alias
+    match = re.fullmatch(r"select\.partition_(?P<name>[a-z0-9_]+)_mode", entity_id)
+    if match:
+        slug = match.group("name")
+        return slug.replace("_", " ").strip().title() or _entity_name(entity, ui)
+    return _entity_name(entity, ui)
+
+
 def _resolve_weather_entity(
     registry_entities: list[dict[str, Any]], ui: dict[str, Any]
 ) -> str:
@@ -366,6 +380,10 @@ def _build_security_model(
                 "name": item["name"],
                 "area_id": area["id"] if area else "",
                 "area_name": area["name"] if area else "Altri dispositivi",
+                "floor_id": area.get("floor_id", "") if area else "",
+                "floor_name": area.get("floor_name", "") if area else "",
+                "floor_icon": area.get("floor_icon", "") if area else "",
+                "floor_order": int(area.get("floor_order") or 0) if area else 10**9,
                 "supported_features": int(item.get("supported_features") or 0),
                 "platform": str(item.get("platform") or ""),
             }
@@ -389,9 +407,14 @@ def _build_security_model(
         partitions.append(
             {
                 "entity_id": entity_id,
-                "name": _entity_name(raw, ui),
+                "name": _partition_name(raw, ui),
                 "area_id": area["id"] if area else "",
                 "area_name": area["name"] if area else "Altri dispositivi",
+                "floor_id": area.get("floor_id", "") if area else "",
+                "floor_name": area.get("floor_name", "") if area else "",
+                "floor_icon": area.get("floor_icon", "") if area else "",
+                "floor_order": int(area.get("floor_order") or 0) if area else 10**9,
+                "platform": str(raw.get("platform") or ""),
             }
         )
 
@@ -449,6 +472,10 @@ def _build_security_model(
                 "name": _entity_name(raw, ui),
                 "area_id": area["id"] if area else "",
                 "area_name": area["name"] if area else "Altri dispositivi",
+                "floor_id": area.get("floor_id", "") if area else "",
+                "floor_name": area.get("floor_name", "") if area else "",
+                "floor_icon": area.get("floor_icon", "") if area else "",
+                "floor_order": int(area.get("floor_order") or 0) if area else 10**9,
                 "device_class": device_class or "generic",
                 "platform": platform,
                 "bypass_entity_id": bypass_entity_id,
@@ -457,6 +484,8 @@ def _build_security_model(
         )
 
     sort_key = lambda item: (
+        int(item.get("floor_order") or 0),
+        str(item.get("floor_name") or "").casefold(),
         str(item.get("area_name") or "").casefold(),
         str(item.get("name") or "").casefold(),
         str(item.get("entity_id") or ""),
@@ -848,26 +877,31 @@ def _assistance_url(
         f"Contesto: {context or 'Home'}",
         "Descrizione: ",
     ]
-    return f"https://wa.me/{phone}?text={quote(chr(10).join(lines))}"
+    return f"https://wa.me/{phone}?text={quote(chr(10).join(lines), safe='')}"
 
 
 def _assistance_section(
-    model: dict[str, Any], *, context: str, category: str
+    model: dict[str, Any], *, context: str, category: str, column_span: int
 ) -> dict[str, Any] | None:
-    """Return a discreet support shortcut at the bottom of a view."""
+    """Return a full-width support shortcut at the bottom of a view."""
     url = _assistance_url(model, context=context, category=category)
     if not url:
         return None
     return {
         "type": "grid",
+        "column_span": column_span,
         "cards": [
             {
-                "type": "shortcut",
+                "type": "custom:cl-control-assistance-card",
                 "label": "Assistenza CL",
                 "icon": "mdi:headset",
-                "tap_action": {"action": "url", "url_path": url},
-                "hold_action": {"action": "none"},
-                "grid_options": {"columns": 6, "rows": 1},
+                "subtitle": (
+                    "Supporto rapido CL Impianti"
+                    if context == "Home"
+                    else f"Supporto rapido · {context}"
+                ),
+                "url": url,
+                "grid_options": {"columns": "full", "rows": 1},
             }
         ],
     }
@@ -941,6 +975,7 @@ def _security_card(
         "partitions": partitions,
         "zones": zones,
         "pin_configured": bool(security.get("pin_configured")),
+        "group_by_floor": area_id is None,
         "grid_options": {"columns": 12},
     }
 
@@ -967,17 +1002,24 @@ def _security_camera_sections(model: dict[str, Any]) -> list[dict[str, Any]]:
     sections: list[dict[str, Any]] = []
     for area_id in sorted(
         security_area_ids,
-        key=lambda value: str((areas_by_id.get(value) or {}).get("name") or value).casefold(),
+        key=lambda value: (
+            int((areas_by_id.get(value) or {}).get("floor_order") or 0),
+            str((areas_by_id.get(value) or {}).get("floor_name") or "").casefold(),
+            str((areas_by_id.get(value) or {}).get("name") or value).casefold(),
+        ),
     ):
         area_cameras = [item for item in cameras if str(item.get("area_id") or "") == area_id]
         if not area_cameras:
             continue
-        area_name = str((areas_by_id.get(area_id) or {}).get("name") or "Area")
+        area_meta = areas_by_id.get(area_id) or {}
+        area_name = str(area_meta.get("name") or "Area")
+        floor_name = str(area_meta.get("floor_name") or "").strip()
+        camera_heading = f"Telecamere · {floor_name} · {area_name}" if floor_name else f"Telecamere · {area_name}"
         sections.append(
             {
                 "type": "grid",
                 "cards": [
-                    _heading(f"Telecamere · {area_name}", "mdi:cctv"),
+                    _heading(camera_heading, "mdi:cctv"),
                     *[_camera_card(item) for item in area_cameras],
                 ],
             }
@@ -1028,45 +1070,91 @@ def _system_summary_card(
     }
 
 
-def _area_badges(model: dict[str, Any], area: dict[str, Any]) -> list[dict[str, Any]]:
-    """Return native state badges allowed by the active experience profile."""
-    if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) < LEVEL_RANK["standard"]:
-        return []
-    badges: list[dict[str, Any]] = []
+_STATUS_LABELS = {
+    "temperature": "Temperatura",
+    "humidity": "Umidità",
+    "carbon_dioxide": "CO₂",
+    "motion": "Movimento",
+    "occupancy": "Occupazione",
+    "presence": "Presenza",
+}
+
+
+def _status_tile(entity_id: str, *, name: str = "") -> dict[str, Any]:
+    """Return a compact native status tile used below the CL brand header."""
+    card: dict[str, Any] = {
+        "type": "tile",
+        "entity": entity_id,
+        "state_content": "state",
+        "tap_action": {"action": "more-info"},
+        "hold_action": {"action": "none"},
+        "grid_options": {"columns": 6, "rows": 1},
+    }
+    if name:
+        card["name"] = name
+    return card
+
+
+def _home_status_section(model: dict[str, Any], *, column_span: int) -> dict[str, Any] | None:
+    """Place home-level counters below the CL brand, never above it."""
+    if (
+        LEVEL_RANK.get(str(model.get("profile") or "standard"), 1)
+        < LEVEL_RANK["pro"]
+        or not model.get("home_power_entity")
+    ):
+        return None
+    return {
+        "type": "grid",
+        "column_span": column_span,
+        "cards": [
+            _status_tile(str(model["home_power_entity"]), name="Potenza casa")
+        ],
+    }
+
+
+def _area_status_section(
+    model: dict[str, Any], area: dict[str, Any], *, column_span: int
+) -> dict[str, Any] | None:
+    """Place area telemetry immediately below the CL brand header."""
+    if (
+        LEVEL_RANK.get(str(model.get("profile") or "standard"), 1)
+        < LEVEL_RANK["standard"]
+    ):
+        return None
+    cards: list[dict[str, Any]] = []
     telemetry = area.get("telemetry") or {}
     for device_class in AREA_SENSOR_CLASSES + AREA_ALERT_CLASSES:
         items = telemetry.get(device_class) or []
         if not items:
             continue
-        badges.append(
-            {
-                "type": "entity",
-                "entity": items[0]["entity_id"],
-                "show_name": False,
-                "show_state": True,
-                "show_icon": True,
-            }
-        )
-    if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) >= LEVEL_RANK["pro"]:
-        power_entity = str((model.get("area_power_entities") or {}).get(area["id"]) or "")
-        if power_entity:
-            badges.append(
-                {
-                    "type": "entity",
-                    "entity": power_entity,
-                    "name": "Potenza",
-                    "show_name": False,
-                    "show_state": True,
-                    "show_icon": True,
-                }
+        cards.append(
+            _status_tile(
+                str(items[0]["entity_id"]),
+                name=_STATUS_LABELS.get(device_class, ""),
             )
-    return badges
+        )
+    if (
+        LEVEL_RANK.get(str(model.get("profile") or "standard"), 1)
+        >= LEVEL_RANK["pro"]
+    ):
+        power_entity = str(
+            (model.get("area_power_entities") or {}).get(area["id"]) or ""
+        )
+        if power_entity:
+            cards.append(_status_tile(power_entity, name="Potenza"))
+    if not cards:
+        return None
+    return {
+        "type": "grid",
+        "column_span": column_span,
+        "cards": cards,
+    }
 
 
-def _light_heading(area: dict[str, Any]) -> dict[str, Any]:
-    """Return a native lights heading with state-aware area ON/OFF actions."""
+def _light_heading(area: dict[str, Any], title: str | None = None) -> dict[str, Any]:
+    """Return a lights heading with state-aware ON/OFF actions for one area."""
     lights = [item["entity_id"] for item in area["entities"]["lights"]]
-    heading = _heading(MODULE_LABELS["lights"][0], MODULE_LABELS["lights"][1])
+    heading = _heading(title or MODULE_LABELS["lights"][0], MODULE_LABELS["lights"][1])
     if not lights:
         return heading
     any_on = {
@@ -1076,6 +1164,7 @@ def _light_heading(area: dict[str, Any]) -> dict[str, Any]:
             for entity_id in lights
         ],
     }
+    target = {"area_id": area["id"]} if area.get("native") else {"entity_id": lights}
     heading["badges"] = [
         {
             "type": "button",
@@ -1084,7 +1173,7 @@ def _light_heading(area: dict[str, Any]) -> dict[str, Any]:
             "tap_action": {
                 "action": "perform-action",
                 "perform_action": "light.turn_on",
-                "target": {"area_id": area["id"]},
+                "target": target,
             },
             "visibility": [
                 {"condition": "not", "conditions": [any_on]},
@@ -1098,7 +1187,7 @@ def _light_heading(area: dict[str, Any]) -> dict[str, Any]:
             "tap_action": {
                 "action": "perform-action",
                 "perform_action": "light.turn_off",
-                "target": {"area_id": area["id"]},
+                "target": target,
             },
             "visibility": [any_on],
         },
@@ -1135,7 +1224,9 @@ def _module_sections(
             {
                 "type": "grid",
                 "cards": [
-                    _heading(area["name"], MODULE_LABELS[module][1]),
+                    _light_heading(area, area["name"])
+                    if module == "lights"
+                    else _heading(area["name"], MODULE_LABELS[module][1]),
                     *cards,
                 ],
             }
@@ -1159,6 +1250,9 @@ def _module_sections(
 def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     """Translate the structural model into native Lovelace configuration."""
     sections: list[dict[str, Any]] = [_branding_section(model, "home", column_span=3)]
+    home_status = _home_status_section(model, column_span=3)
+    if home_status is not None:
+        sections.append(home_status)
 
     if model["favorites"]:
         sections.append(
@@ -1308,7 +1402,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         sections.append(installer_section)
 
     home_assistance = _assistance_section(
-        model, context="Home", category="Altro"
+        model, context="Home", category="Altro", column_span=3
     )
     if home_assistance is not None:
         sections.append(home_assistance)
@@ -1321,25 +1415,13 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         "max_columns": 3,
         "sections": sections,
     }
-    if (
-        LEVEL_RANK.get(str(model.get("profile") or "standard"), 1)
-        >= LEVEL_RANK["pro"]
-        and model.get("home_power_entity")
-    ):
-        home_view["badges"] = [
-            {
-                "type": "entity",
-                "entity": model["home_power_entity"],
-                "name": "Potenza casa",
-                "show_name": True,
-                "show_state": True,
-                "show_icon": True,
-            }
-        ]
     views: list[dict[str, Any]] = [home_view]
 
     for area in model["areas"]:
         area_sections = [_branding_section(model, area["name"], column_span=2)]
+        area_status = _area_status_section(model, area, column_span=2)
+        if area_status is not None:
+            area_sections.append(area_status)
         for module in (
             "lights",
             "outlets",
@@ -1387,7 +1469,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                     }
                 )
         area_assistance = _assistance_section(
-            model, context=area["name"], category="Altro"
+            model, context=area["name"], category="Altro", column_span=2
         )
         if area_assistance is not None:
             area_sections.append(area_assistance)
@@ -1400,7 +1482,6 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "visible": False,
                 "back_path": "home",
                 "max_columns": 2,
-                "badges": _area_badges(model, area),
                 "sections": area_sections,
             }
         )
@@ -1432,6 +1513,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             model,
             context=data["label"],
             category=data["label"],
+            column_span=3,
         )
         if module_assistance is not None:
             module_sections.append(module_assistance)

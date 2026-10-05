@@ -13,7 +13,11 @@ DEFAULT_CONFIG = {
     "allowed_alarm_entity_ids": [],
     "allowed_partition_entity_ids": [],
     "allowed_zone_entity_ids": [],
-    "partition_modes": ["TOTAL", "PARTIAL", "INSTANT", "DISARMED"],
+    "partition_modes": [
+        "TOTAL", "PARTIAL", "INSTANT", "DISARMED",
+        "ARM AWAY", "ARM HOME", "ARM NIGHT", "ARM INSTANT",
+        "ARM AWAY INSTANT", "ARM HOME INSTANT",
+    ],
     "rate_limit": {
         "max_attempts": 5,
         "window_seconds": 300,

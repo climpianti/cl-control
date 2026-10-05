@@ -141,6 +141,53 @@ class CLControlInstallerCard extends HTMLElement {
       .sort((a, b) => this._name(a.entity_id).localeCompare(this._name(b.entity_id), 'it'));
   }
 
+  _securityEntities() {
+    const security = this._dashboardModel?.security || {};
+    const visibility = this._runtime?.entity_visibility || {};
+    const byId = new Map();
+    const add = (item, kind) => {
+      if (!item?.entity_id) return;
+      const entityId = String(item.entity_id);
+      byId.set(entityId, {
+        entity_id: entityId,
+        name: item.name || this._name(entityId),
+        kind,
+        area_id: item.area_id || this._areaForEntity(entityId) || '',
+        area_name: item.area_name || '',
+        floor_name: item.floor_name || '',
+        platform: item.platform || '',
+      });
+    };
+    (security.panels || []).forEach(item => add(item, 'Impianto / Partizione'));
+    (security.partitions || []).forEach(item => add(item, 'Partizione INIM'));
+    (security.zones || []).forEach(item => add(item, 'Zona'));
+
+    // Keep entities hidden from CL Control available in the Installer so they can
+    // always be re-enabled later. Panels and INIM partitions are deterministic;
+    // hidden binary sensors are recovered only from known security platforms.
+    const securityPlatforms = new Set(['risco', 'irisco', 'inim', 'alarmo', 'paradox', 'dsc', 'texecom', 'jablotron']);
+    for (const entry of this._entities) {
+      const entityId = String(entry?.entity_id || '');
+      if (!entityId || visibility[entityId] !== false || byId.has(entityId)) continue;
+      const domain = entityId.split('.', 1)[0];
+      const platform = String(entry?.platform || '').toLowerCase();
+      if (domain === 'alarm_control_panel') add({...entry, name: this._name(entityId)}, 'Impianto / Partizione');
+      else if (/^select\.partition_[a-z0-9_]+_mode$/.test(entityId)) add({...entry, name: this._name(entityId)}, 'Partizione INIM');
+      else if (domain === 'binary_sensor' && securityPlatforms.has(platform)) add({...entry, name: this._name(entityId)}, 'Zona');
+    }
+
+    const areaNames = new Map(this._areas.map(area => [area.area_id || area.id, area.name || area.area_id || area.id]));
+    return [...byId.values()].map(item => ({
+      ...item,
+      area_name: item.area_name || areaNames.get(item.area_id) || 'Altri dispositivi',
+    })).sort((a, b) =>
+      String(a.floor_name || '').localeCompare(String(b.floor_name || ''), 'it') ||
+      String(a.area_name || '').localeCompare(String(b.area_name || ''), 'it') ||
+      String(a.kind || '').localeCompare(String(b.kind || ''), 'it') ||
+      String(a.name || '').localeCompare(String(b.name || ''), 'it')
+    );
+  }
+
   _sortBySaved(items, savedOrder, keyOf, labelOf) {
     const rank = new Map((savedOrder || []).map((key, index) => [String(key), index]));
     return [...items].sort((a, b) => {
@@ -269,6 +316,10 @@ class CLControlInstallerCard extends HTMLElement {
       visibility[entityId] = visible;
       if (area) entityAreas[entityId] = area;
       else delete entityAreas[entityId];
+    });
+    this.shadowRoot.querySelectorAll('[data-security-visible]').forEach(input => {
+      const entityId = String(input.value || '').trim();
+      if (entityId) visibility[entityId] = Boolean(input.checked);
     });
     current.entity_visibility = visibility;
     current.entity_areas = entityAreas;
@@ -412,6 +463,7 @@ class CLControlInstallerCard extends HTMLElement {
     const power = this._powerSensors();
     const weatherEntities = this._weatherEntities();
     const cameras = this._cameraEntities();
+    const securityEntities = this._securityEntities();
     const cameraVisibility = r.entity_visibility || {};
     const cameraAreas = r.entity_areas || {};
     const deviceArea = new Map(this._areas.map(area => [area.area_id || area.id, area.name || area.area_id || area.id]));
@@ -442,6 +494,13 @@ class CLControlInstallerCard extends HTMLElement {
       const available = !['unavailable', 'unknown', ''].includes(String(state.state || '').toLowerCase());
       const areaName = deviceArea.get(effectiveArea) || effectiveArea || 'Nessuna area';
       return `<div class="cameraRow" data-camera-config="${esc(entityId)}" data-search-text="${esc(`${this._name(entityId)} ${entityId} ${areaName}`)}"><div class="cameraInfo"><b>${esc(this._name(entityId))}</b><small>${esc(entityId)} · ${available ? 'Online' : 'Non disponibile'} · ${esc(areaName)}</small></div><label class="cameraToggle"><input type="checkbox" data-camera-visible ${visible ? 'checked' : ''}> Visibile</label><select data-camera-area><option value="">Area automatica (Home Assistant)</option>${cameraAreaOptions.map(area => `<option value="${esc(area.id)}" ${configuredArea === area.id ? 'selected' : ''}>${esc(area.name)}</option>`).join('')}</select></div>`;
+    }).join('');
+
+    const securityRows = securityEntities.map(item => {
+      const entityId = item.entity_id;
+      const visible = cameraVisibility[entityId] !== false;
+      const location = [item.floor_name, item.area_name].filter(Boolean).join(' · ') || 'Altri dispositivi';
+      return `<label class="check" data-search-text="${esc(`${item.name} ${entityId} ${item.kind} ${location}`)}"><input type="checkbox" data-security-visible value="${esc(entityId)}" ${visible ? 'checked' : ''}><span><b>${esc(item.name)}</b><small>${esc(item.kind)} · ${esc(location)} · ${esc(entityId)}</small></span></label>`;
     }).join('');
 
     const dashboardAreas = Array.isArray(this._dashboardModel?.areas) ? this._dashboardModel.areas : [];
@@ -502,7 +561,7 @@ class CLControlInstallerCard extends HTMLElement {
       <div class="section"><h3>Potenza totale casa</h3><div class="grid"><div class="field"><label>Modalità</label><select id="homePowerMode"><option value="auto" ${(monitoring.home?.mode || 'auto') === 'auto' ? 'selected' : ''}>Automatico</option><option value="manual" ${monitoring.home?.mode === 'manual' ? 'selected' : ''}>Selezione manuale</option><option value="off" ${monitoring.home?.mode === 'off' ? 'selected' : ''}>Disattivato</option></select></div><div class="field"><label>Sensori disponibili</label><div class="muted">${power.length} sensori power rilevati</div></div></div><div class="searchBox"><ha-icon icon="mdi:magnify"></ha-icon><input type="search" data-entity-search="homePowerList" placeholder="Cerca per nome o entity_id…" autocomplete="off"></div><div class="list" id="homePowerList">${power.length ? power.map(state => `<label class="check" data-search-text="${esc(`${this._name(state.entity_id)} ${state.entity_id} ${deviceArea.get(this._areaForEntity(state.entity_id)) || ''}`)}"><input type="checkbox" data-home-power value="${esc(state.entity_id)}" ${homeSelected.has(state.entity_id) ? 'checked' : ''}><span><b>${esc(this._name(state.entity_id))}</b><small>${esc(state.entity_id)} · ${esc(state.attributes?.unit_of_measurement || '')}${this._areaForEntity(state.entity_id) ? ` · ${esc(deviceArea.get(this._areaForEntity(state.entity_id)) || '')}` : ''}</small></span></label>`).join('') : '<div class="check"><span class="muted">Nessun sensore di potenza rilevato.</span></div>'}<div class="searchEmpty" data-search-empty hidden>Nessuna entità corrispondente.</div></div></div>
       <div class="section"><h3>Potenza per area</h3><p class="muted">Auto somma i sensori power assegnati all'area. Manuale usa solo i sensori selezionati.</p>${areaBlocks || '<p class="muted">Nessuna area disponibile.</p>'}</div>
       <div class="section"><h3>Telecamere</h3><p class="muted">Scegli quali telecamere CL Control deve mostrare e, se necessario, correggi manualmente l'area. La stessa associazione viene usata per proporre le telecamere pertinenti nella schermata Sicurezza.</p><div class="searchBox"><ha-icon icon="mdi:magnify"></ha-icon><input type="search" data-entity-search="cameraEntityList" placeholder="Cerca per nome o entity_id…" autocomplete="off"></div><div class="cameraList list" id="cameraEntityList">${cameraRows || '<div class="check"><span class="muted">Nessuna telecamera rilevata.</span></div>'}<div class="searchEmpty" data-search-empty hidden>Nessuna telecamera corrispondente.</div></div></div>
-      <div class="section"><h3>Sicurezza <span class="badge">${this._securityPinConfigured ? 'CODICE ATTIVO' : 'DA CONFIGURARE'}</span></h3><div class="grid"><div class="field"><label>Nuovo Codice Sicurezza</label><input id="securityPin" type="password" inputmode="numeric" maxlength="12" placeholder="4–12 cifre"></div><div class="field"><label>Conferma Codice Sicurezza</label><input id="securityPinConfirm" type="password" inputmode="numeric" maxlength="12" placeholder="Ripeti il codice"></div></div><div class="actions"><button id="saveSecurityPin">SALVA CODICE SICUREZZA</button></div></div>
+      <div class="section"><h3>Sicurezza <span class="badge">${this._securityPinConfigured ? 'CODICE ATTIVO' : 'DA CONFIGURARE'}</span></h3><p class="muted">Scegli quali pannelli, partizioni INIM e zone mostrare nella schermata Sicurezza. Per INIM puoi lasciare visibili solo le partizioni che vuoi gestire: ogni partizione avrà la propria card con comandi indipendenti. Le entità restano in Home Assistant: questa opzione modifica soltanto la visualizzazione CL Control.</p><div class="searchBox"><ha-icon icon="mdi:magnify"></ha-icon><input type="search" data-entity-search="securityEntityList" placeholder="Cerca partizione, zona o entity_id…" autocomplete="off"></div><div class="list" id="securityEntityList">${securityRows || '<div class="check"><span class="muted">Nessuna entità di sicurezza rilevata.</span></div>'}<div class="searchEmpty" data-search-empty hidden>Nessuna entità corrispondente.</div></div><div class="grid" style="margin-top:14px"><div class="field"><label>Nuovo Codice Sicurezza</label><input id="securityPin" type="password" inputmode="numeric" maxlength="12" placeholder="4–12 cifre"></div><div class="field"><label>Conferma Codice Sicurezza</label><input id="securityPinConfirm" type="password" inputmode="numeric" maxlength="12" placeholder="Ripeti il codice"></div></div><div class="actions"><button id="saveSecurityPin">SALVA CODICE SICUREZZA</button></div></div>
       <div class="section"><h3>Impianto e Assistenza</h3><div class="grid"><div class="field"><label>Nome impianto</label><input id="siteName" value="${esc(support.site_name || 'Casa')}"></div><div class="field"><label>Cliente</label><input id="customerName" value="${esc(support.customer || '')}"></div><div class="field"><label>WhatsApp</label><input id="supportWhatsapp" value="${esc(support.whatsapp || '')}"></div><div class="field"><label>Telefono</label><input id="supportPhone" value="${esc(support.phone || '')}"></div></div></div>
       <div class="actions"><button class="primary" id="saveGeneral">SALVA CONFIGURAZIONE</button></div>
     </ha-card>`;

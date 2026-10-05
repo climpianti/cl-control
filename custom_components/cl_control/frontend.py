@@ -25,11 +25,12 @@ REQUIRED_ASSETS = (
     "cl-control-security-card.mjs",
     "cl-control-header-card.mjs",
     "cl-control-installer-card.mjs",
+    "cl-control-assistance-card.mjs",
     "cl-control-branding.mjs",
     "logo.png",
 )
 LEGACY_ASSET_ROOT = "/local/cl_control/"
-ASSET_REVISION = "ui5m-ha-show-as"
+ASSET_REVISION = "3.5.1-inim-partition-cards-v2"
 
 
 def static_url(version: str) -> str:
@@ -94,7 +95,8 @@ def _is_owned_legacy_panel(panel: Any) -> bool:
 
 async def async_register_static_path(hass: HomeAssistant, version: str) -> None:
     """Register immutable bundled assets once per Home Assistant process."""
-    _validate_assets()
+    # Path.is_file() performs filesystem I/O; keep it outside HA's event loop.
+    await hass.async_add_executor_job(_validate_assets)
     domain_data = hass.data.setdefault(DOMAIN, {})
     if domain_data.get(DATA_STATIC_REGISTERED):
         return
@@ -103,6 +105,17 @@ async def async_register_static_path(hass: HomeAssistant, version: str) -> None:
         [StaticPathConfig(asset_base, str(FRONTEND_DIRECTORY), True)]
     )
     hass.http.register_view(DashboardStrategyView(version))
+
+    # CL Control is a dashboard strategy.  Historically users had to add
+    # STRATEGY_URL manually under Lovelace Resources before Home Assistant
+    # could discover the strategy.  Custom integrations can register an
+    # extra frontend module directly, so load the strategy automatically
+    # without writing to Lovelace resource storage.
+    extra_modules = hass.data.get(frontend.DATA_EXTRA_MODULE_URL)
+    registered_urls = getattr(extra_modules, "urls", ())
+    if STRATEGY_URL not in registered_urls:
+        frontend.add_extra_js_url(hass, STRATEGY_URL)
+
     domain_data[DATA_STATIC_REGISTERED] = True
 
 
