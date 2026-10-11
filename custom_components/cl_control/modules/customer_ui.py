@@ -55,12 +55,19 @@ DEFAULT_RUNTIME = {
     "theme": "cl_blue",
     "hidden": [],
     "favorites": [],
+    "favorites_label": "Preferiti",
+    "welcome": {
+        "mode": "compact",
+        "secondary_mode": "auto",
+        "secondary_text": "",
+    },
     "aliases": {},
     "switch_types": {},
     "area_order": [],
     "area_visibility": {},
     "area_picture_visibility": {},
     "entity_order": [],
+    "home_section_order": ["areas", "systems", "cl_systems"],
     "home_order": [
         "lights",
         "covers",
@@ -71,7 +78,7 @@ DEFAULT_RUNTIME = {
         "cameras",
         "support",
     ],
-    "energy": {},
+    "energy": {"monitored_loads": []},
     "energy_provider": "auto",
     "weather": {"mode": "auto", "entity": ""},
     "power_monitoring": {

@@ -1,5 +1,34 @@
 # Changelog
 
+## 3.5.2-beta.1
+
+### Home
+- Benvenuto personalizzato.
+- Preferiti rapidi.
+- Ordinamento configurabile di Aree, Sistemi e Sistemi CL.
+- Corretta persistenza dell'ordine Home.
+
+### Installer
+- Nuova Installer UI2 più semplice e organizzata.
+- Migliore selezione delle entità Energia e Sicurezza.
+- Configurazione utenze energetiche monitorate.
+
+### Energia
+- Nuova pagina Energia app-like.
+- Integrazione realtime con CL Power Control 0.4.0-beta.5.
+- Flusso FV, Casa, Batteria e Rete.
+- Stato Power Control, limite rete, limite dinamico, margine, surplus e carichi sospesi.
+- Storico Home Assistant Energy / Recorder / Statistics.
+- Riepilogo giorno, mese e anno.
+- Navigazione temporale dei periodi.
+- Grafici interattivi touch.
+- Utenze monitorate CL Control indipendenti da Power Control.
+- Dettaglio e storico delle singole utenze.
+- Supporto consumo casa da sensore energia kWh o da sensore potenza W/kW.
+- Correzioni stabilità vista storico e caricamento grafici.
+
+Questa release è destinata a test multi-impianto prima della futura stable 3.5.2.
+
 ## 3.5.1 — Stable
 
 ### Installazione

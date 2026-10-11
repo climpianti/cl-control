@@ -10,6 +10,7 @@ from typing import Any
 
 from .const import DATA_CREDENTIALS, DATA_SUMMARY_MANAGER, DOMAIN
 from .ecosystem import async_discover_cl_modules, module_signature, resolve_energy_provider
+from .energy_provider import async_build_energy_model
 from .modules.security import INIM_ZONE_RE, PARTITION_RE, RISCO_BYPASS_RE
 
 DOMAIN_MODULE = {
@@ -50,6 +51,16 @@ AREA_MODULE_LABELS = {**MODULE_LABELS, **AREA_ONLY_MODULES}
 AREA_SENSOR_CLASSES = ("temperature", "humidity", "carbon_dioxide")
 AREA_ALERT_CLASSES = ("motion", "occupancy", "presence")
 AREA_TELEMETRY_CLASSES = (*AREA_SENSOR_CLASSES, *AREA_ALERT_CLASSES, "power")
+
+# Explicit Installer favorites may include useful Home Assistant controls even
+# when they are not part of a top-level CL Control module.  The dashboard still
+# uses native HA cards for these entities.
+FAVORITE_DOMAINS = {
+    "alarm_control_panel", "button", "camera", "climate", "cover", "fan",
+    "humidifier", "input_boolean", "input_button", "lawn_mower", "light",
+    "lock", "media_player", "scene", "script", "select", "siren", "switch",
+    "valve", "vacuum",
+}
 
 LEVEL_RANK = {"essential": 0, "standard": 1, "pro": 2, "installer": 3}
 TECHNICAL_PLATFORMS = {"cl_control", "cl_power_control", "cl_irrigation"}
@@ -724,11 +735,35 @@ def build_dashboard_model(
         )
 
     visible_by_id = {item["entity_id"]: item for item in visible_entities}
-    favorites = [
-        visible_by_id[entity_id]
-        for entity_id in dict.fromkeys(ui.get("favorites") or [])
-        if entity_id in visible_by_id
-    ]
+    registry_by_id = {str(item.get("entity_id") or ""): item for item in registry_entities}
+    favorites: list[dict[str, Any]] = []
+    for entity_id in dict.fromkeys(ui.get("favorites") or []):
+        entity_id = str(entity_id or "")
+        if not entity_id:
+            continue
+        if entity_id in visible_by_id:
+            favorites.append(dict(visible_by_id[entity_id]))
+            continue
+        raw = registry_by_id.get(entity_id)
+        if not isinstance(raw, dict) or raw.get("disabled"):
+            continue
+        domain = str(raw.get("domain") or entity_id.split(".", 1)[0])
+        if domain not in FAVORITE_DOMAINS:
+            continue
+        area = _resolve_area(
+            entity_id, str(raw.get("area_id") or "") or None, ui, by_id, by_name
+        )
+        favorites.append(
+            {
+                "entity_id": entity_id,
+                "name": _entity_name(raw, ui),
+                "domain": domain,
+                "module": DOMAIN_MODULE.get(domain, "favorites"),
+                "icon": str(raw.get("icon") or ""),
+                "area_id": area["id"] if area else "",
+                "area_name": area["name"] if area else "",
+            }
+        )
 
     modules = {}
     for module, (label, icon) in MODULE_LABELS.items():
@@ -766,6 +801,8 @@ def build_dashboard_model(
     support = support if isinstance(support, dict) else {}
     whatsapp = re.sub(r"\D", "", str(support.get("whatsapp") or ""))
     weather_entity = _resolve_weather_entity(registry_entities, ui)
+    welcome_cfg = ui.get("welcome")
+    welcome_cfg = welcome_cfg if isinstance(welcome_cfg, dict) else {}
 
     return {
         "schema_version": 1,
@@ -778,11 +815,18 @@ def build_dashboard_model(
         },
         "site": {"site_name": site_name},
         "weather_entity": weather_entity,
+        "welcome": {
+            "mode": str(welcome_cfg.get("mode") or "compact"),
+            "secondary_mode": str(welcome_cfg.get("secondary_mode") or "auto"),
+            "secondary_text": str(welcome_cfg.get("secondary_text") or ""),
+        },
         "security": security_model,
         "favorites": favorites,
+        "favorites_label": str(ui.get("favorites_label") or "Preferiti"),
         "areas": active_areas,
         "modules": modules,
         "home_order": [str(value) for value in (ui.get("home_order") or []) if str(value)],
+        "home_section_order": [str(value) for value in (ui.get("home_section_order") or []) if str(value)],
         "cl_modules": cl_modules,
         "energy": {
             "requested_provider": requested_energy_provider,
@@ -980,6 +1024,19 @@ def _security_card(
     }
 
 
+def _energy_card(model: dict[str, Any]) -> dict[str, Any] | None:
+    """Return the customer Energy application card when data providers are available."""
+    energy = model.get("energy") or {}
+    if not energy.get("available"):
+        return None
+    return {
+        "type": "custom:cl-control-energy-card",
+        "title": "Energia",
+        "energy": deepcopy(energy),
+        "grid_options": {"columns": "full"},
+    }
+
+
 def _security_camera_sections(model: dict[str, Any]) -> list[dict[str, Any]]:
     """Return cameras correlated to security areas without duplicating all cameras."""
     security = model.get("security") or {}
@@ -1108,6 +1165,33 @@ def _home_status_section(model: dict[str, Any], *, column_span: int) -> dict[str
         "column_span": column_span,
         "cards": [
             _status_tile(str(model["home_power_entity"]), name="Potenza casa")
+        ],
+    }
+
+
+def _welcome_section(model: dict[str, Any], *, column_span: int) -> dict[str, Any] | None:
+    """Return the personalized Home welcome block below status information."""
+    welcome = model.get("welcome") if isinstance(model.get("welcome"), dict) else {}
+    mode = str(welcome.get("mode") or "compact").lower()
+    if mode in {"off", "disabled", "none"}:
+        return None
+    if mode not in {"compact", "extended"}:
+        mode = "compact"
+    secondary_mode = str(welcome.get("secondary_mode") or "auto").lower()
+    if secondary_mode not in {"auto", "custom", "off"}:
+        secondary_mode = "auto"
+    return {
+        "type": "grid",
+        "column_span": column_span,
+        "cards": [
+            {
+                "type": "custom:cl-control-welcome-card",
+                "mode": mode,
+                "site_name": str((model.get("site") or {}).get("site_name") or "Casa"),
+                "secondary_mode": secondary_mode,
+                "secondary_text": str(welcome.get("secondary_text") or ""),
+                "grid_options": {"columns": "full", "rows": 1 if mode == "compact" else 2},
+            }
         ],
     }
 
@@ -1254,16 +1338,22 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     if home_status is not None:
         sections.append(home_status)
 
+    welcome_section = _welcome_section(model, column_span=3)
+    if welcome_section is not None:
+        sections.append(welcome_section)
+
     if model["favorites"]:
         sections.append(
             {
                 "type": "grid",
                 "cards": [
-                    _heading("Preferiti", "mdi:star"),
+                    _heading(str(model.get("favorites_label") or "Preferiti"), "mdi:star"),
                     *[_entity_card(item) for item in model["favorites"]],
                 ],
             }
         )
+
+    home_group_sections: dict[str, dict[str, Any]] = {}
 
     home_areas = [
         area for area in model["areas"] if area.get("home_visible", True)
@@ -1350,7 +1440,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                             path=area["path"],
                         )
                     )
-        sections.append({"type": "grid", "cards": area_cards})
+        home_group_sections["areas"] = {"type": "grid", "cards": area_cards}
 
     home_order = {
         str(value): index for index, value in enumerate(model.get("home_order") or [])
@@ -1368,8 +1458,14 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     system_cards = [_heading("Sistemi", "mdi:view-grid-outline")]
     for module in visible_systems:
         system_cards.append(_system_summary_card(model, module, model["modules"][module]))
+    if (model.get("energy") or {}).get("available"):
+        system_cards.append(
+            _navigation_shortcut(
+                name="Energia", icon="mdi:lightning-bolt", path="energy"
+            )
+        )
     if len(system_cards) > 1:
-        sections.append({"type": "grid", "cards": system_cards})
+        home_group_sections["systems"] = {"type": "grid", "cards": system_cards}
 
     visible_cl_modules = [
         module
@@ -1395,7 +1491,22 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             )
         )
     if len(cl_system_cards) > 1:
-        sections.append({"type": "grid", "cards": cl_system_cards})
+        home_group_sections["cl_systems"] = {"type": "grid", "cards": cl_system_cards}
+
+    # The three main Home groups are installer-orderable without moving the
+    # fixed brand/status/welcome/favorites above or Assistance below them.
+    default_home_section_order = ("areas", "systems", "cl_systems")
+    requested_home_section_order = [
+        str(value) for value in (model.get("home_section_order") or [])
+        if str(value) in default_home_section_order
+    ]
+    ordered_home_sections = list(dict.fromkeys(
+        [*requested_home_section_order, *default_home_section_order]
+    ))
+    for section_key in ordered_home_sections:
+        section = home_group_sections.get(section_key)
+        if section is not None:
+            sections.append(section)
 
     installer_section = _installer_section(model)
     if installer_section is not None:
@@ -1531,6 +1642,32 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
+    energy_card = _energy_card(model)
+    if energy_card is not None:
+        energy_sections: list[dict[str, Any]] = [
+            _branding_section(model, "Energia", column_span=3),
+            {
+                "type": "grid",
+                "column_span": 3,
+                "cards": [energy_card],
+            },
+        ]
+        energy_assistance = _assistance_section(
+            model, context="Energia", category="Energia", column_span=3
+        )
+        if energy_assistance is not None:
+            energy_sections.append(energy_assistance)
+        views.append(
+            {
+                "type": "sections",
+                "title": "Energia",
+                "path": "energy",
+                "icon": "mdi:lightning-bolt",
+                "max_columns": 3,
+                "sections": energy_sections,
+            }
+        )
+
     if model.get("admin_user_ids"):
         views.append(
             {
@@ -1631,6 +1768,7 @@ class NativeDashboardService:
             entities.append(
                 {
                     "entity_id": entry.entity_id,
+                    "unique_id": str(getattr(entry, "unique_id", "") or ""),
                     "domain": entry.domain,
                     "platform": entry.platform,
                     "area_id": area_id,
@@ -1720,6 +1858,18 @@ class NativeDashboardService:
             model["summary_entities"] = {}
             model["area_power_entities"] = {}
             model["home_power_entity"] = ""
+
+        # Energy Data Contract v2: CL Power Control beta.5+ owns realtime; HA owns statistics.
+        # It does not calculate load-shedding, surplus or long-term energy here.
+        previous_energy = model.get("energy") if isinstance(model.get("energy"), dict) else {}
+        model["energy"] = await async_build_energy_model(
+            self.hass,
+            registry_entities=entities,
+            runtime=runtime,
+            requested_provider=str(previous_energy.get("requested_provider") or "auto"),
+            resolved_provider=str(previous_energy.get("provider") or "none"),
+            home_power_entity=str(model.get("home_power_entity") or ""),
+        )
         try:
             users = await self.hass.auth.async_get_users()
             model["admin_user_ids"] = [
