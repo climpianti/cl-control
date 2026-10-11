@@ -60,14 +60,23 @@ def global_brand_title(settings:dict[str,Any])->str:
     return f"{brand} · {site}" if site and site.casefold() not in {brand.casefold(),"casa"} else brand
 
 def manifest_branding(settings:dict[str,Any])->dict[str,Any]:
-    b=settings.get("branding",{}); a=b.get("assets") if isinstance(b.get("assets"),dict) else {}; c=b.get("colors") if isinstance(b.get("colors"),dict) else {}; logo=str(a.get("logo") or "")
-    return {"name":global_brand_title(settings),"short_name":str(b.get("brand_name") or "CL Control"),"theme_color":str(c.get("primary") or "#19BAFF"),"background_color":str(c.get("background") or "#061324"),"icons":[{"src":logo,"sizes":"any","type":"image/png","purpose":"any"}] if logo else []}
+    b=settings.get("branding",{}); c=b.get("colors") if isinstance(b.get("colors"),dict) else {}
+    base=str(settings.get("frontend",{}).get("asset_base") or "").rstrip("/")
+    icons=[]
+    if base:
+        icons=[
+            {"src":f"{base}/favicon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+            {"src":f"{base}/favicon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},
+            {"src":f"{base}/favicon-maskable-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"},
+        ]
+    return {"name":global_brand_title(settings),"short_name":str(b.get("brand_name") or "CL Control"),"theme_color":str(c.get("primary") or "#19BAFF"),"background_color":str(c.get("background") or "#061324"),"icons":icons}
 
 def enhanced_module_url(settings:dict[str,Any],runtime:dict[str,Any]|None,version:str)->str:
     b=settings.get("branding",{}); a=b.get("assets") if isinstance(b.get("assets"),dict) else {}; c=b.get("colors") if isinstance(b.get("colors"),dict) else {}; base=str(settings.get("frontend",{}).get("asset_base") or f"/cl_control_static/{version}")
     title=global_brand_title(settings); shell_cfg=shell_title_config(runtime); side_title=shell_title(settings,runtime)
     sidebar_enabled=bool(b.get("sidebar_title",True)) and shell_cfg["mode"]!="original"
-    return f"{base}/cl-control-branding.mjs?"+urlencode({"brand":str(b.get("brand_name") or "CL Control"),"title":title,"sidebar_title":side_title,"logo":str(a.get("logo") or ""),"theme":str(c.get("primary") or "#19BAFF"),"sidebar":"1" if sidebar_enabled else "0","browser":"1" if b.get("browser_title",True) else "0","favicon":"1" if b.get("favicon",True) else "0"})
+    icon=str(a.get("favicon") or a.get("logo_compact") or a.get("logo") or "")
+    return f"{base}/cl-control-branding.mjs?"+urlencode({"brand":str(b.get("brand_name") or "CL Control"),"title":title,"sidebar_title":side_title,"logo":str(a.get("logo") or ""),"icon":icon,"theme":str(c.get("primary") or "#19BAFF"),"sidebar":"1" if sidebar_enabled else "0","browser":"1" if b.get("browser_title",True) else "0","favicon":"1" if b.get("favicon",True) else "0"})
 
 class BrandingManager:
     def __init__(self,hass:HomeAssistant,settings:dict[str,Any],version:str,runtime:dict[str,Any]|None=None)->None:

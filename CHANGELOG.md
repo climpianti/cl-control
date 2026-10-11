@@ -1,5 +1,53 @@
 # Changelog
 
+## 3.5.2-beta.2 — Beta
+
+La beta.2 è la beta di test consigliata della serie 3.5.2.
+La beta.1 resta disponibile solo per tracciabilità e non viene modificata.
+La stable consigliata rimane CL Control 3.5.1.
+
+### Home
+- Benvenuto personalizzato con utente Home Assistant.
+- Preferiti / comandi rapidi.
+- Ordinamento sezioni Home configurabile.
+- Default: Sistemi → Aree → Sistemi CL.
+
+### Installatore
+- Nuova Installer UI2.
+- Configurazioni suddivise in sezioni.
+- Gestione semplificata di Energia, Sicurezza, Telecamere, Meteo e Aree.
+- Ricerca e selezione entità migliorate.
+
+### Energia
+- Nuova sezione Energia app-like.
+- Compatibilità realtime con CL Power Control 0.4.0-beta.5 e versioni compatibili.
+- Flusso FV / Casa / Batteria / Rete.
+- Direzione animazioni basata sul flusso reale.
+- Stato Power Control, surplus disponibile e limite rete.
+- Limite dinamico equivalente, margine disponibile e carichi sospesi.
+- Statistiche da Home Assistant Energy / Recorder.
+- Storico Giorno / Mese / Anno.
+- Grafici 12h e 24h con risoluzione fino a 5 minuti.
+- Tooltip touch persistente.
+- Grafici 7 e 30 giorni a barre.
+- Utenze monitorate direttamente da CL Control.
+- Dettaglio storico dei singoli carichi.
+- Storico interventi CL Power Control.
+
+### Sicurezza
+- Card indipendenti per partizioni INIM.
+- Modalità di inserimento ricavate dalle opzioni reali.
+- Raggruppamento per Piano e Area.
+- Visibilità configurabile.
+
+### Branding
+- Nuovo logo CL Impianti.
+- favicon.ico multi-risoluzione e favicon browser 32x32.
+- Apple touch icon 180x180.
+- PWA 192x192 e 512x512.
+- Maskable icon 512x512.
+- Gestione favicon stabilizzata.
+
 ## 3.5.1 — Stable
 
 ### Installazione
