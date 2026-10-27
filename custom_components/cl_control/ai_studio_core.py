@@ -69,7 +69,7 @@ def validate_proposal(raw: str, request: StudioRequest) -> dict[str, Any]:
         source_id, kind, name = item["source_id"], item["type"], item["name"]
         if not isinstance(source_id, str) or source_id not in inventory or source_id in used:
             raise StudioProposalError("Unknown or duplicate source identifier")
-        if kind not in ALLOWED_TYPES or kind != inventory[source_id].get("type"):
+        if not isinstance(kind, str) or kind not in ALLOWED_TYPES or kind != inventory[source_id].get("type"):
             raise StudioProposalError("Invalid candidate type")
         if not isinstance(name, str) or not 1 <= len(name.strip()) <= 100:
             raise StudioProposalError("Invalid proposed name")
