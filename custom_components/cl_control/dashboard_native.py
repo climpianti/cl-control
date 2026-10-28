@@ -1694,6 +1694,10 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                             {
                                 "type": "custom:cl-control-installer-card",
                                 "grid_options": {"columns": "full", "rows": 12},
+                            },
+                            {
+                                "type": "custom:cl-control-discovery-card",
+                                "grid_options": {"columns": "full", "rows": 8},
                             }
                         ],
                     },
