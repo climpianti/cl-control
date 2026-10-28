@@ -13,6 +13,7 @@ export function buildKnxPreview(data, edits = {}) {
     const edit = edits[cmd] || {};
     if (edit.include === false) continue;
     const domain = edit.domain || domainFor(candidate.category);
+    if (['access_control_review','unassigned','hvac_load','unknown_review'].includes(candidate.category)) continue;
     if (!['light','switch'].includes(domain)) continue;
     const address = edit.state === undefined ? candidate.state : edit.state;
     if (!allowed.has(cmd) || (address && !allowed.has(address))) {warnings.push('Indirizzi non validi: '+cmd);continue;}
@@ -89,7 +90,8 @@ class CLDiscoveryCard extends HTMLElement {
       html+='<div class="muted" style="margin-top:10px">Seleziona solo luci e carichi verificati. Apriporta, HVAC e indirizzi non assegnati restano esclusi. I dimmer e il clima richiedono revisione specifica.</div>';
       html+='<div id="entries">'+matches.map(c=>{
         const e=this._edits[c.command]||{};
-        const domain=e.domain||domainFor(c.category)||'skip';
+        const blocked=['access_control_review','unassigned','hvac_load','unknown_review'].includes(c.category);
+        const domain=blocked?'skip':(e.domain||domainFor(c.category)||'skip');
         const states=(this._data.group_addresses||[]).filter(s=>s.dpts?.some(d=>(this._data.group_addresses||[]).find(x=>x.address===c.command)?.dpts?.includes(d)));
         return '<div class="entry"><div><b>'+escapeHtml(c.name)+'</b><small>'+escapeHtml(c.command)+' → '+escapeHtml(c.state||'nessuno')+' · '+escapeHtml(c.category)+'</small></div><div><select data-domain="'+escapeHtml(c.command)+'"><option value="skip" '+(domain==='skip'?'selected':'')+'>Escludi</option><option value="light" '+(domain==='light'?'selected':'')+'>Luce</option><option value="switch" '+(domain==='switch'?'selected':'')+'>Interruttore</option></select></div><div><select data-state="'+escapeHtml(c.command)+'"><option value="">Senza stato</option>'+states.map(s=>'<option value="'+escapeHtml(s.address)+'" '+((e.state===undefined?c.state:e.state)===s.address?'selected':'')+'>'+escapeHtml(s.address)+' · '+escapeHtml(s.name)+'</option>').join('')+'</select></div></div>';
       }).join('')+'</div>';
