@@ -148,6 +148,7 @@ def import_ets_group_xml(xml: bytes) -> dict[str, Any]:
                     'climate_dpt_mismatches': sum(len(zone['issues']) for zone in zones),
                     'dpt_counts': dict(sorted(counters.items()))},
         'pairs': pairs, 'dimmers': dimmers, 'climate_zones': zones,
+        'group_addresses': rows,
         'warnings': warnings,
         'notice': 'Not a KNX device inventory. Group-address export does not prove physical devices or communication-object bindings.'
     }
