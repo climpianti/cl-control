@@ -1,6 +1,7 @@
 import './cl-control-security-card.mjs';
 import './cl-control-header-card.mjs';
 import './cl-control-installer-card.mjs';
+import './cl-control-discovery-card.mjs';
 import './cl-control-assistance-card.mjs';
 import './cl-control-welcome-card.mjs';
 import './cl-control-energy-card.mjs';
