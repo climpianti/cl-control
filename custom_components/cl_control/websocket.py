@@ -29,6 +29,7 @@ from .const import (
     CONF_INSTALLATION_ID,
 )
 from .knx_xml_importer import import_ets_group_xml
+from .modbus_profile import prepare_modbus_preview
 from .light_memories_ws import register_light_memory_commands
 from .credentials import async_verify_pin
 from .entry_data import sync_options_from_runtime
@@ -783,6 +784,30 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         # Data is returned to the requesting administrator only; never persisted.
         connection.send_result(msg["id"], result)
 
+    @websocket_api.websocket_command({
+        vol.Required("type"): "cl_control/discovery/modbus/profile_preview",
+        vol.Required("profile_json"): vol.All(str, vol.Length(min=1, max=65536)),
+        vol.Required("host"): vol.All(str, vol.Length(min=7, max=45)),
+        vol.Required("port"): vol.All(int, vol.Range(min=1, max=65535)),
+        vol.Required("unit_id"): vol.All(int, vol.Range(min=1, max=247)),
+    })
+    @websocket_api.async_response
+    async def ws_modbus_profile_preview(hass, connection, msg):
+        if not _require_admin(connection, msg):
+            return
+        if not _data(hass)[DATA_INSTALLER_SESSIONS].active(_user_key(connection)):
+            connection.send_error(msg["id"], "installer_locked", "Sblocca la sessione Installatore")
+            return
+        try:
+            result = await hass.async_add_executor_job(
+                prepare_modbus_preview, msg["profile_json"],
+                msg["host"], msg["port"], msg["unit_id"]
+            )
+        except ValueError as exc:
+            connection.send_error(msg["id"], "invalid_modbus_profile", str(exc))
+            return
+        connection.send_result(msg["id"], result)
+
     for command in (
         ws_get_bootstrap,
         ws_get_config,
@@ -795,6 +820,7 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         ws_lock_installer,
         ws_installer_status,
         ws_knx_import_preview,
+        ws_modbus_profile_preview,
         ws_prepare_assistance,
         ws_assistance_request_status,
         ws_assistance_requests,
