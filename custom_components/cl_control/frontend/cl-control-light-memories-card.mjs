@@ -107,6 +107,13 @@ export class CLLightMemoriesCard extends HTMLElement {
     if(this._native){this._native.hass=this._hass;this.shadowRoot.querySelector('#native')?.replaceChildren(this._native);}
   }
   _syncState(){
+    if(!this._isPreset())this.shadowRoot.querySelectorAll('[data-target]').forEach(el=>{
+      const state=this._hass?.states?.[el.dataset.target];
+      const available=['on','off'].includes(state?.state)&&!state?.attributes?.entity_id&&!state?.attributes?.group_entities;
+      el.disabled=this._busy||!available;
+      const label=el.closest('label')?.querySelector('small');
+      if(label)label.textContent=available?(state.state==='on'?'Accesa':'Spenta'):'Non disponibile o gruppo';
+    });
     const save=this.shadowRoot.querySelector('#capture');
     if(save)save.disabled=this._busy||!this._name.trim()||(this._isPreset()?!this._canSavePreset():this._selected.size===0);
     const hint=this.shadowRoot.querySelector('#presetHint');

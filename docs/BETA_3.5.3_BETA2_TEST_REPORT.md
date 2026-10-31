@@ -3,8 +3,8 @@
 - 64 test Python: modelli, Discovery, multimedia, scenari/preset, isolamento utenti,
   permessi, limiti, errori di persistenza, cambio capacità e recupero dei salvataggi.
 - 10 controlli JavaScript della precedente anteprima Discovery superati.
-- 13 controlli DOM della nuova card: selezione, salvataggio, richiamo, eliminazione,
-  escaping, luce spenta e capacità dei controlli nativi.
+- 16 controlli DOM della nuova card: selezione, salvataggio, richiamo, eliminazione,
+  escaping, luce spenta, stato live e capacità dei controlli nativi.
 - Chromium: gli stessi flussi su API simulate, nessun errore JavaScript,
   nessuna fuoriuscita orizzontale a 320, 390, 768 e 1200 px.
 - Screenshot della fixture ispezionato a 390 px.
