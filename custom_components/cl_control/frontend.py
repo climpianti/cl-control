@@ -26,6 +26,7 @@ REQUIRED_ASSETS = (
     "cl-control-header-card.mjs",
     "cl-control-installer-card.mjs",
     "cl-control-discovery-card.mjs",
+    "cl-control-modbus-card.mjs",
     "cl-control-assistance-card.mjs",
     "cl-control-welcome-card.mjs",
     "cl-control-energy-card.mjs",
