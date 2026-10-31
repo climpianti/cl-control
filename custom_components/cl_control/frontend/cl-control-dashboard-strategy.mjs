@@ -6,6 +6,7 @@ import './cl-control-assistance-card.mjs';
 import './cl-control-welcome-card.mjs';
 import './cl-control-energy-card.mjs';
 import './cl-control-light-memories-card.mjs';
+import './cl-control-media-card.mjs';
 
 // CL Control 3.5 lightweight Home Assistant dashboard strategy.
 // The backend returns native Lovelace configuration; Home Assistant owns
