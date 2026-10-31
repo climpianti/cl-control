@@ -1,6 +1,6 @@
 # CL Control
 
-> Ramo beta **3.5.3-beta.2**: multimedia, anteprima ETS XML, scenari luci e preferiti.
+> Ramo beta **3.5.3-beta.3**: multimedia, anteprima ETS XML, scenari luci e preferiti.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari ed effetti RGB
 > ciclici sono ancora da implementare. Collaudo riservato all'istanza beta.
@@ -14,9 +14,11 @@ Da **Sistemi → Scenari luci**, seleziona le singole luci, assegna un nome e pr
 tramite Home Assistant. Il comando può avere effetti parziali se un dispositivo
 si scollega durante l'esecuzione: controlla sempre il risultato.
 
-Nella card di una luce dimmerabile accesa, **Regola luce** apre i controlli HA;
-**Salva preferito** memorizza luminosità, modalità colore e relativi canali.
-Le luci solo ON/OFF mantengono la card nativa senza il salvataggio dimmer.
+Le schede compatte offrono luminosità e RGB direttamente sulla card.
+Il canale **Bianco W** appare solo per RGBW; la temperatura solo se supportata.
+La lampadina apre i controlli completi HA. La **stella** apre i preferiti:
+**Salva preferito** memorizza la luce accesa, luminosità e colore.
+Le luci solo ON/OFF mostrano soltanto intestazione e interruttore.
 Scenari e preferiti sono personali, persistenti dopo il riavvio e cancellabili.
 La prima beta gestisce luci individuali, fino a 32 per scenario e 64 salvataggi
 per utente. Serrature, antifurto, clima e gruppi aggregati sono esclusi.

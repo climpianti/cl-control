@@ -11,8 +11,8 @@ import {lightTileConfig,memoryDescription} from '/card.mjs';
 window.lightTileConfig=lightTileConfig;window.memoryDescription=memoryDescription;
 customElements.define('ha-card',class extends HTMLElement{connectedCallback(){this.style.display='block'}});
 window.loadCardHelpers=async()=>({createCardElement:config=>{const e=document.createElement('div');e.textContent=config.name||config.entity;e.style.padding='16px';return e;}});
-window.calls=[];window.items=[];
-window.hass={user:{id:'fixture-user'},states:{'light.fixture':{state:'on',attributes:{supported_color_modes:['rgb'],color_mode:'rgb',brightness:100,rgb_color:[32,64,128]}}},callWS:async m=>{
+window.calls=[];window.items=[];window.serviceCalls=[];
+window.hass={callService:async(...args)=>{serviceCalls.push(args);},user:{id:'fixture-user'},states:{'light.fixture':{state:'on',attributes:{supported_color_modes:['rgb'],color_mode:'rgb',brightness:100,rgb_color:[32,64,128]}}},callWS:async m=>{
  calls.push(m);
  if(m.type.endsWith('/list'))return {items:items.filter(i=>i.kind===m.kind)};
  if(m.type.endsWith('/capture')){items.push({id:String(items.length+1),name:m.name,kind:m.kind,available:true,states:Object.fromEntries(m.entity_ids.map(e=>[e,{state:'on',brightness:100,color_mode:'rgb',rgb_color:[32,64,128]}]))});return {};}
@@ -41,6 +41,16 @@ if(require.main===module)(async()=>{
    page.on('dialog',dialog=>dialog.accept());
    await page.goto(url);await page.waitForFunction(()=>window.ready);
    const root=page.locator('cl-control-light-memories-card');
+   assert.equal(await root.locator('#presetPanel').isVisible(),false);
+   assert.equal(await root.locator('[data-control="white"]').count(),0);
+   await root.locator('[data-control="hue"]').fill('120');
+   assert.deepEqual(await page.evaluate(()=>serviceCalls.at(-1).slice(0,3)),['light','turn_on',{hs_color:[120,100]}]);
+   for(const width of [320,390,768,1200]){
+     await page.setViewportSize({width,height:900});
+     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+     if(process.env.SCREENSHOT_DIR&&width===390){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'compact-light-390.png')});}
+   }
+   await root.locator('#favorites').click();
    await root.locator('#name').fill('Lettura <img src=x onerror=alert(1)>');
    await root.locator('#capture').click();
    await root.locator('[data-apply]').waitFor();

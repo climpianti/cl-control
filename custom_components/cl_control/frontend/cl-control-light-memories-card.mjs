@@ -1,5 +1,7 @@
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const DIM = new Set(['brightness','rgb','rgbw','rgbww','hs','xy','color_temp','white']);
+function hueRGB(h){const c=x=>Math.round(255*Math.max(0,Math.min(1,Math.abs(((h/60+x)%6)-3)-1)));return [c(0),c(4),c(2)];}
+function rgbHue(rgb){const [r,g,b]=rgb.map(v=>v/255), max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;if(!d)return 0;return ((max===r?(g-b)/d:max===g?(b-r)/d+2:(r-g)/d+4)*60+360)%360;}
 const CHANGED = 'cl-control-light-memories-changed';
 
 export function lightTileConfig(entity, name, state) {
@@ -29,6 +31,7 @@ export class CLLightMemoriesCard extends HTMLElement {
     this._config={}; this._hass=null; this._items=[]; this._selected=new Set();
     this._name=''; this._busy=false; this._loading=true; this._error=''; this._notice='';
     this._sequence=0; this._native=null; this._nativeKey=''; this._connected=false;
+    this._expanded=false; this._controlBusy=false; this._controlKey='';
     this._refresh=()=>this._load();
   }
   setConfig(config) { this._config={...config}; this._render(); }
@@ -50,7 +53,7 @@ export class CLLightMemoriesCard extends HTMLElement {
     this._syncState();
     if((first||changedUser)&&this._connected)this._load();
   }
-  getCardSize(){return this._config.entity?4:8;}
+  getCardSize(){return this._config.entity?2:8;}
   getGridOptions(){return {columns:12,rows:'auto',min_columns:6};}
   _isPreset(){return Boolean(this._config.entity);}
   _canSavePreset(){
@@ -86,25 +89,58 @@ export class CLLightMemoriesCard extends HTMLElement {
   _moreInfo(){
     this.dispatchEvent(new CustomEvent('hass-more-info',{bubbles:true,composed:true,detail:{entityId:this._config.entity}}));
   }
-  async _mountNative(){
-    if(!this._isPreset()||!this._hass)return;
-    const state=this._hass.states[this._config.entity];
-    const config=lightTileConfig(this._config.entity,this._config.name,state);
-    const key=JSON.stringify(config);
-    if(key!==this._nativeKey){
-      this._nativeKey=key;
-      try{
-        const helpers=await window.loadCardHelpers();
-        if(this._nativeKey!==key)return;
-        this._native=helpers.createCardElement(config);
-      }catch(_){
-        this._nativeKey='';
-        const host=this.shadowRoot.querySelector('#native');
-        if(host)host.textContent='Apri i controlli della luce con il pulsante Regola luce.';
-        return;
-      }
+  _lightModel(){
+    const state=this._hass?.states?.[this._config.entity];
+    const a=state?.attributes||{}, modes=a.supported_color_modes||[];
+    return {state,a,modes,on:state?.state==='on',available:['on','off'].includes(state?.state),
+      dim:modes.some(m=>DIM.has(m)),rgb:modes.some(m=>['rgb','rgbw','rgbww','hs','xy'].includes(m)),
+      white:modes.includes('rgbw'),temp:modes.includes('color_temp')};
+  }
+  async _control(service,data={}){
+    if(this._controlBusy||this._busy||!this._lightModel().available)return;
+    this._controlBusy=true;this._error='';this._syncControls();
+    try{await this._hass.callService('light',service,data,{entity_id:this._config.entity});}
+    catch(e){this._error=e?.message||'Comando non riuscito.';}
+    finally{this._controlBusy=false;this._render();}
+  }
+  _setLight(kind,value){
+    const {a,modes}=this._lightModel();
+    if(kind==='brightness')return this._control(value===0?'turn_off':'turn_on',value===0?{}:{brightness_pct:value});
+    if(kind==='temp')return this._control('turn_on',{color_temp_kelvin:value});
+    if(kind==='white')return this._control('turn_on',{rgbw_color:[...(a.rgbw_color||[0,0,0,0]).slice(0,3),Math.round(value*255/100)]});
+    if(kind==='hue'){
+      const rgb=hueRGB(value);
+      const data=modes.includes('rgbw')?{rgbw_color:[...rgb,a.rgbw_color?.[3]||0]}:
+        modes.includes('rgbww')?{rgbww_color:[...rgb,...(a.rgbww_color||[0,0,0,0,0]).slice(3,5)]}:{hs_color:[value,100]};
+      return this._control('turn_on',data);
     }
-    if(this._native){this._native.hass=this._hass;this.shadowRoot.querySelector('#native')?.replaceChildren(this._native);}
+  }
+  _controlsHTML(){
+    const m=this._lightModel();
+    const slider=(kind,label,min,max,cls)=>`<label class="rail ${cls}"><span>${label}<output data-value="${kind}"></output></span><input type="range" data-control="${kind}" aria-label="${label}" min="${min}" max="${max}" step="1"></label>`;
+    return `<div class="light-head"><button class="bulb" id="moreInfo" aria-label="Dettagli luce"><svg viewBox="0 0 32 42" aria-hidden="true"><path class="glass" d="M16 2C8 2 3 8 3 15c0 5 3 8 6 12v4h14v-4c3-4 6-7 6-12C29 8 24 2 16 2Z"/><path class="base" d="M9 32h14v3H9zm1 5h12l-3 4h-6z"/></svg></button><div class="identity"><strong>${esc(this._config.name||m.a.friendly_name||this._config.entity)}</strong><small id="lightState"></small></div>${m.dim?`<button class="star ${this._items.length?'saved':''}" id="favorites" aria-label="Preferiti luce" aria-expanded="${this._expanded}" aria-controls="presetPanel" title="Preferiti luce">${this._items.length?'★':'☆'}</button>`:''}<button id="power" class="power" role="switch" aria-label="Accensione luce"><span></span></button></div><div class="rails">${m.dim?slider('brightness','Luminosità',0,100,'brightness'):''}${m.rgb?slider('hue','RGB',0,360,'hue'):''}${m.temp?slider('temp','Bianco · temperatura',m.a.min_color_temp_kelvin||2000,m.a.max_color_temp_kelvin||6500,'temperature'):''}${m.white?slider('white','Bianco W',0,100,'white'):''}</div>`;
+  }
+  _syncControls(){
+    if(!this._isPreset())return;
+    const m=this._lightModel(), root=this.shadowRoot;
+    const key=JSON.stringify([m.dim,m.rgb,m.white,m.temp,m.a.min_color_temp_kelvin,m.a.max_color_temp_kelvin]);
+    if(this._controlKey!==key){this._controlKey=key;this._render();return;}
+    const pct=Math.round((m.a.brightness||0)/255*100);
+    const status=root.querySelector('#lightState');
+    if(status)status.textContent=!m.available?'Non disponibile':m.on?`Accesa${m.dim?' · '+pct+'%':''}`:'Spenta';
+    const power=root.querySelector('#power');
+    if(power){power.setAttribute('aria-checked',String(m.on));power.disabled=!m.available||this._controlBusy||this._busy;}
+    const rgb=m.a.rgb_color||m.a.rgbw_color?.slice(0,3)||[255,210,136];
+    const safeRGB=rgb.map(v=>Math.max(0,Math.min(255,Number(v)||0)));
+    const bulb=root.querySelector('.bulb');
+    if(bulb){bulb.style.setProperty('--glow',m.on?`rgb(${safeRGB.join(',')})`:'#737782');bulb.classList.toggle('lit',m.on);}
+    const values={brightness:m.on?pct:0,hue:m.a.hs_color?.[0]??rgbHue(rgb),temp:m.a.color_temp_kelvin||m.a.min_color_temp_kelvin||2000,white:Math.round((m.a.rgbw_color?.[3]||0)/255*100)};
+    root.querySelectorAll('[data-control]').forEach(el=>{
+      el.disabled=!m.available||this._controlBusy||this._busy;
+      if(root.activeElement!==el)el.value=String(values[el.dataset.control]);
+      const out=root.querySelector(`[data-value="${el.dataset.control}"]`);
+      if(out)out.textContent=el.dataset.control==='temp'?`${el.value} K`:el.dataset.control==='hue'?`${Math.round(Number(el.value))}°`:`${el.value}%`;
+    });
   }
   _syncState(){
     if(!this._isPreset())this.shadowRoot.querySelectorAll('[data-target]').forEach(el=>{
@@ -118,15 +154,10 @@ export class CLLightMemoriesCard extends HTMLElement {
     if(save)save.disabled=this._busy||!this._name.trim()||(this._isPreset()?!this._canSavePreset():this._selected.size===0);
     const hint=this.shadowRoot.querySelector('#presetHint');
     if(hint)hint.hidden=this._canSavePreset();
-    if(this._isPreset())this._mountNative();
+    if(this._isPreset())this._syncControls();
   }
   _render(){
     const preset=this._isPreset();
-    const modes=this._hass?.states?.[this._config.entity]?.attributes?.supported_color_modes;
-    if(preset&&Array.isArray(modes)&&!modes.some(m=>DIM.has(m))){
-      this.shadowRoot.innerHTML='<div id="native"></div>';
-      this._mountNative();return;
-    }
     const names=Object.fromEntries((this._config.entities||[]).map(e=>[e.entity_id,e.name||e.entity_id]));
     const selector=preset?'':`<div class="targets" role="group" aria-label="Luci dello scenario">${(this._config.entities||[]).map(e=>{
       const state=this._hass?.states?.[e.entity_id];
@@ -136,7 +167,8 @@ export class CLLightMemoriesCard extends HTMLElement {
     const rows=this._items.map(item=>`<div class="memory"><div><strong>${esc(item.name)}</strong><small>${esc(memoryDescription(item.states))}</small>${!preset?`<small>${esc(Object.keys(item.states).map(id=>names[id]||id).join(', '))}</small>`:''}${item.available===false?'<small>Una luce non è disponibile</small>':''}</div><div class="actions"><button data-apply="${esc(item.id)}" ${this._busy||item.available===false?'disabled':''} aria-label="Applica ${esc(item.name)}"><ha-icon icon="mdi:play"></ha-icon> Applica</button><button data-delete="${esc(item.id)}" ${this._busy?'disabled':''} aria-label="Elimina ${esc(item.name)}"><ha-icon icon="mdi:delete-outline"></ha-icon></button></div></div>`).join('');
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;color:var(--primary-text-color)}ha-card{border-radius:18px;overflow:hidden}#native{min-height:64px}#native:empty{min-height:0}.content{padding:16px}h3{margin:0 0 6px;font-size:18px}.intro,small{color:var(--secondary-text-color);font-size:12px;line-height:1.5}small{display:block}.intro{margin:0 0 12px}.memory{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-top:1px solid var(--divider-color)}.memory>div:first-child{min-width:0;overflow-wrap:anywhere}.actions{display:flex;gap:5px;flex-shrink:0}button,input{font:inherit}button{display:inline-flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;color:var(--primary-text-color);border:1px solid var(--divider-color);border-radius:10px;background:var(--secondary-background-color);padding:9px 10px;min-height:42px}button ha-icon{--mdc-icon-size:18px}button:disabled{opacity:.45;cursor:default}.primary{background:var(--primary-color);color:var(--text-primary-color,#fff);border:0}.save{display:flex;gap:8px;margin-top:12px}.save input{width:100%;min-width:0;box-sizing:border-box;padding:10px;border:1px solid var(--divider-color);border-radius:10px;background:var(--card-background-color);color:inherit}.save button{flex-shrink:0}.targets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.targets label{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--divider-color);border-radius:10px;overflow-wrap:anywhere}.targets input{accent-color:var(--primary-color)}.message{padding:10px;border-radius:10px;background:var(--secondary-background-color);font-size:13px;margin:10px 0}.empty{padding:14px 0;color:var(--secondary-text-color);font-size:13px}[hidden]{display:none!important}@media(max-width:460px){.targets{grid-template-columns:1fr}.save{flex-wrap:wrap}.save button{width:100%}.memory{align-items:flex-start}.actions button{padding:8px}}
-    </style><ha-card>${preset?'<div id="native"></div>':''}<div class="content">${preset?'<button id="moreInfo"><ha-icon icon="mdi:palette"></ha-icon> Regola luce</button>':'<h3>Scenari luci</h3>'}<p class="intro">${preset?'Salva luminosità e colore attuali nei tuoi preferiti.':'Seleziona le luci e fotografa il loro stato attuale. Il salvataggio non aziona le luci.'} Salvati per il tuo utente, anche dopo un riavvio.</p>${this._error?`<div class="message" role="alert">${esc(this._error)}</div>`:''}${this._notice?`<div class="message" role="status">${esc(this._notice)}</div>`:''}${selector}<div class="save"><input id="name" aria-label="Nome ${preset?'preferito':'scenario'}" maxlength="64" placeholder="${preset?'Es. Lettura calda':'Es. Serata in casa'}" value="${esc(this._name)}" ${this._busy?'disabled':''}><button id="capture" class="primary" disabled><ha-icon icon="mdi:camera-outline"></ha-icon> ${preset?'Salva preferito':'Fotografa e salva'}</button></div>${preset?'<p id="presetHint" class="intro">Accendi e regola la luce per salvare un preferito dimmer o colore.</p>':''}<div>${this._loading?'<div class="empty">Caricamento…</div>':rows||`<div class="empty">Nessun ${preset?'preferito':'scenario'} salvato.</div>`}</div><button id="refresh" ${this._busy?'disabled':''}>Aggiorna elenco</button></div></ha-card>`;
+      :host{--ink:#f3f4f6;--muted:#a5a7ad}ha-card.light-card{display:block;background:linear-gradient(145deg,#252629,#17181a);color:var(--ink);border:1px solid #ffffff20;border-radius:22px;box-shadow:0 8px 24px #0002;padding:14px;box-sizing:border-box}.light-head{display:flex;align-items:center;gap:10px;min-height:48px}.identity{flex:1;min-width:0}.identity strong{display:block;font-size:15px;line-height:1.3;font-weight:600;overflow-wrap:anywhere}.identity small{color:var(--muted);font-size:12px;margin-top:3px}.light-card button{color:var(--ink);background:#ffffff0c;border-color:#ffffff20}.light-card .bulb{width:40px;height:48px;padding:5px;border:0;background:transparent;flex-shrink:0}.bulb svg{width:28px;height:38px;overflow:visible}.glass{fill:var(--glow);transition:fill .2s}.base{fill:#999da5}.lit .glass{filter:drop-shadow(0 0 7px var(--glow))}.light-card .star{border:0;background:transparent;font-size:30px;min-width:44px;padding:0;color:#aaa}.light-card .star.saved,.light-card .star[aria-expanded=true]{color:#f5c34b}.light-card .power{width:46px;min-width:46px;min-height:28px;height:28px;padding:3px;border:0;border-radius:30px;background:#555961;justify-content:flex-start}.power span{width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0005;transition:transform .2s}.light-card .power[aria-checked=true]{background:#168bfa}.power[aria-checked=true] span{transform:translateX(18px)}.rails{display:grid;gap:7px;margin-top:9px}.rails:empty{display:none}.rail{display:block;padding:8px 11px 5px;background:#ffffff0b;border:1px solid #ffffff06;border-radius:12px}.rail>span{display:flex;justify-content:space-between;font-size:11px;color:#c3c4c8;letter-spacing:.2px}.rail output{font-variant-numeric:tabular-nums;color:#ddd}.rail input{display:block;width:100%;height:28px;margin:0;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer}.rail input::-webkit-slider-runnable-track{height:12px;border-radius:20px;background:var(--track)}.rail input::-moz-range-track{height:12px;border-radius:20px;background:var(--track)}.rail input::-webkit-slider-thumb{appearance:none;width:21px;height:21px;margin-top:-4.5px;background:#fff;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 5px #0008}.rail input::-moz-range-thumb{width:18px;height:18px;background:#fff;border:2px solid white;border-radius:50%;box-shadow:0 1px 5px #0008}.rail.brightness{--track:linear-gradient(90deg,#41434a,#f9e6ba)}.rail.hue{--track:linear-gradient(90deg,#f33,#ff0,#0f4,#0ff,#24f,#f0d,#f33)}.rail.temperature{--track:linear-gradient(90deg,#ffb34b,#fff2da,#86bfff)}.rail.white{--track:linear-gradient(90deg,#545861,#fff)}input:disabled{opacity:.4;cursor:default}button:focus-visible,input:focus-visible{outline:2px solid #69b6ff;outline-offset:3px}.light-card .content{padding:16px 0 0;margin-top:12px;border-top:1px solid #ffffff18}.light-card .intro,.light-card small,.light-card .empty{color:var(--muted)}.light-card .save input{background:#ffffff08;color:var(--ink);border-color:#ffffff25}.light-card .primary{background:#168bfa;color:white}.light-card .message{background:#ffffff10}.light-card .memory{border-color:#ffffff20}.light-card .save{flex-wrap:wrap}.light-card .save button{width:100%}
+    </style><ha-card class="${preset?'light-card':''}">${preset?this._controlsHTML():''}${preset&&this._error&&!this._expanded?`<div class="message" role="alert">${esc(this._error)}</div>`:''}<div class="content" id="presetPanel" ${preset&&!this._expanded?'hidden':''}>${preset?'':'<h3>Scenari luci</h3>'}<p class="intro">${preset?'Salva luminosità e colore attuali nei tuoi preferiti.':'Seleziona le luci e fotografa il loro stato attuale. Il salvataggio non aziona le luci.'} Salvati per il tuo utente, anche dopo un riavvio.</p>${this._error?`<div class="message" role="alert">${esc(this._error)}</div>`:''}${this._notice?`<div class="message" role="status">${esc(this._notice)}</div>`:''}${selector}<div class="save"><input id="name" aria-label="Nome ${preset?'preferito':'scenario'}" maxlength="64" placeholder="${preset?'Es. Lettura calda':'Es. Serata in casa'}" value="${esc(this._name)}" ${this._busy?'disabled':''}><button id="capture" class="primary" disabled><ha-icon icon="mdi:camera-outline"></ha-icon> ${preset?'Salva preferito':'Fotografa e salva'}</button></div>${preset?'<p id="presetHint" class="intro">Accendi e regola la luce per salvare un preferito dimmer o colore.</p>':''}<div>${this._loading?'<div class="empty">Caricamento…</div>':rows||`<div class="empty">Nessun ${preset?'preferito':'scenario'} salvato.</div>`}</div><button id="refresh" ${this._busy?'disabled':''}>Aggiorna elenco</button></div></ha-card>`;
     this.shadowRoot.querySelector('#name')?.addEventListener('input',e=>{this._name=e.target.value;this._syncState();});
     this.shadowRoot.querySelector('#capture')?.addEventListener('click',()=>this._capture());
     this.shadowRoot.querySelector('#moreInfo')?.addEventListener('click',()=>this._moreInfo());
@@ -149,6 +181,12 @@ export class CLLightMemoriesCard extends HTMLElement {
     this.shadowRoot.querySelectorAll('[data-delete]').forEach(el=>el.onclick=()=>{
       const item=this._items.find(i=>i.id===el.dataset.delete);
       if(item&&window.confirm(`Eliminare “${item.name}”?`))this._action('delete',{item_id:item.id});
+    });
+    this.shadowRoot.querySelector('#favorites')?.addEventListener('click',()=>{this._expanded=!this._expanded;this._render();this.shadowRoot.querySelector('#favorites')?.focus();});
+    this.shadowRoot.querySelector('#power')?.addEventListener('click',()=>this._control(this._lightModel().on?'turn_off':'turn_on'));
+    this.shadowRoot.querySelectorAll('[data-control]').forEach(el=>{
+      el.addEventListener('input',()=>{const out=this.shadowRoot.querySelector(`[data-value="${el.dataset.control}"]`);if(out)out.textContent=el.value+(el.dataset.control==='temp'?' K':el.dataset.control==='hue'?'°':'%');});
+      el.addEventListener('change',()=>this._setLight(el.dataset.control,Number(el.value)));
     });
     this._syncState();
   }

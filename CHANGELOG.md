@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.5.3-beta.3 — Schede luce compatte
+
+- Scheda antracite con lampadina colorata, stato e interruttore integrato.
+- Barre luminosità, RGB, bianco W e temperatura mostrate in base alle capacità.
+- Preferiti personali raccolti nel pannello apribile dalla stella.
+- Canali RGBW preservati quando si modifica solo il colore o solo il bianco.
+- Invio del comando al rilascio della barra, senza flussi di comandi durante il trascinamento.
+- Archivio scenari/preferiti invariato. Nessuna migrazione.
+
 ## 3.5.3-beta.2 — Scenari luci e preferiti dimmer/RGB
 
 - Nuova pagina Scenari luci: selezione esplicita e fotografia dello stato attuale.
@@ -21,7 +30,7 @@
 - AI cloud/locale, identificazione Modbus, telecomandi proprietari ed effetti/scenari
   avanzati non sono inclusi in questa beta.
 - Verifica offline: 33 test; sintassi Python/JS e JSON controllati.
-- Ambiente di collaudo autorizzato: 192.168.1.2. Stable/main invariato.
+- Distribuzione beta separata. Stable/main invariato.
 
 ## 3.5.2-beta.2 — Beta
 
