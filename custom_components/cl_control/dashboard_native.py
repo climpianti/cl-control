@@ -904,6 +904,12 @@ def _camera_card(entity: dict[str, Any]) -> dict[str, Any]:
 def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
     if entity.get("module") == "cameras":
         return _camera_card(entity)
+    if entity.get("domain") == "light":
+        return {
+            "type": "custom:cl-control-light-memories-card",
+            "entity": entity["entity_id"],
+            "name": entity["name"],
+        }
     if entity.get("domain") == "media_player":
         # HA owns capability checks, playback, volume, sources and more-info.
         # Do not guess brand-specific remote commands or offer unsupported actions.
@@ -1475,6 +1481,10 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     system_cards = [_heading("Sistemi", "mdi:view-grid-outline")]
     for module in visible_systems:
         system_cards.append(_system_summary_card(model, module, model["modules"][module]))
+    if model["modules"]["lights"]["count"]:
+        system_cards.append(_navigation_shortcut(
+            name="Scenari luci", icon="mdi:palette-outline", path="light-scenes"
+        ))
     if (model.get("energy") or {}).get("available"):
         system_cards.append(
             _navigation_shortcut(
@@ -1685,6 +1695,22 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "sections": energy_sections,
             }
         )
+
+    if model["modules"]["lights"]["count"]:
+        views.append({
+            "type": "sections", "title": "Scenari luci", "path": "light-scenes",
+            "icon": "mdi:palette-outline", "max_columns": 2,
+            "sections": [
+                _branding_section(model, "Scenari luci", column_span=2),
+                {"type": "grid", "column_span": 2, "cards": [{
+                    "type": "custom:cl-control-light-memories-card",
+                    "entities": [{"entity_id": e["entity_id"], "name": e["name"]}
+                                 for e in model["modules"]["lights"]["entities"]
+                                 if e["domain"] == "light"],
+                    "grid_options": {"columns": "full", "rows": "auto"},
+                }]},
+            ],
+        })
 
     if model.get("admin_user_ids"):
         views.append(

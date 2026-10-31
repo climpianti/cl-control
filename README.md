@@ -1,10 +1,27 @@
 # CL Control
 
-> Ramo beta **3.5.3-beta.1**: multimedia nelle aree e anteprima ETS XML.
+> Ramo beta **3.5.3-beta.2**: multimedia, anteprima ETS XML, scenari luci e preferiti.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
-> Le funzioni AI reali, Modbus completo, telecomandi proprietari e scenari/effetti
-> avanzati sono ancora da implementare. Collaudo riservato all'istanza beta.
+> Le funzioni AI reali, Modbus completo, telecomandi proprietari ed effetti RGB
+> ciclici sono ancora da implementare. Collaudo riservato all'istanza beta.
 > Test offline: `python tests/run_offline.py` (non emula il runtime HA).
+
+### Scenari luci e preferiti nella beta
+
+Da **Sistemi → Scenari luci**, seleziona le singole luci, assegna un nome e premi
+**Fotografa e salva**. Il salvataggio legge lo stato senza azionare le luci.
+**Applica** richiede conferma per gli scenari con più luci e riproduce gli stati
+tramite Home Assistant. Il comando può avere effetti parziali se un dispositivo
+si scollega durante l'esecuzione: controlla sempre il risultato.
+
+Nella card di una luce dimmerabile accesa, **Regola luce** apre i controlli HA;
+**Salva preferito** memorizza luminosità, modalità colore e relativi canali.
+Le luci solo ON/OFF mantengono la card nativa senza il salvataggio dimmer.
+Scenari e preferiti sono personali, persistenti dopo il riavvio e cancellabili.
+La prima beta gestisce luci individuali, fino a 32 per scenario e 64 salvataggi
+per utente. Serrature, antifurto, clima e gruppi aggregati sono esclusi.
+I salvataggi sono ricette CL Control e non creano entità `scene.*`.
+
 
 **CL Control 3.5.1** è una custom integration per Home Assistant progettata per generare una dashboard nativa, ordinata e configurabile a partire dalle aree e dalle entità già presenti nell'impianto.
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.5.3-beta.2 — Scenari luci e preferiti dimmer/RGB
+
+- Nuova pagina Scenari luci: selezione esplicita e fotografia dello stato attuale.
+- Preferiti luminosità/colore nelle card delle singole luci dimmerabili.
+- Salvataggi persistenti per utente tramite Home Assistant Store.
+- Attivazione tramite il servizio nativo `scene.apply`, con verifica dei permessi
+  su tutte le luci prima dell'invio. Gruppi aggregati non supportati in questa beta.
+- Controlli luce nativi HA per dimmer e temperatura colore; colore via more-info.
+- Nessuna migrazione dei dati esistenti; archivio salvataggi separato.
+- 64 test Python, verifiche DOM e test browser della nuova card su API simulate.
+
 ## 3.5.3-beta.1 — Multimedia e anteprima Discovery
 
 - TV e lettori `media_player` nelle aree, nei preferiti e nel sistema Multimedia.

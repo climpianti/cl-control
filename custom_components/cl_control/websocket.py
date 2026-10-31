@@ -29,6 +29,7 @@ from .const import (
     CONF_INSTALLATION_ID,
 )
 from .knx_xml_importer import import_ets_group_xml
+from .light_memories_ws import register_light_memory_commands
 from .credentials import async_verify_pin
 from .entry_data import sync_options_from_runtime
 from .models import (
@@ -81,6 +82,7 @@ def _context(connection: Any, msg: dict[str, Any]) -> Any:
 
 def async_register_commands(hass: HomeAssistant, version: str) -> None:
     """Register all CL Control commands once during integration setup."""
+    register_light_memory_commands(hass)
 
     @websocket_api.websocket_command(
         {vol.Required("type"): "cl_control/bootstrap/get"}

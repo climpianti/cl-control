@@ -1,7 +1,7 @@
 """Constants shared by CL Control modules."""
 
 DOMAIN = "cl_control"
-VERSION = "3.5.3-beta.1"
+VERSION = "3.5.3-beta.2"
 
 # Preserve the Home Assistant Store envelope so v2.0.0 data remains readable.
 # Application-level migrations are driven by RUNTIME_SCHEMA_VERSION.
@@ -34,6 +34,7 @@ DATA_DISTRIBUTION_PROVIDER = "distribution_provider"
 DATA_NATIVE_DASHBOARD = "native_dashboard"
 DATA_BRANDING_MANAGER = "branding_manager"
 DATA_SUMMARY_MANAGER = "summary_manager"
+DATA_LIGHT_MEMORIES = "light_memories"
 
 CONF_INSTALLATION_ID = "installation_id"
 CONF_SITE_NAME = "site_name"
