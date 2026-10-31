@@ -26,7 +26,7 @@ class MultimediaDashboardTests(unittest.TestCase):
         views = {view["path"]: view for view in config["views"]}
         for path in ("area-living", "media"):
             cards = [c for s in views[path]["sections"] for c in s["cards"]]
-            self.assertTrue(any(c.get("type") == "media-control" and c["entity"] == "media_player.tv" for c in cards))
+            self.assertTrue(any(c.get("type") == "custom:cl-control-media-card" and c["entity"] == "media_player.tv" for c in cards))
 
     def test_no_empty_media_view_without_players(self):
         config = build_native_lovelace(self.model(entities=[]))
