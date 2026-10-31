@@ -30,6 +30,7 @@ REQUIRED_ASSETS = (
     "cl-control-welcome-card.mjs",
     "cl-control-energy-card.mjs",
     "cl-control-light-memories-card.mjs",
+    "cl-control-media-card.mjs",
     "cl-control-branding.mjs",
     "logo.png",
     "favicon.png",
@@ -41,7 +42,7 @@ REQUIRED_ASSETS = (
     "apple-touch-icon.png",
 )
 LEGACY_ASSET_ROOT = "/local/cl_control/"
-ASSET_REVISION = "3.5.3-beta.3-r1"
+ASSET_REVISION = "3.5.3-beta.4-r1"
 
 
 def static_url(version: str) -> str:
