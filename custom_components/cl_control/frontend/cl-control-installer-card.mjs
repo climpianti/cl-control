@@ -805,14 +805,14 @@ class CLControlInstallerCard extends HTMLElement {
       const ordered=this._sortBySaved(dashboardAreas.map(a=>({id:a.id,name:a.name||a.id,entities:a.entities||{}})),this._resetOrders.has('areas')?[]:(r.area_order||[]),a=>a.id,a=>a.name);
       const areaVisibility=r.area_visibility||{}; const areaPictures=r.area_picture_visibility||{};
       const areaRows=ordered.map(area=>this._areaOrderRow(area,areaVisibility[area.id]!==false,areaPictures[area.id]!==false)).join('');
-      const moduleLabels={lights:'Luci',outlets:'Prese',switches:'Interruttori',covers:'Aperture',fans:'Ventilatori',locks:'Serrature',sirens:'Sirene',valves:'Valvole',climate:'Clima',cameras:'Telecamere'};
+      const moduleLabels={lights:'Luci',outlets:'Prese',switches:'Interruttori',covers:'Aperture',fans:'Ventilatori',locks:'Serrature',sirens:'Sirene',valves:'Valvole',climate:'Clima',media:'Multimedia',cameras:'Telecamere'};
       const savedEntityOrder=this._resetOrders.has('entities')?[]:(r.entity_order||[]);
       const entityBlocks=ordered.map(area=>{const groups=Object.entries(moduleLabels).map(([m,label])=>{const items=Array.isArray(area.entities?.[m])?area.entities[m]:[]; if(!items.length)return''; const sorted=this._sortBySaved(items,savedEntityOrder,i=>i.entity_id,i=>i.name||i.entity_id); return `<div class="entityGroup"><h5>${esc(label)}</h5><div class="orderList" data-order-kind="entities" data-entity-order-list>${sorted.map(i=>this._orderRow(i.entity_id,i.name||this._name(i.entity_id),i.entity_id)).join('')}</div></div>`;}).join(''); return groups?`<details class="areaOrderDetails"><summary>${esc(area.name)}</summary>${groups}</details>`:'';}).join('');
       const homeSectionSpecs=[['systems','Sistemi','Funzioni principali CL Control'],['areas','Aree','Stanze e piani Home Assistant'],['cl_systems','Sistemi CL','Integrazioni CL Impianti']];
       const savedHomeSectionOrder=this._resetOrders.has('home-sections')?[]:(r.home_section_order||['systems','areas','cl_systems']);
       const orderedHomeSections=this._sortBySaved(homeSectionSpecs,savedHomeSectionOrder,item=>item[0],item=>item[1]);
       const homeSectionRows=orderedHomeSections.map(item=>this._orderRow(item[0],item[1],item[2])).join('');
-      const coreSpecs=[['lights','Luci'],['covers','Aperture'],['climate','Clima'],['cameras','Telecamere'],['security','Sicurezza']];
+      const coreSpecs=[['lights','Luci'],['covers','Aperture'],['climate','Clima'],['cameras','Telecamere'],['security','Sicurezza'],['media','Multimedia']];
       const savedHomeOrder=this._resetOrders.has('home')?[]:(r.home_order||[]);
       const coreSystems=this._sortBySaved(coreSpecs.filter(([id])=>Number(this._dashboardModel?.modules?.[id]?.count||0)>0),savedHomeOrder,item=>item[0],item=>item[1]);
       const clSystems=this._sortBySaved((this._dashboardModel?.cl_modules||[]).filter(item=>item?.customer_visible&&item?.route),savedHomeOrder,item=>`cl:${item.module_id||item.domain}`,item=>item.customer_label||item.display_name||item.module_id||item.domain);

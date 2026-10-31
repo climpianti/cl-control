@@ -18,6 +18,7 @@ DEFAULT_CONFIG = {
         "energy",
         "security",
         "cameras",
+        "media",
         "support",
     ],
     "labels": {
@@ -28,6 +29,7 @@ DEFAULT_CONFIG = {
         "energy": "Energia",
         "security": "Sicurezza",
         "cameras": "Telecamere",
+        "media": "Multimedia",
         "favorites": "Preferiti",
         "support": "Assistenza",
         "installer": "Installatore",
@@ -76,6 +78,7 @@ DEFAULT_RUNTIME = {
         "energy",
         "security",
         "cameras",
+        "media",
         "support",
     ],
     "energy": {"monitored_loads": []},

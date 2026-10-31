@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
-SUMMARY_MODULES = ("lights", "covers", "climate", "cameras")
+SUMMARY_MODULES = ("lights", "covers", "climate", "cameras", "media")
 
 
 def is_active_state(module: str, state: str | None) -> bool:
@@ -19,6 +19,8 @@ def is_active_state(module: str, state: str | None) -> bool:
         return state != "closed"
     if module == "climate":
         return state != "off"
+    if module == "media":
+        return state in {"playing", "buffering"}
     if module == "cameras":
         # Camera entities use several healthy runtime states (idle, streaming,
         # recording, etc.). Availability is what matters for the summary.
@@ -55,6 +57,16 @@ def format_summary(
         if online == 1:
             return "1 online"
         return f"{online} online"
+    if module == "media":
+        if unavailable_count == total_count and total_count:
+            return "Non disponibili"
+        text = (
+            "Nessuna riproduzione" if active_count == 0
+            else f"{active_count} in riproduzione"
+        )
+        if unavailable_count:
+            text += f" · {unavailable_count} non disponibili"
+        return text
     return f"{active_count}/{total_count}"
 
 

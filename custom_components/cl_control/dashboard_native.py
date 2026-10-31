@@ -19,6 +19,7 @@ DOMAIN_MODULE = {
     "climate": "climate",
     "alarm_control_panel": "security",
     "camera": "cameras",
+    "media_player": "media",
     # Home Assistant "Mostra come" / Switch as X exposes converted switches
     # using the target domain. Keep those entities in the matching Area section.
     "fan": "fans",
@@ -33,6 +34,7 @@ MODULE_LABELS = {
     "climate": ("Clima", "mdi:thermostat"),
     "security": ("Sicurezza", "mdi:shield-home"),
     "cameras": ("Telecamere", "mdi:cctv"),
+    "media": ("Multimedia", "mdi:television-speaker"),
 }
 
 # Switches/outlets are useful inside an Area but are intentionally not a
@@ -902,6 +904,14 @@ def _camera_card(entity: dict[str, Any]) -> dict[str, Any]:
 def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
     if entity.get("module") == "cameras":
         return _camera_card(entity)
+    if entity.get("domain") == "media_player":
+        # HA owns capability checks, playback, volume, sources and more-info.
+        # Do not guess brand-specific remote commands or offer unsupported actions.
+        return {
+            "type": "media-control",
+            "entity": entity["entity_id"],
+            "name": entity["name"],
+        }
     return _tile(entity)
 
 
@@ -1452,7 +1462,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     home_order = {
         str(value): index for index, value in enumerate(model.get("home_order") or [])
     }
-    default_system_order = ("lights", "covers", "climate", "cameras", "security")
+    default_system_order = ("lights", "covers", "climate", "cameras", "security", "media")
     visible_systems = [
         module for module in default_system_order if model["modules"][module]["count"]
     ]
@@ -1550,6 +1560,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             "sirens",
             "valves",
             "climate",
+            "media",
             "cameras",
             "security",
         ):
@@ -1604,7 +1615,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             }
         )
 
-    for module in ("lights", "covers", "climate", "cameras", "security"):
+    for module in ("lights", "covers", "climate", "cameras", "security", "media"):
         data = model["modules"][module]
         if not data["count"]:
             continue
@@ -1852,7 +1863,7 @@ class NativeDashboardService:
                         item["entity_id"]
                         for item in model["modules"][module]["entities"]
                     ]
-                    for module in ("lights", "covers", "climate", "cameras")
+                    for module in ("lights", "covers", "climate", "cameras", "media")
                 }
             )
             home_power_sources, area_power_sources = _selected_power_sources(

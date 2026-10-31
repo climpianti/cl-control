@@ -1,5 +1,11 @@
 # CL Control
 
+> Ramo beta **3.5.3-beta.1**: multimedia nelle aree e anteprima ETS XML.
+> Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
+> Le funzioni AI reali, Modbus completo, telecomandi proprietari e scenari/effetti
+> avanzati sono ancora da implementare. Collaudo riservato all'istanza beta.
+> Test offline: `python tests/run_offline.py` (non emula il runtime HA).
+
 **CL Control 3.5.1** è una custom integration per Home Assistant progettata per generare una dashboard nativa, ordinata e configurabile a partire dalle aree e dalle entità già presenti nell'impianto.
 
 La versione 3.5.1 aggiorna la baseline pubblica stabile della nuova architettura CL Control con installazione frontend e dashboard automatica.

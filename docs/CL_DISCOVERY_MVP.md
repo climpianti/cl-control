@@ -1,6 +1,9 @@
 # CL Discovery MVP 0.1 — technical design
 
-Status: **scaffolding only; no discovery service or UI is active**.
+Status: **ETS XML read-only preview implemented**, with an installer-only card
+and admin + active-installer-session WebSocket endpoint. CSV parser and a
+single-target TCP connectivity probe exist as pure/offline-tested modules;
+the TCP probe is not connected to a live UI/API. AI uses a mock provider.
 Base: CL Control v3.5.2-beta.2. Never merge this branch into main without tests and a lab pilot.
 
 ## Priority and scope
@@ -19,7 +22,9 @@ Source fields: verified profile ID/revision, model, firmware compatibility, unit
 A replying register does NOT reveal its semantic meaning. No wide register sweep in the MVP.
 Never run unauthorized subnet scanning, write coils/registers or change device configuration.
 
-## Proposed API (not implemented)
+## API status
+- Implemented: `cl_control/discovery/knx/import_preview` (ETS group-address XML).
+- Remaining proposed endpoints below are not implemented:
 - cl_control/discovery/capabilities
 - cl_control/discovery/knx/import_preview
 - cl_control/discovery/modbus/targets/validate

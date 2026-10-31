@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.5.3-beta.1 — Multimedia e anteprima Discovery
+
+- TV e lettori `media_player` nelle aree, nei preferiti e nel sistema Multimedia.
+- Controlli nativi HA: capacità e disponibilità gestite dall'integrazione del dispositivo.
+- Riepilogo riproduzione e disponibilità, ordinamento installatore delle entità multimedia.
+- Include il ramo Discovery con importazione ETS XML e anteprima riservata all'installatore.
+- Discovery non applica configurazioni e non scrive sul bus KNX.
+- AI cloud/locale, identificazione Modbus, telecomandi proprietari ed effetti/scenari
+  avanzati non sono inclusi in questa beta.
+- Verifica offline: 33 test; sintassi Python/JS e JSON controllati.
+- Ambiente di collaudo autorizzato: 192.168.1.2. Stable/main invariato.
+
 ## 3.5.2-beta.2 — Beta
 
 La beta.2 è la beta di test consigliata della serie 3.5.2.
