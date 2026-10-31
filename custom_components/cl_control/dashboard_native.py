@@ -914,7 +914,7 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
         # HA owns capability checks, playback, volume, sources and more-info.
         # Do not guess brand-specific remote commands or offer unsupported actions.
         return {
-            "type": "media-control",
+            "type": "custom:cl-control-media-card",
             "entity": entity["entity_id"],
             "name": entity["name"],
         }
