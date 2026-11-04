@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.5.3-beta.6 — Scheda clima CL
+
+- Nuova `cl-control-climate-card` coerente con lo stile Blue Tech Premium di luci e multimedia.
+- Temperatura ambiente e target con regolazione `+/-` secondo `target_temp_step`, `min_temp` e `max_temp` reali.
+- Modalità HVAC mostrate solo se esposte dall'entità; preset e ventola compaiono solo quando supportati.
+- Stato operativo (`heating`, `cooling`, `idle`, `off`) con feedback grafico caldo/freddo e accesso al more-info nativo Home Assistant.
+- Nessun comando proprietario: la card usa esclusivamente i servizi `climate.*` e le capacità dichiarate da Home Assistant.
+- Cache frontend separata con revisione `3.5.3-beta.6-r1` per evitare asset obsoleti durante il collaudo.
+
 ## 3.5.3-beta.3 — Schede luce compatte
 
 - Scheda antracite con lampadina colorata, stato e interruttore integrato.
