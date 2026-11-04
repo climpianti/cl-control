@@ -1,6 +1,6 @@
 # CL Control
 
-> Ramo beta **3.5.3-beta.3**: multimedia, anteprima ETS XML, scenari luci e preferiti.
+> Ramo beta **3.5.3-beta.6**: multimedia, clima personalizzato, anteprima ETS XML, scenari luci e preferiti.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari ed effetti RGB
 > ciclici sono ancora da implementare. Collaudo riservato all'istanza beta.
@@ -14,7 +14,7 @@ Da **Sistemi → Scenari luci**, seleziona le singole luci, assegna un nome e pr
 tramite Home Assistant. Il comando può avere effetti parziali se un dispositivo
 si scollega durante l'esecuzione: controlla sempre il risultato.
 
-Le schede compatte offrono luminosità e RGB direttamente sulla card.
+Le schede compatte offrono luminosità e RGB direttamente sulla card. La nuova scheda clima mostra temperatura ambiente/target, modalità HVAC, preset e ventola solo quando realmente supportati dall'entità.
 Il canale **Bianco W** appare solo per RGBW; la temperatura solo se supportata.
 La lampadina apre i controlli completi HA. La **stella** apre i preferiti:
 **Salva preferito** memorizza la luce accesa, luminosità e colore.
