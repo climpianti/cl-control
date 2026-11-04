@@ -910,6 +910,14 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
             "entity": entity["entity_id"],
             "name": entity["name"],
         }
+    if entity.get("domain") == "climate":
+        # Keep climate controls capability-aware in the frontend: modes, target,
+        # presets and fan options are read from the live climate entity.
+        return {
+            "type": "custom:cl-control-climate-card",
+            "entity": entity["entity_id"],
+            "name": entity["name"],
+        }
     if entity.get("domain") == "media_player":
         # HA owns capability checks, playback, volume, sources and more-info.
         # Do not guess brand-specific remote commands or offer unsupported actions.
