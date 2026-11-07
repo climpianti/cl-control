@@ -96,7 +96,7 @@ def process_one() -> bool:
         status = "PASS" if ok else "FAIL"
         comment = (
             f"CL Codespace runner v1: **{status}**\n\n"
-            f"Task: \`{task}\` | Branch: \`{BRANCH}\` | Commit: \`{sha}\`\n\n"
+            f"Task: `{task}` | Branch: `{BRANCH}` | Commit: `{sha}`\n\n"
             f"{summary}\n\n"
             "No command output or secrets were uploaded; detailed logs remain in the Codespace."
         )
