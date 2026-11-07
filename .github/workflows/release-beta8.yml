@@ -1,0 +1,44 @@
+name: Publish CL Control 3.5.3-beta.8
+on:
+  push:
+    branches:
+      - beta/3.5.3-beta.8
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Validate versions and Python source
+        run: |
+          python -m compileall -q custom_components/cl_control tests
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          version = "3.5.3-beta.8"
+          manifest = json.loads(Path("custom_components/cl_control/manifest.json").read_text())
+          assert manifest["version"] == version
+          assert f'VERSION = "{version}"' in Path("custom_components/cl_control/const.py").read_text()
+          assert f'ASSET_REVISION = "{version}-r1"' in Path("custom_components/cl_control/frontend.py").read_text()
+          PY
+      - name: Run offline tests
+        run: python tests/run_offline.py
+      - name: Create prerelease only after tests succeed
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v3.5.3-beta.8 >/dev/null 2>&1; then
+            echo "Prerelease already exists. Nothing to publish."
+            exit 0
+          fi
+          gh release create v3.5.3-beta.8 \
+            --target "$GITHUB_SHA" \
+            --title "CL Control 3.5.3-beta.8 - CL B&B Manager" \
+            --notes "Prerelease di collaudo. Aggiunge CL B&B Manager a Sistemi CL, solo per amministratori e operatori B&B autorizzati. Richiede CL B&B Manager aggiornato. Test offline verificati; nessuna migrazione. Torna alla beta.7 se il collaudo rileva problemi." \
+            --prerelease
