@@ -32,7 +32,8 @@ if(require.main===module)(async()=>{
  let browser;
  try{
    const alternate=process.env.CHROMIUM_MODULE?(await import(process.env.CHROMIUM_MODULE)).default:null;
-   browser=await chromium.launch({headless:true,...(alternate?{
+   const channel=process.env.CL_TEST_BROWSER_CHANNEL||process.env.BROWSER_CHANNEL;
+   browser=await chromium.launch({headless:true,...(channel?{channel}:{}),...(alternate?{
      args:alternate.args,executablePath:await alternate.executablePath(),
    }:{})});
    const url=`http://127.0.0.1:${server.address().port}`;
@@ -43,12 +44,22 @@ if(require.main===module)(async()=>{
    const root=page.locator('cl-control-light-memories-card');
    assert.equal(await root.locator('#presetPanel').isVisible(),false);
    assert.equal(await root.locator('[data-control="white"]').count(),0);
-   await root.locator('[data-control="hue"]').fill('120');
-   assert.deepEqual(await page.evaluate(()=>serviceCalls.at(-1).slice(0,3)),['light','turn_on',{hs_color:[120,100]}]);
-   for(const width of [320,390,768,1200]){
+   assert.equal(await root.locator('#lightAdjustments').isVisible(),false);
+   const initialCalls=await page.evaluate(()=>serviceCalls.length);
+   for(const width of [320,390,768,1024,1440,1920]){
      await page.setViewportSize({width,height:900});
      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
-     if(process.env.SCREENSHOT_DIR&&width===390){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'compact-light-390.png')});}
+     if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`summary-light-${width}.png`)});}
+   }
+   await root.locator('#adjust').click();
+   assert.equal(await page.evaluate(()=>serviceCalls.length),initialCalls);
+   assert.equal(await root.locator('#lightAdjustments').isVisible(),true);
+   await root.locator('[data-control="hue"]').fill('120');
+   assert.deepEqual(await page.evaluate(()=>serviceCalls.at(-1).slice(0,3)),['light','turn_on',{hs_color:[120,100]}]);
+   for(const width of [320,390,768,1024,1440,1920]){
+     await page.setViewportSize({width,height:900});
+     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+     if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`details-light-${width}.png`)});}
    }
    await root.locator('#favorites').click();
    await root.locator('#name').fill('Lettura <img src=x onerror=alert(1)>');
@@ -63,6 +74,33 @@ if(require.main===module)(async()=>{
    await page.evaluate(()=>{hass.states['light.fixture'].state='off';card.hass={...hass};});
    await root.locator('#name').fill('Nuovo');
    assert.equal(await root.locator('#capture').isDisabled(),true);
+   // RGBW channel preservation, focused draft during realtime, offline gating.
+   await page.evaluate(()=>{hass.states['light.fixture']={state:'on',attributes:{supported_color_modes:['rgbw'],brightness:128,rgbw_color:[32,64,128,80]}};card.hass={...hass};});
+   await root.locator('[data-control="hue"]').fill('120');
+   assert.deepEqual(await page.evaluate(()=>serviceCalls.at(-1)[2]),{rgbw_color:[0,255,0,80]});
+   await root.locator('[data-control="white"]').fill('50');
+   assert.deepEqual(await page.evaluate(()=>serviceCalls.at(-1)[2]),{rgbw_color:[32,64,128,128]});
+   await root.locator('[data-control="brightness"]').focus();
+   await page.evaluate(()=>{window.focused=card.shadowRoot.activeElement;focused.value='73';hass.states['light.fixture'].attributes.brightness=50;card.hass={...hass};});
+   assert.equal(await page.evaluate(()=>card.shadowRoot.activeElement===focused&&focused.value==='73'),true);
+   if(process.env.SCREENSHOT_DIR){
+     await page.setViewportSize({width:390,height:900});
+     await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'rgbw-390.png')});
+   }
+   await page.evaluate(()=>{hass.states['light.fixture'].state='unavailable';card.hass={...hass};});
+   assert.equal(await root.locator('#power').isDisabled(),true);
+   assert.equal(await root.locator('[data-control="white"]').isDisabled(),true);
+   await page.evaluate(()=>{hass.states['light.fixture']={state:'on',attributes:{supported_color_modes:['rgbw'],brightness:64,rgbw_color:[255,0,0,0]}};card.hass={...hass};});
+   assert.equal(await root.locator('ha-card').evaluate(e=>e.style.getPropertyValue('--light-rgb')),'255,0,0');
+   assert.ok(Math.abs(parseFloat(await root.locator('ha-card').evaluate(e=>e.style.getPropertyValue('--light-level')))-64/255*100)<.01);
+   await root.locator('#adjust').click();
+   assert.equal(await root.locator('#lightAdjustments').isVisible(),false);
+   if(await root.locator('#presetPanel').isVisible())await root.locator('#favorites').click();
+   if(process.env.SCREENSHOT_DIR){await page.setViewportSize({width:390,height:900});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'summary-red-25.png')});}
+   await page.evaluate(()=>{hass.states['light.fixture'].attributes.brightness=255;hass.states['light.fixture'].attributes.rgbw_color=[0,255,0,0];card.hass={...hass};});
+   assert.equal(await root.locator('ha-card').evaluate(e=>e.style.getPropertyValue('--light-rgb')),'0,255,0');
+   assert.equal(await root.locator('ha-card').evaluate(e=>e.style.getPropertyValue('--light-level')),'100%');
+   if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'summary-green-100.png')});
    await page.goto(url+'/?scenes');await page.waitForFunction(()=>window.ready);
    await root.locator('#name').fill('Serata');
    assert.equal(await root.locator('#capture').isDisabled(),true);
@@ -71,7 +109,7 @@ if(require.main===module)(async()=>{
    assert.deepEqual((await page.evaluate(()=>calls.find(x=>x.type.endsWith('/capture')))).entity_ids,['light.fixture']);
    await root.locator('[data-apply]').click();
    await page.waitForFunction(()=>calls.some(x=>x.type.endsWith('/apply')));
-   for(const width of [320,390,768,1200]){
+   for(const width of [320,390,768,1024,1440,1920]){
      await page.setViewportSize({width,height:900});
      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`overflow at ${width}`);
      if(process.env.SCREENSHOT_DIR&&[390,1200].includes(width)){
@@ -87,6 +125,6 @@ if(require.main===module)(async()=>{
    assert.deepEqual(configs[1].features.map(f=>f.type),['light-brightness','light-color-temp']);
    assert.equal(await page.evaluate(()=>memoryDescription({'light.fixture':{state:'off'}})),'Spenta');
    assert.deepEqual(errors,[]);
-   console.log('UI OK: preferiti, snapshot, applicazione, eliminazione, escaping, luce spenta, 4 viewport, capacità native; nessun errore browser.');
+   console.log('UI OK: preferiti, snapshot, applicazione, eliminazione, escaping, luce spenta, 6 viewport, capacità native; nessun errore browser.');
  }finally{await browser?.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1;});

@@ -48,13 +48,23 @@ class MultimediaDashboardTests(unittest.TestCase):
     def test_favorite_player_uses_media_card(self):
         model = self.model(runtime={"favorites": ["media_player.tv"]})
         home = build_native_lovelace(model)["views"][0]
-        self.assertTrue(any(c.get("type") == "media-control" for s in home["sections"] for c in s["cards"]))
+        self.assertTrue(any(c.get("type") == "custom:cl-control-media-card" and c.get("entity") == "media_player.tv" for s in home["sections"] for c in s["cards"]))
 
-    def test_no_unsupported_service_commands_generated(self):
+    def test_no_service_payloads_in_generated_media_config(self):
         model = self.model()
         media = next(v for v in build_native_lovelace(model)["views"] if v["path"] == "media")
-        card = next(c for s in media["sections"] for c in s["cards"] if c.get("type") == "media-control")
+        # This checks the generator contract, not the custom card's execution.
+        card = next(c for s in media["sections"] for c in s["cards"] if c.get("type") == "custom:cl-control-media-card")
         self.assertEqual(set(card), {"type", "entity", "name"})
+
+    def test_lg_remote_only_for_registered_webostv_platform(self):
+        for platform in ("webostv", "sonos"):
+            config = build_native_lovelace(self.model(entities=[{
+                "entity_id": "media_player.tv", "platform": platform,
+            }]))
+            media = next(v for v in config["views"] if v["path"] == "media")
+            card = next(c for s in media["sections"] for c in s["cards"] if c.get("entity") == "media_player.tv")
+            self.assertEqual(card.get("remote_type"), "webostv" if platform == "webostv" else None)
 
     def test_playing_and_availability_summary(self):
         for state in ("playing", "buffering"):

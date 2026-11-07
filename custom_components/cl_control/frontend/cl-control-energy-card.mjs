@@ -41,8 +41,14 @@ function esc(value) {
 }
 
 function number(value) {
+  if (value === null || value === undefined || typeof value === 'boolean' ||
+      (typeof value === 'string' && !value.trim())) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isEnergyStatusGood(value) {
+  return /^(?:on|online|active|enabled|attivo|attiva|rilevato|rilevata|ok)$/i.test(String(value ?? '').trim());
 }
 
 function clamp(value, min, max) {
@@ -165,10 +171,42 @@ class CLEnergyCard extends HTMLElement {
         @media(max-width:900px){.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.statusGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.loadGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
         @media(max-width:620px){.stack{gap:10px}.appBar,.card{border-radius:18px}.appBar{padding:10px 12px}.appTitleIcon{width:36px;height:36px;border-radius:12px}.appTitle h2{font-size:20px}.appTitle p{display:none}.viewTabs{min-width:175px}.viewTab{padding:8px 10px;font-size:11px}.card{padding:13px}.sectionHead{margin-bottom:10px}.sectionHead h3{font-size:16px}.sectionHead p{font-size:10px}.provider{display:none}.flowCard{padding:13px}.flowScene{min-height:290px}.energyNode{min-width:88px}.energyNode .iconBox{width:52px;height:52px;border-radius:18px}.energyNode ha-icon{--mdc-icon-size:32px}.energyNode .nodeName{font-size:10px}.energyNode .nodeValue{font-size:17px}.energyNode .nodeSub{font-size:9px}.energyNode.battery{left:-2%;bottom:15px}.energyNode.grid{right:-2%;bottom:15px}.flowSvg{inset:31px 6% 20px;width:88%;height:75%}.statusGrid,.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.statusTile{min-height:82px;padding:10px;gap:8px}.statusIcon{width:32px;height:32px;flex-basis:32px;border-radius:10px}.statusValue{font-size:16px}.statusNote{font-size:9px}.metric{min-height:92px;padding:10px}.metric .big{font-size:16px}.metric .note{font-size:9px}.rangeTabs{width:auto}.range{padding:6px 9px}.chartWrap{min-height:250px}.chart{max-height:285px}.chartTooltip{min-width:150px;max-width:190px;font-size:9px}.legend{gap:9px}.loadGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.loadCard{min-height:126px;padding:10px}.loadValue{font-size:16px}.historyTools{justify-content:flex-start}.historyLabel{min-width:112px}.historyOnly>.card .sectionHead{display:block}.historyOnly>.card .historyTools{margin-top:9px}.loadModal{padding:13px;border-radius:18px}.loadDetailStats{grid-template-columns:1fr 1fr}.loadDetailToolbar{align-items:flex-start}.loadDetailDateNav{width:100%;justify-content:flex-start}.loadDetailDateLabel{min-width:118px}.loadChartWrap{min-height:240px}}
         @media(max-width:390px){.appBar{align-items:flex-start;flex-direction:column}.viewTabs{width:100%}.flowScene{min-height:275px}.energyNode.battery{left:-5%}.energyNode.grid{right:-5%}.statusGrid,.summaryGrid,.loadGrid{grid-template-columns:1fr 1fr}}
+        /* Shared Glass surfaces; Energy retains its central flow schematic. */
+        :host{color:#f5f7fc;--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--cl-panel:#18222b;--cl-soft:#ffffff09;--cl-line:#ffffff20;--cl-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33;--cl-blue:#6bbcff;--cl-blue-soft:#6bbcff18;--cl-solar:#ffd075;--cl-home:#6bbcff;--cl-grid:#aec7e7;--cl-export:#6ce0c5;--cl-battery:#6ce0c5;--cl-good:#6ce0c5;--cl-danger:#ff9bae;--cl-warning:#ffd075;--card-background-color:#18222b;--ha-card-background:#18222b}
+        .appBar,.card,.statusTile{background:radial-gradient(ellipse at 8% 0%,#28456855,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);border-color:#b2daff44;border-radius:25px;box-shadow:var(--cl-shadow)}
+        .metric,.loadCard{background:linear-gradient(135deg,#ffffff08,#ffffff03);border-color:#ffffff20;border-radius:18px}.loadModal{background:linear-gradient(130deg,#1c2a3a,#191623);border-color:#b2daff55}.loadDetailStat{background:#ffffff08}.viewTab.active,.range.active,.historyPeriod.active{background:linear-gradient(110deg,#357ebb,#7255b3);color:#fff}.flowCard{background:radial-gradient(ellipse at 12% 0%,#2c558055,transparent 68%),radial-gradient(ellipse at 95% 90%,#643d7b33,transparent 60%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);border-color:#b2daff66;color:#f5f7fc}
+        .flowCard .sectionHead{flex-wrap:wrap}.flowCard .badge{white-space:normal}.flowCard .provider{display:block;font-size:11px}.flowCard .flowMeta{gap:8px}
+        .flowScene{height:410px;min-height:410px;max-width:720px;margin:12px auto 0;background:radial-gradient(ellipse at 50% 52%,#4685c322,transparent 54%)}
+        .flowSvg{inset:0;width:100%;height:100%;overflow:visible}.flowPath{stroke:#8fa6c1;opacity:.7;stroke-width:2}.flowPath.solar{stroke:#ffd075}.flowPath.battery{stroke:#6ce0c5}.flowPath.grid{stroke:#78bdff}.flowPath.missing{stroke:#8290a6;stroke-dasharray:3 6;opacity:.5}.flowPath.active{stroke-width:3;opacity:1;stroke-dasharray:3 9}
+        .energyNode{min-width:0;width:128px;gap:0}.energyNode.pv{top:0;left:50%}.energyNode.home{top:40%;bottom:auto;left:50%}.energyNode.battery{top:auto;bottom:0;left:2%}.energyNode.grid{top:auto;bottom:0;right:2%}
+        .energyNode .iconBox{width:60px;height:60px;border-radius:20px;background:#ffffff08;border:1px solid #b2daff55;box-shadow:0 5px 15px #0003,inset 0 1px 2px #ffffff22;color:#bdcadd}.energyNode .iconBox svg{width:42px;height:42px;overflow:visible}.energyNode.pv .iconBox{color:#ffd075;background:linear-gradient(140deg,#8a632d44,#251e26);border-color:#ffd07566}.energyNode.battery .iconBox{color:#6ce0c5;background:linear-gradient(140deg,#267b6a44,#17262c);border-color:#6ce0c566}.energyNode.grid .iconBox{color:#8ac8ff;background:linear-gradient(140deg,#3d83ba44,#1e2035);border-color:#8ac8ff66}
+        .energyNode.battery,.energyNode.grid{min-height:160px}.energyNode.home .iconBox{width:88px;height:88px;border-radius:28px;color:#fff;background:linear-gradient(145deg,#4295ce,#3e3865 65%,#7951a1);border-color:#9ccaff88;box-shadow:0 9px 25px #0004,inset 0 1px 3px #ffffff44}.energyNode.home .iconBox svg{width:62px;height:62px}.energyNode .nodeName{font-size:13px;margin-top:8px}.energyNode .nodeValue{font-size:23px;margin-top:3px;white-space:nowrap;font-variant-numeric:tabular-nums}.energyNode .nodeSub{font-size:11px;line-height:1.4;max-width:100%;overflow-wrap:anywhere}.energyNode.unavailable .iconBox{background:#ffffff08;border-color:#8996aa44;color:#a9b4c5}.energyNode.unavailable .nodeValue{color:#bdcadd}.energyNode.grid.export .nodeValue{color:#6ce0c5}
+        .flowAvailability{font-size:12px;line-height:1.5;color:#bdcadd;display:flex;align-items:center;justify-content:center;gap:7px;margin:15px 0 0;text-align:center}.flowAvailability .onlineDot{background:#8c9aab;box-shadow:none;flex:none}.flowAvailability.complete .onlineDot{background:#6ce0c5;box-shadow:0 0 0 3px #6ce0c515}
+        button:focus-visible{outline:2px solid var(--cl-blue);outline-offset:3px}
+        .rangeTabs,.barMetricTabs,.historyPeriodTabs,.viewTabs{border:1px solid #ffffff12;border-radius:18px;background:#ffffff08;gap:4px}
+        .viewTab,.range,.barMetric,.historyPeriod,.historyNow,.historyNavButton,.loadDetailToday,.loadDetailDateButton,.loadBadge,.loadCommand,.modalClose{min-height:44px;font-size:12px}.historyNavButton,.loadDetailDateButton,.modalClose{width:44px;flex-shrink:0}.barMetric.active{background:linear-gradient(110deg,#357ebb,#7255b3);color:#fff}
+        .sectionHead,.historyNav,.loadDetailDateNav{flex-wrap:wrap}.historyNav,.loadDetailDateNav{max-width:100%}.historyLabel,.loadDetailDateLabel{font-size:12px;min-width:0}.historyTools{min-width:0}.historyPeriodTabs{flex-wrap:wrap}.historyRow{background:linear-gradient(120deg,#ffffff08,#ffffff03);border-radius:16px}.historyRow .name,.loadName{overflow-wrap:anywhere}.historyRow small{font-size:12px;line-height:1.5}.historyRow .loadPower{white-space:nowrap}
+        .chartWrap,.loadChartWrap{border:1px solid #ffffff12;border-radius:18px;background:linear-gradient(160deg,#ffffff03,#0c122122);padding:8px;margin-top:12px;min-height:260px}.axisText{font-size:11px}.gridLine{stroke:#ffffff18;stroke-dasharray:3 5}.chartPath,.loadChartPath{stroke-width:2.5}.chartTooltip,.loadChartTooltip{background:#1b2536;border-color:#9ccaff66;box-shadow:0 8px 24px #0006;font-size:12px}.chartTooltipTitle{font-size:12px}.legendItem{font-size:12px}.legend{gap:12px;padding:5px 0}.loadModal{color:var(--primary-text-color);scrollbar-color:#677b9c #18222b}.modalBackdrop{background:#07101ccc;backdrop-filter:blur(5px)}.loadModalTitle{min-width:0}.loadModalTitle h3{overflow-wrap:anywhere}.loadModalTitle p{overflow-wrap:anywhere;font-size:12px}.loadDetailStat .k{font-size:12px}.loadDetailHint,.loadSub,.metric .note,.metric .label{font-size:12px;line-height:1.4}.empty,.error{font-size:13px;line-height:1.5}
+        @media(max-width:620px){.sectionHead{flex-direction:column}.historyTools{width:100%;justify-content:flex-start}.chartWrap{min-height:250px}.loadGrid{grid-template-columns:1fr}.loadCard{min-height:0}.chartTooltip{min-width:150px;max-width:190px}.loadModalTitle .loadCardIcon{display:none}}
+        .chartWrap:not(:has(svg)),.loadChartWrap:not(:has(svg)){min-height:0}
+        @media(max-width:620px){.flowScene{height:380px;min-height:380px}.energyNode{width:105px}.energyNode.home{top:39%}.energyNode.battery{left:0}.energyNode.grid{right:0}.energyNode .nodeName{font-size:12px}.energyNode .nodeValue{font-size:20px}.energyNode .nodeSub{font-size:11px}.flowCard .sectionHead p{font-size:12px}}
+        @media(max-width:390px){.flowScene{height:370px;min-height:370px}.energyNode{width:82px}.energyNode .iconBox{width:52px;height:52px;border-radius:17px}.energyNode.home .iconBox{width:74px;height:74px;border-radius:23px}.energyNode.home .iconBox svg{width:52px;height:52px}.energyNode .nodeValue{font-size:18px}.energyNode .nodeName{font-size:11px}.energyNode .nodeSub{font-size:10px}.flowCard .provider{display:block}}
+        @media(prefers-reduced-motion:reduce){.flowPath.active.forward,.flowPath.active.reverse{animation:none}}
       </style>
       <ha-card><div id="root" class="stack"></div></ha-card>
     `;
   }
+
+  connectedCallback() {
+    this._resizeObserver ||= new ResizeObserver(entries => {
+      const width = Math.min(720,Math.max(240,Math.floor(entries[0].contentRect.width-44)));
+      if(width===this._plotWidth)return;
+      this._plotWidth=width;this._render();
+    });
+    this._resizeObserver.observe(this);
+  }
+
+  disconnectedCallback() { this._resizeObserver?.disconnect(); }
 
   setConfig(config) {
     this._config = {title: config?.title || 'Energia', energy: config?.energy || {}};
@@ -273,32 +311,33 @@ class CLEnergyCard extends HTMLElement {
 
   _statusTile(icon, label, value, note = '', options = {}) {
     const classes = ['statusTile', options.good ? 'good' : ''].filter(Boolean).join(' ');
-    const valueMarkup = options.state ? `<span class="statePill"><ha-icon icon="mdi:check-circle"></ha-icon>${esc(value)}</span>` : `<div class="statusValue">${value}</div>`;
+    const valueMarkup = options.state ? `<span class="statePill" ${options.good ? '' : 'style="background:var(--cl-soft);color:var(--secondary-text-color)"'}><ha-icon icon="${options.good ? 'mdi:check-circle' : 'mdi:information-outline'}"></ha-icon>${esc(value)}</span>` : `<div class="statusValue">${value}</div>`;
     return `<div class="${classes}"><div class="statusIcon"><ha-icon icon="${esc(icon)}"></ha-icon></div><div class="statusText"><div class="statusLabel">${esc(label)}</div>${valueMarkup}${note ? `<div class="statusNote">${esc(note)}</div>` : ''}</div></div>`;
   }
 
   _statusMarkup() {
     const energy = this._energy();
     const enabledState = this._metricState('power_control_status');
-    const suspendedCount = Math.max(0, this._metricValue('suspended_count') || 0);
+    const suspendedRaw = this._metricValue('suspended_count');
+    const suspendedCount = suspendedRaw === null ? null : Math.max(0, suspendedRaw);
     const isOn = enabledState === 'on';
     const isOff = enabledState === 'off';
-    const stateLabel = isOff ? 'Disattivato' : !isOn && enabledState ? 'Non disponibile' : suspendedCount > 0 ? 'Intervento' : 'Attivo';
+    const stateLabel = isOff ? 'Disattivato' : !isOn ? 'Non disponibile' : suspendedCount > 0 ? 'Intervento' : 'Attivo';
     const surplus = this._metricValue('surplus_available');
     const limit = this._metricValue('grid_limit');
     const dynamic = this._metricValue('dynamic_limit');
     const headroom = this._metricValue('headroom');
     const suspendedPower = this._metricValue('suspended_power');
     if (!energy?.capabilities?.power_control) {
-      return `<div class="statusGrid">${this._statusTile('mdi:leaf','Surplus disponibile',formatPower(surplus),'Dati Energy Control',{good:true})}</div>`;
+      return `<div class="statusGrid">${this._statusTile('mdi:leaf','Surplus disponibile',formatPower(surplus),'Dati Energy Control',{good:surplus!==null&&surplus>0})}</div>`;
     }
     return `<div class="statusGrid">
-      ${this._statusTile('mdi:leaf','Surplus disponibile',formatPower(surplus),'Energia disponibile',{good:true})}
-      ${this._statusTile('mdi:cog','Power Control',stateLabel,suspendedCount ? `${suspendedCount} carichi sospesi` : 'Sistema regolare',{good:!isOff,state:true})}
+      ${this._statusTile('mdi:leaf','Surplus disponibile',formatPower(surplus),'Energia disponibile',{good:surplus!==null&&surplus>0})}
+      ${this._statusTile('mdi:cog','Power Control',stateLabel,!isOn ? 'Stato del controllo' : suspendedCount===null ? 'Sospensioni non disponibili' : suspendedCount > 0 ? `${suspendedCount} carichi sospesi` : 'Sistema regolare',{good:isOn&&suspendedCount===0,state:true})}
       ${this._statusTile('mdi:transmission-tower','Limite rete',formatPower(limit),'Soglia configurata')}
       ${this._statusTile('mdi:gauge','Limite dinamico',formatPower(dynamic),'Equivalente con contributo locale')}
       ${this._statusTile('mdi:chart-bar','Margine disponibile',formatPower(headroom),'Prima della soglia')}
-      ${this._statusTile('mdi:format-list-bulleted','Carichi sospesi',String(Math.round(suspendedCount)),suspendedCount ? `${formatPower(suspendedPower)} sospesi` : 'Nessuno')}
+      ${this._statusTile('mdi:format-list-bulleted','Carichi sospesi',suspendedCount===null ? '—' : String(Math.round(suspendedCount)),suspendedCount===null ? 'Dato non disponibile' : suspendedCount > 0 ? `${formatPower(suspendedPower)} sospesi` : 'Nessuno')}
     </div>`;
   }
 
@@ -323,29 +362,40 @@ class CLEnergyCard extends HTMLElement {
     const gridExport = grid !== null && grid < -deadband;
     const batteryDischarge = battery !== null && battery > deadband;
     const batteryCharge = battery !== null && battery < -deadband;
-    const energyState = this._metricState('energy_control_status') || (energy?.power_control?.energy_control_detected ? 'Rilevato' : 'Non configurato');
-    const statusGood = /attiv|rilevat|on/i.test(energyState) && !/disattiv/i.test(energyState);
+    const energyState = this._metricState('energy_control_status') || (energy?.power_control?.energy_control_detected ? 'Rilevato' : '');
     const provider = energy.realtime_provider === 'cl_power_control' ? `CL Power Control ${energy.power_control?.version ? `v${energy.power_control.version}` : ''}` : energy.realtime_provider === 'home_assistant_energy' ? 'Home Assistant Energy' : 'Sorgente non configurata';
     const batteryNode = this._sourceIds('battery_power').length || this._sourceIds('battery_soc').length;
     const socAvailable = soc !== null && this._entityAvailable('battery_soc');
-    const batteryText = batteryCharge ? `Carica · ${formatPower(batteryAbs)}` : batteryDischarge ? `Scarica · ${formatPower(batteryAbs)}` : battery === null ? 'Dato non disponibile' : 'Standby';
+    const complete = pv !== null && home !== null && grid !== null && (!batteryNode || battery !== null);
+    const readings = [pv,home,grid,...(batteryNode ? [battery] : [])];
+    const availability = complete ? 'Letture disponibili' : readings.some(value=>value!==null) ? 'Letture parziali · alcuni dati non disponibili' : 'Letture non disponibili';
+    const solarFlow = pv !== null && home !== null && pv > deadband;
+    const batteryFlow = home !== null && battery !== null;
+    const gridFlow = home !== null && grid !== null;
+    const icon = kind => {
+      const drawings = {
+        home:'<path d="M7 29 32 9l25 20M14 27v28h36V27M27 55V38h12v17"/><path d="M20 31h5v5h-5zm20 0h5v5h-5z"/>',
+        pv:'<path d="m13 25-5 25h48l-5-25zm-3 13h44M25 25l-2 25m16-25 2 25M23 56h18m-9-6v6M32 7v8m-17-2 5 5m29-5-5 5"/><circle cx="32" cy="20" r="6"/>',
+        battery:'<rect x="15" y="13" width="34" height="44" rx="7"/><path d="M25 13V7h14v6m-7 8-8 16h9l-3 12 12-20H32z"/>',
+        grid:'<path d="m32 7-16 50m16-50 16 50M24 24h16M20 40h24M13 57h38M16 18h32M20 18v9m24-9v9M26 27l16 13M38 27 22 40"/>',
+      };
+      return `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${drawings[kind]}</svg>`;
+    };
     const gridText = gridImport ? 'In prelievo' : gridExport ? 'In immissione' : grid === null ? 'Dato non disponibile' : 'Standby';
     return `<div class="card flowCard">
-      <div class="sectionHead"><div><div class="headIcon"><span class="onlineDot"></span><h3>${statusGood ? 'Sistema online' : 'Flusso energia'}</h3></div><p>Flusso energia in tempo reale</p></div><div class="flowMeta"><span class="badge ${statusGood ? 'good' : 'warn'}">${esc(energyState)}</span><span class="provider">${esc(provider)}</span></div></div>
+      <div class="sectionHead"><div><div class="headIcon"><h3>La tua energia</h3></div><p>Casa, produzione e scambi in tempo reale</p></div><div class="flowMeta">${energyState ? `<span class="badge">Energy Control: ${esc(energyState)}</span>` : ''}<span class="provider">${esc(provider)}</span></div></div>
       <div class="flowScene">
-        <svg class="flowSvg" viewBox="0 0 700 300" preserveAspectRatio="none" aria-hidden="true">
-          <path class="flowPath solar ${pv !== null && pv > deadband ? 'active forward' : ''}" d="M350 18 C350 78 350 125 350 178" />
-          <path class="flowPath battery ${batteryCharge ? 'active forward' : batteryDischarge ? 'active reverse' : ''}" d="M350 200 C270 200 220 246 105 246" />
-          <path class="flowPath grid ${gridExport ? 'active forward' : gridImport ? 'active reverse' : ''}" d="M350 200 C430 200 490 246 595 246" />
-          ${pv !== null && pv > deadband ? '<circle cx="350" cy="136" r="5" fill="var(--cl-blue)" /><polygon points="350,198 340,181 360,181" fill="var(--cl-blue)" />' : ''}
-          ${batteryCharge || batteryDischarge ? `<polygon points="${batteryCharge ? '110,246 124,238 124,254' : '220,246 206,238 206,254'}" fill="#15c49a" />` : ''}
-          ${gridImport || gridExport ? `<polygon points="${gridExport ? '590,246 576,238 576,254' : '490,246 504,238 504,254'}" fill="#13b96f" />` : ''}
+        <svg class="flowSvg" viewBox="0 0 700 410" preserveAspectRatio="none" aria-hidden="true">
+          <path class="flowPath solar ${pv === null || home === null ? 'missing' : solarFlow ? 'active forward' : ''}" d="M350 125 V178" />
+          ${batteryNode ? `<path class="flowPath battery ${!batteryFlow ? 'missing' : batteryCharge ? 'active forward' : batteryDischarge ? 'active reverse' : ''}" d="M300 205 C210 205 200 265 75 265" />` : ''}
+          <path class="flowPath grid ${!gridFlow ? 'missing' : gridExport ? 'active forward' : gridImport ? 'active reverse' : ''}" d="M400 205 C490 205 500 265 625 265" />
         </svg>
-        <div class="energyNode pv"><span class="iconBox"><ha-icon icon="mdi:solar-panel-large"></ha-icon></span><span class="nodeName">Fotovoltaico</span><span class="nodeValue">${formatPower(pv)}</span><span class="nodeSub">Produzione</span></div>
-        ${batteryNode ? `<div class="energyNode battery"><span class="iconBox"><ha-icon icon="mdi:battery-high"></ha-icon></span><span class="nodeName">Batteria</span><span class="nodeValue">${formatPower(batteryAbs)}</span><span class="nodeSub">${socAvailable ? `SOC ${formatPercent(soc)} · ${batteryText}` : batteryText}</span>${socAvailable ? `<div class="batteryBar"><div class="batteryFill" style="width:${clamp(soc,0,100)}%"></div></div>` : ''}</div>` : ''}
-        <div class="energyNode home"><span class="iconBox"><ha-icon icon="mdi:home-lightning-bolt"></ha-icon></span><span class="nodeName">Casa</span><span class="nodeValue">${formatPower(home)}</span><span class="nodeSub">Consumo istantaneo</span></div>
-        <div class="energyNode grid ${gridExport ? 'export' : ''}"><span class="iconBox"><ha-icon icon="mdi:transmission-tower"></ha-icon></span><span class="nodeName">Rete</span><span class="nodeValue">${formatPower(gridAbs)}</span><span class="nodeSub">${esc(gridText)}</span></div>
+        <div class="energyNode pv ${pv === null ? 'unavailable' : ''}"><span class="iconBox">${icon('pv')}</span><span class="nodeName">Fotovoltaico</span><span class="nodeValue">${formatPower(pv)}</span><span class="nodeSub">${pv === null ? 'Dato non disponibile' : 'Produzione'}</span></div>
+        ${batteryNode ? `<div class="energyNode battery ${battery === null ? 'unavailable' : ''}"><span class="iconBox">${icon('battery')}</span><span class="nodeName">Batteria</span><span class="nodeValue">${formatPower(batteryAbs)}</span><span class="nodeSub">${socAvailable ? `SOC ${formatPercent(soc)}` : ''}</span><span class="nodeSub">${batteryCharge ? 'In carica' : batteryDischarge ? 'In scarica' : battery === null ? 'Dato non disponibile' : 'Standby'}</span>${socAvailable ? `<div class="batteryBar"><div class="batteryFill" style="width:${clamp(soc,0,100)}%"></div></div>` : ''}</div>` : ''}
+        <div class="energyNode home ${home === null ? 'unavailable' : ''}"><span class="iconBox">${icon('home')}</span><span class="nodeName">Casa</span><span class="nodeValue">${formatPower(home)}</span><span class="nodeSub">${home === null ? 'Dato non disponibile' : 'Consumo istantaneo'}</span></div>
+        <div class="energyNode grid ${grid === null ? 'unavailable' : gridExport ? 'export' : ''}"><span class="iconBox">${icon('grid')}</span><span class="nodeName">Rete</span><span class="nodeValue">${formatPower(gridAbs)}</span><span class="nodeSub">${esc(gridText)}</span></div>
       </div>
+      <p class="flowAvailability ${complete ? 'complete' : ''}" role="status"><span class="onlineDot" aria-hidden="true"></span>${availability}</p>
     </div>`;
   }
 
@@ -528,7 +578,7 @@ class CLEnergyCard extends HTMLElement {
   }
 
   _svgChart(points) {
-    const width = 720, height = 240, left = 42, right = 14, top = 16, bottom = 34;
+    const width = this._plotWidth || 720, height = 240, left = 42, right = 14, top = 30, bottom = 34;
     const plotW = width-left-right, plotH = height-top-bottom;
     const maxValue = Math.max(0.1, ...points.flatMap(p => ['pv','home','import','export'].map(key => number(p[key]) || 0)));
     const timestamps = points.map(p => number(p.t)).filter(t => t !== null);
@@ -552,7 +602,7 @@ class CLEnergyCard extends HTMLElement {
   }
 
   _svgBarChart(points) {
-    const width = 720, height = 260, left = 44, right = 14, top = 16, bottom = 42;
+    const width = this._plotWidth || 720, height = 260, left = 44, right = 14, top = 30, bottom = 42;
     const plotW = width-left-right, plotH = height-top-bottom;
     const availableSeries = CHART_SERIES.filter(([key]) => points.some(p => number(p[key]) !== null));
     const metricKey = this._effectiveBarMetric(points);
@@ -587,6 +637,8 @@ class CLEnergyCard extends HTMLElement {
       const step = points.length > 24 ? 5 : points.length > 14 ? 3 : 2;
       labelIndexes = points.map((_p,i)=>i).filter(i => i===0 || i===points.length-1 || i%step===0);
     }
+    const labelStep = Math.max(1,Math.ceil(labelIndexes.length/Math.max(2,Math.floor(plotW/65))));
+    labelIndexes = labelIndexes.filter((_index,i)=>i===0||i===labelIndexes.length-1||i%labelStep===0);
     const labels = labelIndexes.map(i => {
       const centerX = left + groupW*(i+.5);
       const date = new Date(points[i].t);
@@ -676,7 +728,7 @@ class CLEnergyCard extends HTMLElement {
       const defaultIcon = /wallbox|auto|car/i.test(load.name) ? 'mdi:ev-station' : /frigo|freezer/i.test(load.name) ? 'mdi:fridge-outline' : /pompa|pool|piscina/i.test(load.name) ? 'mdi:pool' : /clima|pdc|calor/i.test(load.name) ? 'mdi:air-conditioner' : /forno|oven/i.test(load.name) ? 'mdi:stove' : 'mdi:power-plug';
       const icon = load.icon || defaultIcon;
       const sourceLabel = load.source === 'power_control' ? 'Power Control' : 'Monitorato';
-      const status = load.suspended ? 'Sospeso' : load.power !== null && Math.abs(load.power) > 20 ? 'Attivo' : 'Standby';
+      const status = load.suspended ? 'Sospeso' : load.power === null ? 'Dato non disponibile' : Math.abs(load.power) > 20 ? 'Attivo' : 'Standby';
       const rangeLabel = LOAD_RANGE_OPTIONS[this._loadRange]?.label || '';
       const energyText = this._loadRange === 'now' ? (load.energyToday !== null ? `${formatEnergy(load.energyToday)} oggi` : (load.mode ? load.mode : status)) : (load.rangeEnergy !== null ? `Consumo ${rangeLabel.toLowerCase()}` : 'Energia periodo non disponibile');
       const command = load.command ? `<button type="button" class="loadCommand ${commandOn ? 'on' : ''}" data-load-toggle data-entity="${esc(load.command)}" data-turn-on="${commandOn ? 'false' : 'true'}" ${commandAvailable ? '' : 'disabled'}>${commandOn ? 'SPEGNI' : 'ACCENDI'}</button>` : '';
@@ -750,7 +802,7 @@ class CLEnergyCard extends HTMLElement {
   }
 
   _svgLoadChart(points) {
-    const width=720,height=240,left=46,right=14,top=16,bottom=34,plotW=width-left-right,plotH=height-top-bottom;
+    const width=this._plotWidth||720,height=240,left=46,right=14,top=30,bottom=34,plotW=width-left-right,plotH=height-top-bottom;
     const maxValue=Math.max(100,...points.map(p=>number(p.value)||0));
     const timestamps=points.map(p=>number(p.t)).filter(t=>t!==null);
     const minT=timestamps.length?Math.min(...timestamps):0;
@@ -765,7 +817,7 @@ class CLEnergyCard extends HTMLElement {
   }
 
   _svgLoadBarChart(points) {
-    const width=720,height=250,left=48,right=14,top=16,bottom=42,plotW=width-left-right,plotH=height-top-bottom;
+    const width=this._plotWidth||720,height=250,left=48,right=14,top=30,bottom=42,plotW=width-left-right,plotH=height-top-bottom;
     const useEnergy=points.some(p=>number(p.energyKwh)!==null);
     const valueOf=p=>useEnergy?number(p.energyKwh):number(p.value);
     const values=points.map(valueOf).filter(v=>v!==null);
@@ -995,7 +1047,7 @@ class CLEnergyCard extends HTMLElement {
     const showIndex = (index, pin=false) => {
       const point=points[index]; if(!point)return;
       const rect=svg.getBoundingClientRect(); if(!rect.width)return;
-      const width=720,left=42,right=14,plotW=width-left-right;
+      const width=svg.viewBox.baseVal.width,left=svg.dataset.chartKind==='bar'?44:42,right=14,plotW=width-left-right;
       const timestamps=points.map(p=>number(p.t)).filter(t=>t!==null);
       const minT=timestamps.length?Math.min(...timestamps):0;
       const maxT=timestamps.length?Math.max(...timestamps):minT;
@@ -1013,7 +1065,7 @@ class CLEnergyCard extends HTMLElement {
     };
     const showAt=(clientX,pin=false)=>{
       const rect=svg.getBoundingClientRect();if(!rect.width)return;
-      const width=720,left=42,right=14,plotW=width-left-right;
+      const width=svg.viewBox.baseVal.width,left=svg.dataset.chartKind==='bar'?44:42,right=14,plotW=width-left-right;
       const svgX=clamp(((clientX-rect.left)/rect.width)*width,left,width-right);
       let index=0;
       if(svg.dataset.chartKind==='bar') index=clamp(Math.floor(((svgX-left)/plotW)*points.length),0,points.length-1);
@@ -1047,7 +1099,7 @@ class CLEnergyCard extends HTMLElement {
     const showIndex=(index,pin=false)=>{
       const point=points[index];if(!point)return;
       const rect=svg.getBoundingClientRect();if(!rect.width)return;
-      const width=720,left=svg.dataset.loadChartKind==='bar'?48:46,right=14,plotW=width-left-right;
+      const width=svg.viewBox.baseVal.width,left=svg.dataset.loadChartKind==='bar'?48:46,right=14,plotW=width-left-right;
       const timestamps=points.map(p=>number(p.t)).filter(t=>t!==null),minT=timestamps.length?Math.min(...timestamps):0,maxT=timestamps.length?Math.max(...timestamps):minT;
       const pointT=number(point.t);let pointSvgX;
       if(svg.dataset.loadChartKind==='bar')pointSvgX=left+(plotW/Math.max(1,points.length))*(index+.5);
@@ -1063,7 +1115,7 @@ class CLEnergyCard extends HTMLElement {
       const tw=tooltip.offsetWidth||150;let leftPx=pointPx+8;if(leftPx+tw>wrap.getBoundingClientRect().width-4)leftPx=pointPx-tw-8;tooltip.style.left=`${Math.max(4,leftPx)}px`;
       if(pin)this._loadChartSelection={key:anchor,t:point.t};
     };
-    const showAt=(clientX,pin=false)=>{const rect=svg.getBoundingClientRect();if(!rect.width)return;const width=720,left=svg.dataset.loadChartKind==='bar'?48:46,right=14,plotW=width-left-right,svgX=clamp(((clientX-rect.left)/rect.width)*width,left,width-right);let index=0;if(svg.dataset.loadChartKind==='bar')index=clamp(Math.floor(((svgX-left)/plotW)*points.length),0,points.length-1);else{const ratio=clamp((svgX-left)/plotW,0,1),timestamps=points.map(p=>number(p.t)).filter(t=>t!==null),minT=timestamps.length?Math.min(...timestamps):0,maxT=timestamps.length?Math.max(...timestamps):minT,targetT=minT+ratio*Math.max(0,maxT-minT);index=pointIndexForTimestamp(targetT);}showIndex(index,pin);};
+    const showAt=(clientX,pin=false)=>{const rect=svg.getBoundingClientRect();if(!rect.width)return;const width=svg.viewBox.baseVal.width,left=svg.dataset.loadChartKind==='bar'?48:46,right=14,plotW=width-left-right,svgX=clamp(((clientX-rect.left)/rect.width)*width,left,width-right);let index=0;if(svg.dataset.loadChartKind==='bar')index=clamp(Math.floor(((svgX-left)/plotW)*points.length),0,points.length-1);else{const ratio=clamp((svgX-left)/plotW,0,1),timestamps=points.map(p=>number(p.t)).filter(t=>t!==null),minT=timestamps.length?Math.min(...timestamps):0,maxT=timestamps.length?Math.max(...timestamps):minT,targetT=minT+ratio*Math.max(0,maxT-minT);index=pointIndexForTimestamp(targetT);}showIndex(index,pin);};
     const restorePinned=()=>{if(selectionMatches())showIndex(pointIndexForTimestamp(this._loadChartSelection.t),false);else hide();};
     svg.addEventListener('pointerdown',event=>{showAt(event.clientX,true);try{svg.setPointerCapture(event.pointerId)}catch(_e){}});
     svg.addEventListener('pointermove',event=>{if(event.pointerType==='mouse'&&!event.buttons)showAt(event.clientX,false);else if(event.buttons||svg.hasPointerCapture?.(event.pointerId))showAt(event.clientX,true);});

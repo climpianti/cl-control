@@ -68,16 +68,20 @@ class CLControlHeaderCard extends HTMLElement {
     const cfg = this._config || {};
     const entityId = String(cfg.weather_entity || '');
     const weather = entityId && this._hass?.states ? this._hass.states[entityId] : null;
+    const available = weather && !['unknown','unavailable'].includes(weather.state);
     const [weatherIcon, weatherLabel] = WEATHER[String(weather?.state || '')] || ['mdi:weather-partly-cloudy', String(weather?.state || 'Meteo')];
     const temp = weather?.attributes?.temperature;
     const unit = weather?.attributes?.temperature_unit || this._hass?.config?.unit_system?.temperature || '°C';
-    const tempText = temp === undefined || temp === null || temp === '' ? '' : `${temp} ${unit}`;
+    const tempText = !available || temp === undefined || temp === null || temp === '' ? '' : `${temp} ${unit}`;
+    const signature = JSON.stringify([cfg,available,weatherIcon,weatherLabel,tempText]);
+    if (signature === this._renderSignature) return;
+    this._renderSignature = signature;
     const weatherHtml = entityId ? `
-      <button class="weather" type="button" title="Apri meteo" ${weather ? '' : 'disabled'}>
+      <button class="weather" type="button" title="Apri meteo" ${available ? '' : 'disabled'}>
         <ha-icon icon="${esc(weatherIcon)}"></ha-icon>
         <span class="weatherText">
-          <b>${esc(tempText || weatherLabel)}</b>
-          <small>${esc(tempText ? weatherLabel : (weather ? '' : 'Non disponibile'))}</small>
+          <b>${esc(available ? tempText || weatherLabel : 'Non disponibile')}</b>
+          <small>${esc(available && tempText ? weatherLabel : '')}</small>
         </span>
       </button>` : '';
 
@@ -112,6 +116,10 @@ class CLControlHeaderCard extends HTMLElement {
           .weatherText b{font-size:14px}
           .weatherText small{font-size:11px}
         }
+        :host{--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--primary-color:#78c5ff;color:#f5f7fc}
+        ha-card{border:1px solid #b2daff55;border-radius:25px;background:radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33}
+        .title,.site{white-space:normal;overflow-wrap:anywhere}.weather{min-height:44px}.weather:focus-visible{outline:2px solid #78c5ff;outline-offset:3px}
+        @media(max-width:520px){.wrap{flex-wrap:nowrap}.weather{margin-left:auto}.weatherText{max-width:92px}.weatherText b,.weatherText small{white-space:normal;overflow-wrap:anywhere}}
       </style>
       <ha-card>
         <div class="wrap">

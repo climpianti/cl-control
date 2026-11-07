@@ -149,6 +149,7 @@ class CLSecurityCard extends HTMLElement {
     this._hass = null;
     this._config = {panels: [], partitions: [], zones: [], pin_configured: false, group_by_floor: true};
     this._busy = new Set();
+    this._openControls = new Set();
     this.shadowRoot.innerHTML = `
       <style>
         :host{display:block;--cl-sec-gap:12px}
@@ -166,6 +167,15 @@ class CLSecurityCard extends HTMLElement {
         .empty{padding:14px;border:1px dashed var(--divider-color);border-radius:12px;color:var(--secondary-text-color);font-size:13px}
         .overlay{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.45)}.overlay.open{display:flex}.dialog{width:min(100%,420px);padding:18px;border-radius:18px;background:var(--ha-card-background,var(--card-background-color));box-shadow:0 18px 50px rgba(0,0,0,.3)}.dialog h3{margin:0 0 5px}.dialog p{margin:0 0 14px;color:var(--secondary-text-color);font-size:13px}.dialog input{box-sizing:border-box;width:100%;height:46px;padding:0 12px;border:1px solid var(--divider-color);border-radius:10px;background:var(--primary-background-color);color:var(--primary-text-color);font:inherit;font-size:20px;letter-spacing:.12em}.dialogActions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.dialogError{min-height:18px;margin-top:8px;color:var(--error-color,#db4437);font-size:12px}
         @media(max-width:700px){ha-card{padding:13px}.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.areaGroup{padding:10px}.zone{grid-template-columns:auto minmax(0,1fr)}.zoneRight{grid-column:2;justify-content:space-between}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.cmd{width:100%}.partitionActions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        /* Glass presentation only: existing PIN and command handlers are retained. */
+        :host{--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--divider-color:#ffffff20;--secondary-background-color:#ffffff0c;--primary-background-color:#121721;--card-background-color:#18222b;--ha-card-background:#18222b;--primary-color:#9b83ff;--error-color:#ff8599;--warning-color:#ffd08a;--success-color:#7bdec3}
+        ha-card{border-radius:25px;border:1px solid #b2daff66;background:radial-gradient(ellipse at 22% 0%,#253e5d88,transparent 68%),radial-gradient(ellipse at 96% 80%,#542f7366,transparent 65%),linear-gradient(115deg,#18222b,#121721 60%,#211a29);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff55}
+        .panel,.partitionCard{border-radius:20px;background:linear-gradient(120deg,#ffffff08,#9b83ff08);box-shadow:inset 0 1px 1px #ffffff18}
+        .areaGroup{background:transparent;border-color:#ffffff18;border-radius:20px}.zone{background:#ffffff06;border-radius:15px}.summary{background:#ffffff08;border-radius:16px}.summary.attention{border-color:#ffd08a88}
+        .partitionIcon,.shield,.zoneIcon{background:linear-gradient(140deg,#39adff22,#bd65f322);color:#c5caff;border:1px solid #b2daff33}
+        .cmd{min-height:44px;border-radius:12px}.cmd.primary{background:linear-gradient(120deg,#256ba466,#65439e66);color:#f5f7fc}.cmd.danger{background:#ff859918;color:#ffc2cc;border-color:#ff85994d}
+        .securityControls{margin-top:10px;border-top:1px solid #ffffff18}.securityControls summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:#bdcadd;font-size:13px}.securityControls summary:before{content:'▸';margin-right:8px}.securityControls[open] summary:before{content:'▾'}.securityControls summary:focus-visible{outline:2px solid #67c5ff;outline-offset:2px}
+        .dialog{background:linear-gradient(120deg,#18222b,#211a29);border:1px solid #b2daff66;color:#f5f7fc;border-radius:25px}.partitionTop,.panelTop{flex-wrap:wrap}.partitionCopy b,.panelName{overflow-wrap:anywhere}.toggle{min-height:44px}.partitionActions{grid-template-columns:repeat(auto-fit,minmax(min(100%,95px),1fr))}
       </style>
       <ha-card><div id="main"></div></ha-card>
       <div id="overlay" class="overlay" aria-hidden="true"></div>
@@ -239,9 +249,14 @@ class CLSecurityCard extends HTMLElement {
       ${pinNotice}
       ${grouped}
     `;
+    main.querySelectorAll('[data-controls]').forEach(details=>details.addEventListener('toggle',()=>{if(details.open)this._openControls.add(details.dataset.controls);else this._openControls.delete(details.dataset.controls);}));
     main.querySelectorAll('[data-panel-command]').forEach(button => button.addEventListener('click', () => this._panelCommand(button)));
     main.querySelectorAll('[data-partition-command]').forEach(button => button.addEventListener('click', () => this._partitionCommand(button)));
     main.querySelectorAll('[data-bypass-zone]').forEach(button => button.addEventListener('click', () => this._toggleBypass(button)));
+  }
+
+  _controlsMarkup(entityId, controls) {
+    return `<details class="securityControls" data-controls="${esc(entityId)}" ${this._openControls.has(entityId)?'open':''}><summary>Comandi impianto</summary>${controls}</details>`;
   }
 
   _groupMarkup(group, showFloor) {
@@ -264,11 +279,12 @@ class CLSecurityCard extends HTMLElement {
     const features = Number(entity?.attributes?.supported_features ?? panel.supported_features ?? 0);
     const stateClass = state === 'triggered' ? 'triggered' : state.startsWith('armed_') || state === 'arming' ? 'armed' : '';
     const busy = this._busy.has(panel.entity_id);
+    const unavailable = ['unknown', 'unavailable'].includes(state);
     const buttons = ALARM_COMMANDS
-      .filter(([command, _label, bit]) => command === 'disarm' || !features || (features & bit))
-      .map(([command, label]) => `<button class="cmd ${command === 'disarm' ? 'danger' : 'primary'}" data-panel-command="${command}" data-panel-id="${esc(panel.entity_id)}" ${busy || !this._config.pin_configured ? 'disabled' : ''}>${label}</button>`)
+      .filter(([command, _label, bit]) => command === 'disarm' || (features & bit))
+      .map(([command, label]) => `<button class="cmd ${command === 'disarm' ? 'danger' : 'primary'}" data-panel-command="${command}" data-panel-id="${esc(panel.entity_id)}" ${busy || unavailable || !this._config.pin_configured ? 'disabled' : ''}>${label}</button>`)
       .join('');
-    return `<div class="panel"><div class="panelTop"><div><div class="panelName">${esc(panel.name)}</div><div class="panelArea">${esc(panel.platform ? panel.platform.toUpperCase() : 'Allarme')}</div></div><span class="alarmState ${stateClass}">${esc(ALARM_STATES[state] || pretty(state))}</span></div><div class="actions">${buttons}</div></div>`;
+    return `<div class="panel"><div class="panelTop"><div><div class="panelName">${esc(panel.name)}</div><div class="panelArea">${esc(panel.platform ? panel.platform.toUpperCase() : 'Allarme')}</div></div><span class="alarmState ${stateClass}">${esc(ALARM_STATES[state] || pretty(state))}</span></div>${this._controlsMarkup(panel.entity_id, `<div class="actions">${buttons}</div>`)}</div>`;
   }
 
   _partitionCard(partition) {
@@ -298,7 +314,7 @@ class CLSecurityCard extends HTMLElement {
     const stateLabel = unavailable
       ? (normalizedState === 'UNAVAILABLE' ? 'Non disponibile' : 'Sconosciuta')
       : partitionModeLabel(state);
-    return `<div class="partitionCard"><div class="partitionTop"><div class="partitionIdentity"><div class="partitionIcon"><ha-icon icon="mdi:shield-key-outline"></ha-icon></div><div class="partitionCopy"><b>${esc(partition.name)}</b><small>${esc(partition.area_name || '')}${partition.entity_id ? ` · ${esc(partition.entity_id)}` : ''}</small></div></div><span class="partitionState ${stateClass}">${esc(stateLabel)}</span></div><div class="partitionActions">${buttons || '<span class="empty">Nessun comando disponibile.</span>'}</div></div>`;
+    return `<div class="partitionCard"><div class="partitionTop"><div class="partitionIdentity"><div class="partitionIcon"><ha-icon icon="mdi:shield-key-outline"></ha-icon></div><div class="partitionCopy"><b>${esc(partition.name)}</b><small>${esc(partition.area_name || '')}</small></div></div><span class="partitionState ${stateClass}">${esc(stateLabel)}</span></div>${this._controlsMarkup(partition.entity_id, `<div class="partitionActions">${buttons || '<span class="empty">Nessun comando disponibile.</span>'}</div>`)}</div>`;
   }
 
   _zoneRow(zone) {

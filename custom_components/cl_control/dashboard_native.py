@@ -869,7 +869,7 @@ def _branding_section(
                 "site_name": site_name,
                 "weather_entity": weather_entity,
                 "is_home": context == "home",
-                "grid_options": {"columns": "full", "rows": 2},
+                "grid_options": {"columns": "full", "rows": "auto"},
             }
         ],
     }
@@ -902,19 +902,15 @@ def _camera_card(entity: dict[str, Any]) -> dict[str, Any]:
 
 
 def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
+    if entity.get("domain") == "climate":
+        return {"type": "custom:cl-control-climate-glass-card", "entity": entity["entity_id"], "name": entity["name"]}
+    if entity.get("domain") == "cover":
+        return {"type": "custom:cl-control-cover-card", "entity": entity["entity_id"], "name": entity["name"]}
     if entity.get("module") == "cameras":
         return _camera_card(entity)
     if entity.get("domain") == "light":
         return {
             "type": "custom:cl-control-light-memories-card",
-            "entity": entity["entity_id"],
-            "name": entity["name"],
-        }
-    if entity.get("domain") == "climate":
-        # Keep climate controls capability-aware in the frontend: modes, target,
-        # presets and fan options are read from the live climate entity.
-        return {
-            "type": "custom:cl-control-climate-card",
             "entity": entity["entity_id"],
             "name": entity["name"],
         }
@@ -925,6 +921,8 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
             "type": "custom:cl-control-media-card",
             "entity": entity["entity_id"],
             "name": entity["name"],
+            **({"remote_type": "webostv", "icon": "mdi:television"}
+               if entity.get("platform") == "webostv" else {}),
         }
     return _tile(entity)
 
@@ -973,7 +971,7 @@ def _assistance_section(
                     else f"Supporto rapido · {context}"
                 ),
                 "url": url,
-                "grid_options": {"columns": "full", "rows": 1},
+                "grid_options": {"columns": "full", "rows": "auto"},
             }
         ],
     }
@@ -993,7 +991,7 @@ def _installer_section(model: dict[str, Any]) -> dict[str, Any] | None:
         "cards": [
             {
                 "type": "shortcut",
-                "label": "Configurazione Installatore",
+                "label": "Installatore",
                 "icon": "mdi:cog-outline",
                 "tap_action": {
                     "action": "navigate",
@@ -1115,45 +1113,19 @@ def _security_camera_sections(model: dict[str, Any]) -> list[dict[str, Any]]:
 def _system_summary_card(
     model: dict[str, Any], module: str, data: dict[str, Any]
 ) -> dict[str, Any]:
-    """Prefer native entity tiles so summaries update without config rebuilds."""
+    """Home summaries read live states without commanding source entities."""
+    entities = data.get("entities") or []
     if module == "security":
-        panels = (model.get("security") or {}).get("panels") or []
-        if panels:
-            return {
-                "type": "tile",
-                "entity": panels[0]["entity_id"],
-                "name": data["label"],
-                "icon": data["icon"],
-                "state_content": "state",
-                "tap_action": {
-                    "action": "navigate",
-                    "navigation_path": data["path"],
-                },
-                "hold_action": {"action": "none"},
-                "grid_options": {"columns": 6, "rows": 1},
-            }
-        return _navigation_shortcut(
-            name=data["label"], icon=data["icon"], path=data["path"]
-        )
-    entity_id = str((model.get("summary_entities") or {}).get(module) or "")
-    if not entity_id:
-        return _navigation_shortcut(
-            name=data["label"], icon=data["icon"], path=data["path"]
-        )
+        entities = (model.get("security") or {}).get("panels") or entities
     return {
-        "type": "tile",
-        "entity": entity_id,
+        "type": "custom:cl-control-system-card",
+        "module": module,
+        "entities": [item["entity_id"] for item in entities],
         "name": data["label"],
         "icon": data["icon"],
-        "state_content": "summary",
-        "tap_action": {
-            "action": "navigate",
-            "navigation_path": data["path"],
-        },
-        "hold_action": {"action": "none"},
-        "grid_options": {"columns": 6, "rows": 1},
+        "path": data["path"],
+        "grid_options": {"columns": 6, "rows": "auto"},
     }
-
 
 _STATUS_LABELS = {
     "temperature": "Temperatura",
@@ -1738,21 +1710,48 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                         "cards": [
                             {
                                 "type": "custom:cl-control-installer-card",
-                                "grid_options": {"columns": "full", "rows": 12},
+                                "grid_options": {"columns": "full", "rows": "auto"},
                             },
                             {
                                 "type": "custom:cl-control-discovery-card",
-                                "grid_options": {"columns": "full", "rows": 8},
+                                "grid_options": {"columns": "full", "rows": "auto"},
                             },
                             {
                                 "type": "custom:cl-control-modbus-card",
-                                "grid_options": {"columns": "full", "rows": 8},
+                                "grid_options": {"columns": "full", "rows": "auto"},
                             }
                         ],
                     },
                 ],
             }
         )
+
+    for view in views:
+        if any(card.get("type") == "custom:cl-control-assistance-card"
+               for section in view.get("sections", []) for card in section.get("cards", [])):
+            continue
+        support = _assistance_section(
+            model, context=view["title"], category=view["title"],
+            column_span=int(view.get("max_columns") or 2),
+        )
+        if support is not None:
+            view["sections"].append(support)
+
+    # All customer views share native-card surfaces. Visibility must remain on
+    # the outer card, where Lovelace evaluates it (not just inside the host).
+    for view in views:
+        for section in view.get("sections", []):
+            section["cards"] = [
+                {
+                    "type": "custom:cl-control-home-surface",
+                    "card": card,
+                    "grid_options": {**card.get("grid_options", {}), "rows": "auto"},
+                    **({"visibility": deepcopy(card["visibility"])} if "visibility" in card else {}),
+                }
+                if card.get("type") in {"area", "tile", "button", "shortcut", "picture-entity"}
+                else card
+                for card in section.get("cards", [])
+            ]
 
     return {
         "title": model["branding"].get("brand_name") or "CL Control",

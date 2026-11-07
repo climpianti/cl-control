@@ -37,7 +37,7 @@ class ClimateDashboardTests(unittest.TestCase):
             cards = self._cards(views[path])
             self.assertTrue(
                 any(
-                    card.get("type") == "custom:cl-control-climate-card"
+                    card.get("type") == "custom:cl-control-climate-glass-card"
                     and card.get("entity") == "climate.living"
                     for card in cards
                 )
@@ -50,7 +50,7 @@ class ClimateDashboardTests(unittest.TestCase):
         home_cards = self._cards(config["views"][0])
         self.assertTrue(
             any(
-                card.get("type") == "custom:cl-control-climate-card"
+                card.get("type") == "custom:cl-control-climate-glass-card"
                 and card.get("entity") == "climate.living"
                 for card in home_cards
             )

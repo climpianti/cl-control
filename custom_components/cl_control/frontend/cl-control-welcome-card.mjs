@@ -57,13 +57,18 @@ class CLControlWelcomeCard extends HTMLElement {
     if (secondaryMode === 'custom') secondary = String(this._config?.secondary_text || '').trim();
     else if (secondaryMode !== 'off') secondary = `Benvenuto a ${site}`;
     const dateLine = mode === 'extended' ? localizedDate(now) : '';
+    const signature = JSON.stringify([mode,greeting,secondary,dateLine]);
+    if (signature === this._renderSignature) return;
+    this._renderSignature = signature;
 
     this.shadowRoot.innerHTML = `
       <style>
-        :host{display:block}
+        :host{display:block;--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd}
         ha-card{box-sizing:border-box;min-height:${mode === 'extended' ? '92px' : '68px'};padding:${mode === 'extended' ? '18px 20px' : '14px 18px'};display:flex;align-items:center;background:var(--ha-card-background,var(--card-background-color));color:var(--primary-text-color)}
         .wrap{min-width:0;width:100%}.title{font-size:${mode === 'extended' ? '24px' : '19px'};font-weight:700;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.secondary{margin-top:5px;color:var(--secondary-text-color);font-size:13px;line-height:1.3}.date{margin-top:4px;color:var(--secondary-text-color);font-size:12px}
         @media(max-width:600px){ha-card{padding:${mode === 'extended' ? '16px' : '13px 15px'}}.title{font-size:${mode === 'extended' ? '22px' : '18px'}}}
+        ha-card{border:1px solid #b2daff55;border-radius:25px;background:radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33}
+        .title{white-space:normal;overflow-wrap:anywhere}.secondary,.date{overflow-wrap:anywhere}
       </style>
       <ha-card><div class="wrap"><div class="title">${esc(greeting)} 👋</div>${secondary ? `<div class="secondary">${esc(secondary)}</div>` : ''}${dateLine ? `<div class="date">${esc(dateLine)}</div>` : ''}</div></ha-card>
     `;

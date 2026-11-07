@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.5.3-beta.7 — Glass e collaudo su altre installazioni
+
+- Stile Glass condiviso tra Home, aree, card native, luci, aperture, multimedia, clima, sicurezza, energia e configurazione; logo CL Impianti conservato.
+- Luci compatte con colore e luminosità reali, regolazioni espandibili e preferiti preservati.
+- Aperture con Apri/Stop/Chiudi secondo le capacità, icona dinamica, percentuale con +/- e applicazione esplicita delle modifiche.
+- Clima Glass con tonalità secondo lo stato operativo e dettagli nativi HA; mantenuta la scheda clima della beta.6 per compatibilità.
+- Multimedia con accesso ai dettagli e al telecomando quando supportato; sicurezza con controlli disponibili e autorizzazioni preservate.
+- Energia con schema dei flussi, animazioni, grafici e storico coerenti; distinzione tra dati assenti e zero.
+- Header, meteo e Assistenza uniformati; visibilità amministrativa preservata.
+- Corretti sovrapposizioni Installatore/Discovery/Modbus e ingombro della barra Salva mediante altezza automatica e barra nel flusso della pagina.
+- Test offline e browser con API simulate, senza comandi ai dispositivi reali. Guida per installazioni di collaudo e segnalazioni riproducibili.
+- Versione minima dichiarata Home Assistant 2026.9.0; runtime reale verificato su 2026.10.4. Cache frontend `3.5.3-beta.7-r1`.
+
 ## 3.5.3-beta.6 — Scheda clima CL
 
 - Nuova `cl-control-climate-card` coerente con lo stile Blue Tech Premium di luci e multimedia.

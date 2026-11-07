@@ -1,10 +1,12 @@
 # CL Control
 
-> Ramo beta **3.5.3-beta.6**: multimedia, clima personalizzato, anteprima ETS XML, scenari luci e preferiti.
+> Prerelease **3.5.3-beta.7**: interfaccia Glass, controlli compatti e dettagli per capacità, energia con flussi e grafici.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
-> Le funzioni AI reali, Modbus completo, telecomandi proprietari ed effetti RGB
-> ciclici sono ancora da implementare. Collaudo riservato all'istanza beta.
+> Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
+> ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
 > Test offline: `python tests/run_offline.py` (non emula il runtime HA).
+
+Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaudo](docs/BETA_TESTING.md).
 
 ### Scenari luci e preferiti nella beta
 
@@ -14,7 +16,7 @@ Da **Sistemi → Scenari luci**, seleziona le singole luci, assegna un nome e pr
 tramite Home Assistant. Il comando può avere effetti parziali se un dispositivo
 si scollega durante l'esecuzione: controlla sempre il risultato.
 
-Le schede compatte offrono luminosità e RGB direttamente sulla card. La nuova scheda clima mostra temperatura ambiente/target, modalità HVAC, preset e ventola solo quando realmente supportati dall'entità.
+Le schede luce compatte riflettono colore e luminosità; il pulsante dettagli apre le regolazioni. La scheda clima Glass mostra temperatura ambiente/target e apre i controlli nativi HA per modalità HVAC, preset, ventola, oscillazione e umidità, secondo le capacità reali dell'entità. La precedente `cl-control-climate-card` rimane disponibile per le configurazioni manuali.
 Il canale **Bianco W** appare solo per RGBW; la temperatura solo se supportata.
 La lampadina apre i controlli completi HA. La **stella** apre i preferiti:
 **Salva preferito** memorizza la luce accesa, luminosità e colore.
@@ -58,8 +60,8 @@ La versione 3.5.1 aggiorna la baseline pubblica stabile della nuova architettura
 
 ## Requisiti
 
-- Home Assistant con supporto alle API frontend/registry utilizzate dalla versione corrente.
-- È consigliata una versione Home Assistant recente sul ramo 2026.9/2026.10 utilizzato durante lo sviluppo.
+- Home Assistant **2026.9.0 o successivo** per questa beta.
+- Collaudo reale eseguito su Home Assistant **2026.10.4**; altre versioni e integrazioni richiedono verifica.
 - Browser moderno per le card frontend incluse.
 
 > La compatibilità con versioni Home Assistant precedenti non è garantita finché non viene esplicitamente testata.
@@ -168,6 +170,6 @@ Per bug e richieste di miglioramento usa la sezione **Issues** del repository Gi
 
 ## Versione
 
-**3.5.1 — Stable**
+**3.5.3-beta.7 — Prerelease**. La precedente baseline stabile rimane 3.5.1.
 
 Vedi [CHANGELOG.md](CHANGELOG.md) per le modifiche principali.

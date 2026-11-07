@@ -31,7 +31,7 @@ export class CLLightMemoriesCard extends HTMLElement {
     this._config={}; this._hass=null; this._items=[]; this._selected=new Set();
     this._name=''; this._busy=false; this._loading=true; this._error=''; this._notice='';
     this._sequence=0; this._native=null; this._nativeKey=''; this._connected=false;
-    this._expanded=false; this._controlBusy=false; this._controlKey='';
+    this._expanded=false; this._detailsExpanded=false; this._controlBusy=false; this._controlKey='';
     this._refresh=()=>this._load();
   }
   setConfig(config) { this._config={...config}; this._render(); }
@@ -118,7 +118,7 @@ export class CLLightMemoriesCard extends HTMLElement {
   _controlsHTML(){
     const m=this._lightModel();
     const slider=(kind,label,min,max,cls)=>`<label class="rail ${cls}"><span>${label}<output data-value="${kind}"></output></span><input type="range" data-control="${kind}" aria-label="${label}" min="${min}" max="${max}" step="1"></label>`;
-    return `<div class="light-head"><button class="bulb" id="moreInfo" aria-label="Dettagli luce"><svg viewBox="0 0 32 42" aria-hidden="true"><path class="glass" d="M16 2C8 2 3 8 3 15c0 5 3 8 6 12v4h14v-4c3-4 6-7 6-12C29 8 24 2 16 2Z"/><path class="base" d="M9 32h14v3H9zm1 5h12l-3 4h-6z"/></svg></button><div class="identity"><strong>${esc(this._config.name||m.a.friendly_name||this._config.entity)}</strong><small id="lightState"></small></div>${m.dim?`<button class="star ${this._items.length?'saved':''}" id="favorites" aria-label="Preferiti luce" aria-expanded="${this._expanded}" aria-controls="presetPanel" title="Preferiti luce">${this._items.length?'★':'☆'}</button>`:''}<button id="power" class="power" role="switch" aria-label="Accensione luce"><span></span></button></div><div class="rails">${m.dim?slider('brightness','Luminosità',0,100,'brightness'):''}${m.rgb?slider('hue','RGB',0,360,'hue'):''}${m.temp?slider('temp','Bianco · temperatura',m.a.min_color_temp_kelvin||2000,m.a.max_color_temp_kelvin||6500,'temperature'):''}${m.white?slider('white','Bianco W',0,100,'white'):''}</div>`;
+    return `<div class="light-head"><button class="bulb" id="moreInfo" aria-label="Dettagli luce"><svg viewBox="0 0 32 42" aria-hidden="true"><path class="glass" d="M16 2C8 2 3 8 3 15c0 5 3 8 6 12v4h14v-4c3-4 6-7 6-12C29 8 24 2 16 2Z"/><path class="base" d="M9 32h14v3H9zm1 5h12l-3 4h-6z"/></svg></button><div class="identity"><strong>${esc(this._config.name||m.a.friendly_name||this._config.entity)}</strong><small id="lightState"></small></div>${m.dim?`<button class="star ${this._items.length?'saved':''}" id="favorites" aria-label="Preferiti luce" aria-expanded="${this._expanded}" aria-controls="presetPanel" title="Preferiti luce">${this._items.length?'★':'☆'}</button>`:''}<button id="power" class="power" role="switch" aria-label="Accensione luce"><span></span></button></div><button id="adjust" class="adjust" aria-expanded="${this._detailsExpanded}" aria-controls="lightAdjustments" ${!m.dim&&!m.rgb&&!m.temp&&!m.white?'hidden':''}>${this._detailsExpanded?'Chiudi regolazioni':'Regola'}</button><div id="lightAdjustments" class="rails" ${!this._detailsExpanded?'hidden':''}>${m.dim?slider('brightness','Luminosità',0,100,'brightness'):''}${m.rgb?slider('hue','RGB',0,360,'hue'):''}${m.temp?slider('temp','Bianco · temperatura',m.a.min_color_temp_kelvin||2000,m.a.max_color_temp_kelvin||6500,'temperature'):''}${m.white?slider('white','Bianco W',0,100,'white'):''}</div>`;
   }
   _syncControls(){
     if(!this._isPreset())return;
@@ -132,6 +132,11 @@ export class CLLightMemoriesCard extends HTMLElement {
     if(power){power.setAttribute('aria-checked',String(m.on));power.disabled=!m.available||this._controlBusy||this._busy;}
     const rgb=m.a.rgb_color||m.a.rgbw_color?.slice(0,3)||[255,210,136];
     const safeRGB=rgb.map(v=>Math.max(0,Math.min(255,Number(v)||0)));
+    const white=m.a.rgbw_color?.[3]||0;
+    const tint=safeRGB.map(v=>Math.min(255,v+white));
+    const level=m.on?(m.dim?Math.max(0,Math.min(1,(m.a.brightness??255)/255)):1):0;
+    const surface=root.querySelector('ha-card.light-card');
+    if(surface){surface.style.setProperty('--light-rgb',m.on?tint.join(','):'115,119,130');surface.style.setProperty('--light-alpha',String(level*.42));surface.style.setProperty('--light-level',`${level*100}%`);surface.style.setProperty('--lamp-opacity',String(m.on ? .25+.75*level : .4));}
     const bulb=root.querySelector('.bulb');
     if(bulb){bulb.style.setProperty('--glow',m.on?`rgb(${safeRGB.join(',')})`:'#737782');bulb.classList.toggle('lit',m.on);}
     const values={brightness:m.on?pct:0,hue:m.a.hs_color?.[0]??rgbHue(rgb),temp:m.a.color_temp_kelvin||m.a.min_color_temp_kelvin||2000,white:Math.round((m.a.rgbw_color?.[3]||0)/255*100)};
@@ -198,7 +203,36 @@ export class CLLightMemoriesCard extends HTMLElement {
       .light-card .save button{border-radius:12px}
       @media(max-width:520px){ha-card.light-card{padding:14px;border-radius:19px}.identity strong{font-size:15px}.light-card .bulb{width:42px;height:48px}.rails{margin-top:12px}.rail{padding:9px 10px 4px}.identity small{font-size:12px}}
       @media(prefers-reduced-motion:reduce){.glass,.power span{transition:none}}
-    </style><ha-card class="${preset?'light-card':''}">${preset?this._controlsHTML():''}${preset&&this._error&&!this._expanded?`<div class="message" role="alert">${esc(this._error)}</div>`:''}<div class="content" id="presetPanel" ${preset&&!this._expanded?'hidden':''}>${preset?'':'<h3>Scenari luci</h3>'}<p class="intro">${preset?'Salva luminosità e colore attuali nei tuoi preferiti.':'Seleziona le luci e fotografa il loro stato attuale. Il salvataggio non aziona le luci.'} Salvati per il tuo utente, anche dopo un riavvio.</p>${this._error?`<div class="message" role="alert">${esc(this._error)}</div>`:''}${this._notice?`<div class="message" role="status">${esc(this._notice)}</div>`:''}${selector}<div class="save"><input id="name" aria-label="Nome ${preset?'preferito':'scenario'}" maxlength="64" placeholder="${preset?'Es. Lettura calda':'Es. Serata in casa'}" value="${esc(this._name)}" ${this._busy?'disabled':''}><button id="capture" class="primary" disabled><ha-icon icon="mdi:camera-outline"></ha-icon> ${preset?'Salva preferito':'Fotografa e salva'}</button></div>${preset?'<p id="presetHint" class="intro">Accendi e regola la luce per salvare un preferito dimmer o colore.</p>':''}<div>${this._loading?'<div class="empty">Caricamento…</div>':rows||`<div class="empty">Nessun ${preset?'preferito':'scenario'} salvato.</div>`}</div><button id="refresh" ${this._busy?'disabled':''}>Aggiorna elenco</button></div></ha-card>`;
+      /* Shared Glass palette; retain the existing light controls and capabilities. */
+      :host{--ink:#f5f7fc;--muted:#bdcadd}
+      ha-card.light-card{border-radius:25px;border:1px solid #b2daff66;background:radial-gradient(ellipse at 22% 0%,#253e5d88,transparent 68%),radial-gradient(ellipse at 96% 80%,#542f7366,transparent 65%),linear-gradient(115deg,#18222b,#121721 60%,#211a29);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff55;padding:20px}
+      ha-card.light-card:before{background:linear-gradient(90deg,#0e17231a,#12162022)}
+      .light-card .identity strong{font-weight:650;font-size:18px;color:var(--ink)}
+      .light-card .identity small{color:var(--muted);font-size:13px}
+      .light-card button{min-height:44px;touch-action:manipulation}
+      .light-card .star{min-width:44px}
+      .light-card .power{height:44px;min-height:44px;align-items:center;background:#ffffff20}
+      .light-card .power[aria-checked=true]{background:linear-gradient(135deg,#39adff,#9b83ff,#bd65f3);box-shadow:0 0 12px #9577ff44}
+      .light-card .rail{border-color:#ffffff18;background:#ffffff08;border-radius:15px}
+      .light-card .rail>span{color:var(--muted);font-size:13px;letter-spacing:0}
+      .light-card .rail output{color:var(--ink)}
+      .light-card .rail input{height:36px}
+      .light-card .rail input::-webkit-slider-runnable-track{height:7px}
+      .light-card .rail input::-moz-range-track{height:7px}
+      .light-card .rail input::-webkit-slider-thumb{margin-top:-8.5px;box-shadow:0 2px 6px #0004;border:0}
+      .light-card .rail input::-moz-range-thumb{border:0}
+      .light-card .rail.brightness{--track:linear-gradient(90deg,#39adff,#9b83ff,#bd65f3)}
+      .light-card .rail.white{--track:linear-gradient(90deg,#545861,#fff)}
+      .light-card .primary{background:linear-gradient(120deg,#256ba4,#65439e);color:var(--ink)}
+      @media(max-width:520px){ha-card.light-card{padding:16px;border-radius:25px}.light-card .identity strong{font-size:16px}.light-card .light-head{gap:8px}.light-card .rail{padding:9px 10px 4px}}
+      /* Compact summary: lamp colour and brightness affect decoration, never text contrast. */
+      ha-card.light-card{min-height:0;padding:16px;background:radial-gradient(ellipse at 10% 0%,rgba(var(--light-rgb,115,119,130),var(--light-alpha,0)),transparent 80%),linear-gradient(115deg,#18222b,#121721 70%,#211a29)}
+      ha-card.light-card:before{background:none}
+      ha-card.light-card:after{content:"";position:absolute;left:0;bottom:0;height:3px;width:var(--light-level,0%);background:rgb(var(--light-rgb,115,119,130));pointer-events:none}
+      .light-card .glass{opacity:var(--lamp-opacity,.4)}
+      .light-card .adjust{margin-top:8px;width:100%;min-height:44px;background:#ffffff08;color:var(--ink);border-color:#ffffff18}
+      .light-card .power[aria-checked=true]{background:rgba(var(--light-rgb,57,173,255),.7);box-shadow:0 0 12px rgba(var(--light-rgb,57,173,255),var(--light-alpha,0))}
+    :host{--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--primary-color:#356a9c;--card-background-color:#18222b;--secondary-background-color:#ffffff08;--divider-color:#ffffff20}ha-card:not(.light-card){display:block;border:1px solid #b2daff55;border-radius:25px;background:radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33}</style><ha-card class="${preset?'light-card':''}">${preset?this._controlsHTML():''}${preset&&this._error&&!this._expanded?`<div class="message" role="alert">${esc(this._error)}</div>`:''}<div class="content" id="presetPanel" ${preset&&!this._expanded?'hidden':''}>${preset?'':'<h3>Scenari luci</h3>'}<p class="intro">${preset?'Salva luminosità e colore attuali nei tuoi preferiti.':'Seleziona le luci e fotografa il loro stato attuale. Il salvataggio non aziona le luci.'} Salvati per il tuo utente, anche dopo un riavvio.</p>${this._error?`<div class="message" role="alert">${esc(this._error)}</div>`:''}${this._notice?`<div class="message" role="status">${esc(this._notice)}</div>`:''}${selector}<div class="save"><input id="name" aria-label="Nome ${preset?'preferito':'scenario'}" maxlength="64" placeholder="${preset?'Es. Lettura calda':'Es. Serata in casa'}" value="${esc(this._name)}" ${this._busy?'disabled':''}><button id="capture" class="primary" disabled><ha-icon icon="mdi:camera-outline"></ha-icon> ${preset?'Salva preferito':'Fotografa e salva'}</button></div>${preset?'<p id="presetHint" class="intro">Accendi e regola la luce per salvare un preferito dimmer o colore.</p>':''}<div>${this._loading?'<div class="empty">Caricamento…</div>':rows||`<div class="empty">Nessun ${preset?'preferito':'scenario'} salvato.</div>`}</div><button id="refresh" ${this._busy?'disabled':''}>Aggiorna elenco</button></div></ha-card>`;
     this.shadowRoot.querySelector('#name')?.addEventListener('input',e=>{this._name=e.target.value;this._syncState();});
     this.shadowRoot.querySelector('#capture')?.addEventListener('click',()=>this._capture());
     this.shadowRoot.querySelector('#moreInfo')?.addEventListener('click',()=>this._moreInfo());
@@ -213,6 +247,7 @@ export class CLLightMemoriesCard extends HTMLElement {
       if(item&&window.confirm(`Eliminare “${item.name}”?`))this._action('delete',{item_id:item.id});
     });
     this.shadowRoot.querySelector('#favorites')?.addEventListener('click',()=>{this._expanded=!this._expanded;this._render();this.shadowRoot.querySelector('#favorites')?.focus();});
+    this.shadowRoot.querySelector('#adjust')?.addEventListener('click',()=>{this._detailsExpanded=!this._detailsExpanded;this._render();this.shadowRoot.querySelector('#adjust')?.focus();});
     this.shadowRoot.querySelector('#power')?.addEventListener('click',()=>this._control(this._lightModel().on?'turn_off':'turn_on'));
     this.shadowRoot.querySelectorAll('[data-control]').forEach(el=>{
       el.addEventListener('input',()=>{const out=this.shadowRoot.querySelector(`[data-value="${el.dataset.control}"]`);if(out)out.textContent=el.value+(el.dataset.control==='temp'?' K':el.dataset.control==='hue'?'°':'%');});
