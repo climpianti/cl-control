@@ -1,6 +1,6 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.7**: interfaccia Glass, controlli compatti e dettagli per capacità, energia con flussi e grafici.
+> Prerelease **3.5.3-beta.8**: interfaccia Glass di beta.7 e riconoscimento automatico CL B&B Manager in Sistemi CL con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
@@ -170,6 +170,6 @@ Per bug e richieste di miglioramento usa la sezione **Issues** del repository Gi
 
 ## Versione
 
-**3.5.3-beta.7 — Prerelease**. La precedente baseline stabile rimane 3.5.1.
+**3.5.3-beta.8 — Prerelease**. La precedente baseline stabile rimane 3.5.1.
 
 Vedi [CHANGELOG.md](CHANGELOG.md) per le modifiche principali.
