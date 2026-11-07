@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 from pathlib import Path
 import re
 import subprocess
@@ -113,6 +114,11 @@ def main() -> int:
     args = parser.parse_args()
     if git("branch", "--show-current") != BRANCH:
         parser.error(f"Switch to {BRANCH} first")
+    if not shutil.which("gh"):
+        parser.error("GitHub CLI (gh) is missing. Rebuild the Codespace container after pulling .devcontainer changes.")
+    status = subprocess.run(["gh", "auth", "status"], cwd=ROOT, capture_output=True, text=True, timeout=20)
+    if status.returncode:
+        parser.error("GitHub CLI is not authenticated. Run gh auth login interactively; do not paste credentials into chat.")
     print("CL Codespace test bridge; approved tasks: offline, syntax.", flush=True)
     print("No ports are opened. Stop with Ctrl+C.", flush=True)
     try:
