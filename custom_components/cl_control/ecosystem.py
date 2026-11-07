@@ -23,6 +23,17 @@ CL_MODULE_SPECS: dict[str, dict[str, Any]] = {
         "preferred_panel_paths": (),
         "customer_visible": True,
     },
+    "cl_bb_manager": {
+        "module_id": "bb_manager",
+        "display_name": "CL B&B Manager",
+        "customer_label": "Gestione B&B",
+        "icon": "mdi:bed",
+        "strategy_type": "",
+        "preferred_panel_paths": ("cl-bb-manager",),
+        # The integration panel requires a Home Assistant administrator.
+        "customer_visible": True,
+        "admin_only": True,
+    },
 }
 
 
@@ -78,6 +89,7 @@ def build_module_descriptors(
                 "route": route,
                 "entry_count": int(entry_counts.get(domain, 0)),
                 "customer_visible": bool(spec.get("customer_visible", True) and ready),
+                "admin_only": bool(spec.get("admin_only", False)),
                 "status": (
                     "ready"
                     if ready
