@@ -1,4 +1,4 @@
-# Collaudo CL Control 3.5.3-beta.7
+# Collaudo CL Control 3.5.3-beta.8
 
 Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un aggiornamento stabile. Richiede Home Assistant >= 2026.9.0; il collaudo reale precedente alla confezione della release è stato eseguito su 2026.10.4. Non certifica ogni dispositivo o versione di HA.
 
@@ -6,12 +6,20 @@ Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un agg
 
 1. Crea un backup completo Home Assistant e annota la versione CL Control precedente.
 2. Usa preferibilmente un'istanza di test. L'integrazione genera una dashboard dalle entità esistenti: i suoi pulsanti possono comandare dispositivi reali.
-3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.7**. Se già installata, scegli questa versione nella procedura di riscaricamento.
-4. In alternativa scarica `cl-control-3.5.3-beta.7.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
+3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.8**. Se già installata, scegli questa versione nella procedura di riscaricamento.
+4. In alternativa scarica `cl-control-3.5.3-beta.8.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
 5. Riavvia Home Assistant. Alla prima installazione aggiungi **CL Control** da Impostazioni → Dispositivi e servizi. Apri la dashboard generata dalla barra laterale.
-6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.7** e revisione degli asset **3.5.3-beta.7-r1**. Non servono risorse Lovelace manuali.
+6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.8** e revisione degli asset **3.5.3-beta.8-r1**. Non servono risorse Lovelace manuali.
 
 L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenziali, entità o screenshot della demo. Non richiede di eliminare dispositivi. Nessun merge sul ramo stabile è necessario per provare questa prerelease.
+
+## Test collegamento CL B&B Manager
+
+- Installa la versione pilota CL B&B Manager che supporta operatori selezionati.
+- Verifica che CL B&B Manager appaia in **Sistemi CL** soltanto quando l’integrazione è configurata e il relativo pannello è disponibile.
+- Controlla da un account admin, un operatore assegnato e un altro utente. Il link deve apparire solo ai primi due.
+- Cambia l’elenco degli operatori nelle opzioni B&B: la visibilità del collegamento deve adeguarsi al prossimo caricamento della dashboard.
+- Il pannello B&B verifica sempre i permessi lato server, indipendentemente dalla visibilità del collegamento.
 
 ## Controlli consigliati
 
