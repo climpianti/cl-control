@@ -56,7 +56,7 @@ class BBManagerSystemsTests(unittest.TestCase):
         self.assertTrue(item["customer_visible"])
         self.assertTrue(item["admin_only"])
         self.assertEqual(item["route"], "/cl-bb-manager")
-        self.assertEqual(item["customer_label"], "Gestione B&B")
+        self.assertEqual(item["customer_label"], "CL B&B Manager")
 
     def test_missing_or_disabled_integration_never_shows_shortcut(self):
         for installed, panel in ((False, False), (False, True), (True, False)):
@@ -67,14 +67,14 @@ class BBManagerSystemsTests(unittest.TestCase):
                 )["ready"])
                 shortcuts = self._shortcuts(modules, ["administrator"])
                 self.assertFalse(any(
-                    c["label"] == "Gestione B&B" for _, c in shortcuts
+                    c["label"] == "CL B&B Manager" for _, c in shortcuts
                 ))
 
     def test_manager_shortcut_is_admin_only_and_opens_panel(self):
         shortcuts = self._shortcuts(self._modules(), ["administrator"])
         matching = [
             (outer, card) for outer, card in shortcuts
-            if card["label"] == "Gestione B&B"
+            if card["label"] == "CL B&B Manager"
         ]
         self.assertEqual(len(matching), 1)
         outer, card = matching[0]
@@ -89,7 +89,7 @@ class BBManagerSystemsTests(unittest.TestCase):
 
     def test_no_admin_users_means_no_manager_shortcut(self):
         self.assertFalse(any(
-            c["label"] == "Gestione B&B"
+            c["label"] == "CL B&B Manager"
             for _, c in self._shortcuts(self._modules(), [])
         ))
 
