@@ -1,0 +1,39 @@
+name: CL Control - Offline Checks
+
+on:
+  push:
+    branches:
+      - main
+      - 'beta/**'
+      - 'feature/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-tests:
+    name: Python 3.13 and Node.js 22
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate integration manifest and compile Python
+        run: |
+          python -m json.tool custom_components/cl_control/manifest.json > /dev/null
+          python -m compileall -q custom_components/cl_control tests
+      - name: Run offline unit tests
+        run: python tests/run_offline.py
+      - name: Validate JavaScript module syntax
+        run: |
+          find custom_components/cl_control/frontend tests -type f \( -name '*.mjs' -o -name '*.cjs' \) -print0 | xargs -0 -r -n 1 node --check
