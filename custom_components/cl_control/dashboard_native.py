@@ -1489,14 +1489,32 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         )
     )
     cl_system_cards = [_heading("Sistemi CL", "mdi:apps")]
+    admin_users = [
+        str(user_id) for user_id in model.get("admin_user_ids") or []
+        if str(user_id)
+    ]
     for module in visible_cl_modules:
-        cl_system_cards.append(
-            _navigation_shortcut(
-                name=str(module.get("customer_label") or module.get("display_name") or "CL"),
-                icon=str(module.get("icon") or "mdi:puzzle"),
-                path=str(module["route"]),
-            )
+        # B&B Manager allows configured operators as well as administrators.
+        # Only shortcut visibility is stored in Lovelace: B&B's backend is
+        # solely responsible for verifying permissions on every request.
+        allowed_users = admin_users
+        if module.get("domain") == "cl_bb_manager":
+            allowed_users = sorted(set(admin_users) | set(
+                str(user_id) for user_id in module.get("operator_user_ids") or []
+                if str(user_id)
+            ))
+        if module.get("admin_only") and not allowed_users:
+            continue
+        shortcut = _navigation_shortcut(
+            name=str(module.get("customer_label") or module.get("display_name") or "CL"),
+            icon=str(module.get("icon") or "mdi:puzzle"),
+            path=str(module["route"]),
         )
+        if module.get("admin_only"):
+            shortcut["visibility"] = [
+                {"condition": "user", "users": allowed_users}
+            ]
+        cl_system_cards.append(shortcut)
     if len(cl_system_cards) > 1:
         home_content_sections["cl_systems"] = {"type": "grid", "cards": cl_system_cards}
 

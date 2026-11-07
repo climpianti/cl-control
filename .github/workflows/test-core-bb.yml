@@ -1,0 +1,25 @@
+name: CL Control Core B&B regression
+on:
+  push:
+    branches:
+      - feature/beta7-bb-manager-systems-link
+      - beta/3.5.3-beta.8
+  pull_request:
+    paths:
+      - "custom_components/cl_control/**"
+      - "tests/**"
+      - ".github/workflows/test-core-bb.yml"
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Verify Python syntax
+        run: python -m compileall -q custom_components/cl_control tests
+      - name: Run offline regression suite
+        run: python tests/run_offline.py
