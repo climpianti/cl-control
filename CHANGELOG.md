@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.5.3-beta.8 — collegamento CL B&B Manager
+
+- Riconoscimento automatico di CL B&B Manager quando la relativa Config Entry e il pannello `/cl-bb-manager` sono presenti.
+- Collegamento in **Sistemi CL** per amministratori e operatori specificamente autorizzati dall’integrazione B&B.
+- Link nascosto agli altri utenti; ogni azione e lettura nel pannello B&B è verificata nuovamente dal suo backend.
+- Cache dashboard invalidata anche quando cambia l’elenco degli operatori.
+- Nessuna variazione ai comandi di varchi, prenotazioni o installatore, e nessuna migrazione dati.
+- Test offline di regressione con pipeline dedicata GitHub Actions.
+
+
 ## 3.5.3-beta.7 — Glass e collaudo su altre installazioni
 
 - Stile Glass condiviso tra Home, aree, card native, luci, aperture, multimedia, clima, sicurezza, energia e configurazione; logo CL Impianti conservato.
