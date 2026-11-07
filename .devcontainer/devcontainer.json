@@ -4,6 +4,10 @@
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
       "version": "22"
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/git-lfs:1": {
+      "autoPull": false
     }
   },
   "customizations": {
@@ -19,6 +23,6 @@
       }
     }
   },
-  "postCreateCommand": "python -m compileall -q custom_components/cl_control && python --version && node --version",
+  "postCreateCommand": "python -m compileall -q custom_components/cl_control && python --version && node --version && gh --version && git lfs version",
   "remoteUser": "vscode"
 }
