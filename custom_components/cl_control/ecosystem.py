@@ -50,11 +50,13 @@ def build_module_descriptors(
     entry_counts: dict[str, int] | None = None,
     panels: list[dict[str, Any]] | None = None,
     strategy_routes: dict[str, str] | None = None,
+    operator_user_ids: dict[str, tuple[str, ...]] | None = None,
 ) -> list[dict[str, Any]]:
     """Build stable CL module descriptors from structural Home Assistant data."""
     entry_counts = entry_counts or {}
     panels = panels or []
     strategy_routes = strategy_routes or {}
+    operator_user_ids = operator_user_ids or {}
     descriptors: list[dict[str, Any]] = []
 
     for domain, spec in CL_MODULE_SPECS.items():
@@ -90,6 +92,7 @@ def build_module_descriptors(
                 "entry_count": int(entry_counts.get(domain, 0)),
                 "customer_visible": bool(spec.get("customer_visible", True) and ready),
                 "admin_only": bool(spec.get("admin_only", False)),
+                "operator_user_ids": list(operator_user_ids.get(domain, ())),
                 "status": (
                     "ready"
                     if ready
@@ -112,6 +115,7 @@ def module_signature(modules: list[dict[str, Any]]) -> tuple[tuple[Any, ...], ..
             bool(item.get("ready")),
             item.get("route") or "",
             int(item.get("entry_count") or 0),
+            tuple(sorted(item.get("operator_user_ids") or ())),
         )
         for item in modules
     )
@@ -153,6 +157,7 @@ async def async_discover_cl_modules(hass: Any) -> list[dict[str, Any]]:
 
     active_domains: set[str] = set()
     entry_counts: dict[str, int] = {}
+    operator_users: dict[str, tuple[str, ...]] = {}
 
     for domain in CL_MODULE_SPECS:
         entries = hass.config_entries.async_entries(domain)
@@ -165,6 +170,17 @@ async def async_discover_cl_modules(hass: Any) -> list[dict[str, Any]]:
         if active:
             active_domains.add(domain)
             entry_counts[domain] = len(active)
+            if domain == "cl_bb_manager":
+                # Configured operator IDs are authoritative only for shortcut
+                # visibility; the B&B WebSocket API rechecks permissions.
+                raw = (getattr(active[0], "options", None) or {}).get(
+                    "operator_user_ids", []
+                )
+                if isinstance(raw, (list, tuple)):
+                    operator_users[domain] = tuple(dict.fromkeys(
+                        value for value in raw[:20]
+                        if isinstance(value, str) and 0 < len(value) <= 128
+                    ))
 
     panels = [
         {
@@ -211,6 +227,7 @@ async def async_discover_cl_modules(hass: Any) -> list[dict[str, Any]]:
         entry_counts=entry_counts,
         panels=panels,
         strategy_routes=strategy_routes,
+        operator_user_ids=operator_users,
     )
 
 
