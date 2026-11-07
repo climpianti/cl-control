@@ -1494,9 +1494,16 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         if str(user_id)
     ]
     for module in visible_cl_modules:
-        # The B&B Manager panel is admin-only: do not offer its shortcut to
-        # ordinary users, and preserve Lovelace visibility on the outer card.
-        if module.get("admin_only") and not admin_users:
+        # B&B Manager allows configured operators as well as administrators.
+        # Only shortcut visibility is stored in Lovelace: B&B's backend is
+        # solely responsible for verifying permissions on every request.
+        allowed_users = admin_users
+        if module.get("domain") == "cl_bb_manager":
+            allowed_users = sorted(set(admin_users) | set(
+                str(user_id) for user_id in module.get("operator_user_ids") or []
+                if str(user_id)
+            ))
+        if module.get("admin_only") and not allowed_users:
             continue
         shortcut = _navigation_shortcut(
             name=str(module.get("customer_label") or module.get("display_name") or "CL"),
@@ -1505,7 +1512,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         )
         if module.get("admin_only"):
             shortcut["visibility"] = [
-                {"condition": "user", "users": admin_users}
+                {"condition": "user", "users": allowed_users}
             ]
         cl_system_cards.append(shortcut)
     if len(cl_system_cards) > 1:
