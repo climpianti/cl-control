@@ -1489,14 +1489,25 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         )
     )
     cl_system_cards = [_heading("Sistemi CL", "mdi:apps")]
+    admin_users = [
+        str(user_id) for user_id in model.get("admin_user_ids") or []
+        if str(user_id)
+    ]
     for module in visible_cl_modules:
-        cl_system_cards.append(
-            _navigation_shortcut(
-                name=str(module.get("customer_label") or module.get("display_name") or "CL"),
-                icon=str(module.get("icon") or "mdi:puzzle"),
-                path=str(module["route"]),
-            )
+        # The B&B Manager panel is admin-only: do not offer its shortcut to
+        # ordinary users, and preserve Lovelace visibility on the outer card.
+        if module.get("admin_only") and not admin_users:
+            continue
+        shortcut = _navigation_shortcut(
+            name=str(module.get("customer_label") or module.get("display_name") or "CL"),
+            icon=str(module.get("icon") or "mdi:puzzle"),
+            path=str(module["route"]),
         )
+        if module.get("admin_only"):
+            shortcut["visibility"] = [
+                {"condition": "user", "users": admin_users}
+            ]
+        cl_system_cards.append(shortcut)
     if len(cl_system_cards) > 1:
         home_content_sections["cl_systems"] = {"type": "grid", "cards": cl_system_cards}
 
