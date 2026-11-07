@@ -30,7 +30,7 @@ CL_MODULE_SPECS: dict[str, dict[str, Any]] = {
         "icon": "mdi:bed",
         "strategy_type": "",
         "preferred_panel_paths": ("cl-bb-manager",),
-        # The integration panel requires a Home Assistant administrator.
+        # Shortcut visible only to HA admins and explicitly assigned B&B operators.
         "customer_visible": True,
         "admin_only": True,
     },
