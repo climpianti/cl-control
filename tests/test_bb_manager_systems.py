@@ -13,14 +13,15 @@ from custom_components.cl_control.energy_contract import empty_energy_model
 
 
 class BBManagerSystemsTests(unittest.TestCase):
-    def _modules(self, *, installed=True, panel=True):
+    def _modules(self, *, installed=True, panel=True, operators=()):
         return build_module_descriptors(
             active_domains={"cl_bb_manager"} if installed else set(),
             entry_counts={"cl_bb_manager": 1} if installed else {},
             panels=(
-                [{"path": "cl-bb-manager", "title": "CL B&B Manager"}]
+                [{"path": "cl-bb-manager", "title": ""}]
                 if panel else []
             ),
+            operator_user_ids={"cl_bb_manager": tuple(operators)},
         )
 
     def _shortcuts(self, modules, admin_users=None):
@@ -70,7 +71,7 @@ class BBManagerSystemsTests(unittest.TestCase):
                     c["label"] == "CL B&B Manager" for _, c in shortcuts
                 ))
 
-    def test_manager_shortcut_is_admin_only_and_opens_panel(self):
+    def test_manager_shortcut_allows_administrator_and_opens_panel(self):
         shortcuts = self._shortcuts(self._modules(), ["administrator"])
         matching = [
             (outer, card) for outer, card in shortcuts
@@ -87,11 +88,33 @@ class BBManagerSystemsTests(unittest.TestCase):
         self.assertEqual(card["visibility"], expected)
         self.assertEqual(outer["visibility"], expected)
 
-    def test_no_admin_users_means_no_manager_shortcut(self):
+    def test_no_authorized_users_means_no_manager_shortcut(self):
         self.assertFalse(any(
             c["label"] == "CL B&B Manager"
             for _, c in self._shortcuts(self._modules(), [])
         ))
+
+    def test_operator_can_see_shortcut_without_admin_account(self):
+        shortcuts = self._shortcuts(self._modules(operators=["operator"]), [])
+        matching = [
+            (outer, card) for outer, card in shortcuts
+            if card["label"] == "CL B&B Manager"
+        ]
+        self.assertEqual(len(matching), 1)
+        outer, card = matching[0]
+        expected = [{"condition": "user", "users": ["operator"]}]
+        self.assertEqual(card["visibility"], expected)
+        self.assertEqual(outer["visibility"], expected)
+
+    def test_operator_and_admin_visibility_are_combined(self):
+        shortcuts = self._shortcuts(self._modules(operators=["operator"]), ["administrator"])
+        matching = [
+            card for _, card in shortcuts if card["label"] == "CL B&B Manager"
+        ]
+        self.assertEqual(len(matching), 1)
+        self.assertEqual(matching[0]["visibility"], [{
+            "condition": "user", "users": ["administrator", "operator"],
+        }])
 
     def test_panel_install_and_uninstall_change_cache_signature(self):
         absent = self._modules(installed=False)
@@ -99,6 +122,10 @@ class BBManagerSystemsTests(unittest.TestCase):
         no_panel = self._modules(panel=False)
         self.assertNotEqual(module_signature(absent), module_signature(ready))
         self.assertNotEqual(module_signature(no_panel), module_signature(ready))
+        self.assertNotEqual(
+            module_signature(ready),
+            module_signature(self._modules(operators=["operator"])),
+        )
 
 
 if __name__ == "__main__":
