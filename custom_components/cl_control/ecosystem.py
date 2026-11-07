@@ -26,7 +26,7 @@ CL_MODULE_SPECS: dict[str, dict[str, Any]] = {
     "cl_bb_manager": {
         "module_id": "bb_manager",
         "display_name": "CL B&B Manager",
-        "customer_label": "Gestione B&B",
+        "customer_label": "CL B&B Manager",
         "icon": "mdi:bed",
         "strategy_type": "",
         "preferred_panel_paths": ("cl-bb-manager",),
