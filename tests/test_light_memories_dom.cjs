@@ -42,13 +42,15 @@ function name(w,value){const n=w.card.shadowRoot.querySelector('#name');n.value=
  w.hass.states['light.fixture']={state:'off',attributes:{supported_color_modes:['onoff']}};w.card.hass={...w.hass};
  assert.equal(root().querySelectorAll('[data-control]').length,0);
  dom.window.close();dom=await mount(true);w=dom.window;
+ root().querySelector('#createScene').click();
  w.hass.states['light.fixture'].state='unavailable';w.card.hass={...w.hass};
  assert.equal(root().querySelector('[data-target]').disabled,true);
  w.hass.states['light.fixture'].state='off';w.card.hass={...w.hass};
  assert.equal(root().querySelector('[data-target]').disabled,false);
  assert.equal(root().querySelector('.targets small').textContent,'Spenta');
- name(w,'Serata');assert.equal(root().querySelector('#capture').disabled,true);
+ assert.equal(root().querySelector('#nextScene').disabled,true);
  const target=root().querySelector('[data-target]');target.checked=true;target.dispatchEvent(new w.Event('change'));
+ root().querySelector('#nextScene').click();name(w,'Serata');root().querySelector('#nextScene').click();
  root().querySelector('#capture').click();await flush();await flush();
  assert.equal(w.calls.find(x=>x.type.endsWith('/capture')).entity_ids.join(','),'light.fixture');
  root().querySelector('[data-apply]').click();await flush();

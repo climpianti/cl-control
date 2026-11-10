@@ -1695,6 +1695,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         )
 
     if model["modules"]["lights"]["count"]:
+        scene_area_names = {area["id"]: area["name"] for area in model["areas"]}
         views.append({
             "type": "sections", "title": "Scenari luci", "path": "light-scenes",
             "icon": "mdi:palette-outline", "max_columns": 2,
@@ -1702,7 +1703,8 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 _branding_section(model, "Scenari luci", column_span=2),
                 {"type": "grid", "column_span": 2, "cards": [{
                     "type": "custom:cl-control-light-memories-card",
-                    "entities": [{"entity_id": e["entity_id"], "name": e["name"]}
+                    "entities": [{"entity_id": e["entity_id"], "name": e["name"],
+                                  "area_name": scene_area_names.get(e.get("area_id"), "Altre luci")}
                                  for e in model["modules"]["lights"]["entities"]
                                  if e["domain"] == "light"],
                     "grid_options": {"columns": "full", "rows": "auto"},

@@ -17,7 +17,7 @@ class SceneDashboardTests(unittest.TestCase):
         ])
         scenes = next(v for v in config["views"] if v["path"] == "light-scenes")
         card = next(c for s in scenes["sections"] for c in s["cards"] if c["type"] == "custom:cl-control-light-memories-card")
-        self.assertEqual(card["entities"], [{"entity_id":"light.a","name":"A"}])
+        self.assertEqual(card["entities"], [{"entity_id":"light.a","name":"A","area_name":"Stanza"}])
         area = next(v for v in config["views"] if v["path"] == "area-room")
         self.assertTrue(any(c.get("entity") == "light.a" and c["type"] == "custom:cl-control-light-memories-card" for s in area["sections"] for c in s["cards"]))
 

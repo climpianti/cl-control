@@ -3,6 +3,7 @@ const DIM = new Set(['brightness','rgb','rgbw','rgbww','hs','xy','color_temp','w
 function hueRGB(h){const c=x=>Math.round(255*Math.max(0,Math.min(1,Math.abs(((h/60+x)%6)-3)-1)));return [c(0),c(4),c(2)];}
 function rgbHue(rgb){const [r,g,b]=rgb.map(v=>v/255), max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;if(!d)return 0;return ((max===r?(g-b)/d:max===g?(b-r)/d+2:(r-g)/d+4)*60+360)%360;}
 const CHANGED = 'cl-control-light-memories-changed';
+const sceneCounts=(on,off)=>`${on} ${on===1?'accesa':'accese'} · ${off} ${off===1?'spenta':'spente'}`;
 
 export function lightTileConfig(entity, name, state) {
   const modes = state?.attributes?.supported_color_modes || [];
@@ -32,9 +33,10 @@ export class CLLightMemoriesCard extends HTMLElement {
     this._name=''; this._busy=false; this._loading=true; this._error=''; this._notice='';
     this._sequence=0; this._native=null; this._nativeKey=''; this._connected=false;
     this._expanded=false; this._detailsExpanded=false; this._controlBusy=false; this._controlKey='';
+    this._sceneStep=0; this._sceneRenderedStep=-1;
     this._refresh=()=>this._load();
   }
-  setConfig(config) { this._config={...config}; this._render(); }
+  setConfig(config) { this._config={...config}; this._sceneRenderedStep=-1; this._render(); }
   connectedCallback() {
     this._connected=true;
     window.addEventListener(CHANGED,this._refresh);
@@ -48,7 +50,7 @@ export class CLLightMemoriesCard extends HTMLElement {
     const first=!this._hass;
     const changedUser=this._hass?.user?.id!==hass?.user?.id;
     this._hass=hass;
-    if(changedUser){this._items=[];this._name='';this._selected.clear();}
+    if(changedUser){this._items=[];this._name='';this._selected.clear();this._sceneStep=0;this._sceneRenderedStep=-1;if(!this._isPreset())this._render();}
     if(this._native)this._native.hass=hass;
     this._syncState();
     if((first||changedUser)&&this._connected)this._load();
@@ -77,12 +79,13 @@ export class CLLightMemoriesCard extends HTMLElement {
     try{
       await this._hass.callWS({type:`cl_control/light_memories/${operation}`,...data});
       this._notice=operation==='apply'?'Richiesta inviata. Verifica le luci.':operation==='delete'?'Eliminato.':'Stato attuale salvato.';
-      if(operation==='capture')this._name='';
+      if(operation==='capture'){this._name='';if(!this._isPreset()){this._sceneStep=0;this._selected.clear();this._notice='Scenario salvato.';}}
       window.dispatchEvent(new Event(CHANGED));
     }catch(e){this._error=e?.message||'Operazione non completata. Verifica lo stato prima di riprovare.';}
-    finally{this._busy=false;this._render();}
+    finally{this._busy=false;this._render();if(operation==='capture'&&!this._isPreset()&&!this._sceneStep)this.shadowRoot.querySelector('#createScene')?.focus();}
   }
   _capture(){
+    if(!this._isPreset()&&(this._sceneStep!==3||!this._sceneSelectionReady()||!this._name.trim()))return;
     const entity_ids=this._isPreset()?[this._config.entity]:[...this._selected];
     this._action('capture',{name:this._name.trim(),entity_ids,kind:this._isPreset()?'preset':'scene'});
   }
@@ -147,7 +150,116 @@ export class CLLightMemoriesCard extends HTMLElement {
       if(out)out.textContent=el.dataset.control==='temp'?`${el.value} K`:el.dataset.control==='hue'?`${Math.round(Number(el.value))}°`:`${el.value}%`;
     });
   }
+  _sceneLightAvailable(id){
+    const s=this._hass?.states?.[id];
+    return ['on','off'].includes(s?.state)&&!s.attributes?.entity_id&&!s.attributes?.group_entities;
+  }
+  _sceneSelectionReady(){return this._selected.size>0&&this._selected.size<=32&&[...this._selected].every(id=>this._sceneLightAvailable(id));}
+  _syncSavedAvailability(){
+    this.shadowRoot.querySelectorAll('[data-apply]').forEach(button=>{
+      const item=this._items.find(i=>i.id===button.dataset.apply);
+      const ids=Object.keys(item?.states||{}),available=ids.length>0&&ids.every(id=>this._sceneLightAvailable(id));
+      button.disabled=this._busy||!available;
+      const hint=button.closest('.memory')?.querySelector('[data-availability]');
+      if(hint)hint.hidden=available;
+    });
+  }
+  _sceneLightDescription(id){
+    const s=this._hass?.states?.[id];
+    if(!this._sceneLightAvailable(id))return 'Da rimuovere dalla selezione o riprovare più tardi';
+    const description=memoryDescription({[id]:{...s.attributes,state:s.state}}).replace('Colore salvato','Colore attuale');
+    return s.state==='on'&&description!=='Accesa'?`Accesa · ${description}`:description;
+  }
+  _sceneStepTo(step){
+    if(this._busy)return;
+    if(step>this._sceneStep&&step===2&&!this._sceneSelectionReady())return;
+    if(step>this._sceneStep&&step===3&&(!this._sceneSelectionReady()||!this._name.trim()))return;
+    this._sceneStep=step;this._renderScenes();
+    const focus=this.shadowRoot.querySelector(step===2?'#name':step?'#sceneStepTitle':'#createScene');
+    focus?.focus();
+  }
+  _cancelScene(){this._name='';this._selected.clear();this._sceneStepTo(0);}
+  _renderScenes(){
+    const root=this.shadowRoot;
+    if(!root.querySelector('.scene-shell')){
+      root.innerHTML=`<style>
+        :host{display:block;min-width:0;color:#f5f7fc}*{box-sizing:border-box}ha-card{display:block;padding:18px;border:1px solid #b2daff55;border-radius:25px;background:radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33}
+        h3,h4,p{margin:0}h3{font-size:18px}h4{font-size:16px}.intro,small{color:#bdcadd;font-size:13px;line-height:1.5}small{display:block}.intro{margin:6px 0 14px}.scene-head,.memory,.actions,.editor-actions{display:flex;align-items:center;gap:10px}.scene-head{justify-content:space-between;flex-wrap:wrap}.memory{justify-content:space-between;padding:14px 0;border-top:1px solid #ffffff20}.memory>div:first-child{min-width:0;overflow-wrap:anywhere}.actions{flex-shrink:0}.memory strong{display:block;margin-bottom:4px}.empty{padding:18px 0;color:#bdcadd;font-size:14px}
+        button,input{font:inherit}button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:9px 12px;border:1px solid #ffffff25;border-radius:12px;background:#ffffff08;color:#f5f7fc;cursor:pointer}button ha-icon{--mdc-icon-size:19px}button:disabled{opacity:.45;cursor:default}.primary{background:#356a9c;border-color:#6599c455}.quiet{background:transparent}button:focus-visible,input:focus-visible,h4:focus-visible{outline:2px solid #78c5ff;outline-offset:3px}
+        .editor{margin-top:18px;padding-top:18px;border-top:1px solid #ffffff25}.steps{color:#8ac8ff;font-size:12px;margin-bottom:6px}.editor-actions{justify-content:flex-end;flex-wrap:wrap;margin-top:16px}.editor-actions #cancelScene{margin-right:auto}.targets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.targets label{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid #ffffff20;border-radius:12px;min-width:0;overflow-wrap:anywhere}.targets input{accent-color:#78c5ff;width:18px;height:18px;flex-shrink:0}.area-name{grid-column:1/-1;margin:12px 0 0;font-weight:600;font-size:14px;color:#bdcadd}.targets label span{min-width:0}.name-label{display:block;margin:14px 0 6px}#name{display:block;width:100%;padding:12px;font-size:16px;color:#f5f7fc;background:#ffffff08;border:1px solid #ffffff30;border-radius:12px}.summary{margin:12px 0 0;padding:12px;background:#ffffff08;border-radius:12px;font-size:14px;overflow-wrap:anywhere}.review-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:1px solid #ffffff10;padding:10px 0;overflow-wrap:anywhere}.review-row span{min-width:0}.review-row small{text-align:right}.message{padding:10px;margin:10px 0;background:#ffffff0b;border-radius:10px;font-size:13px;overflow-wrap:anywhere}#refresh{margin-top:12px}[hidden]{display:none!important}
+        @media(max-width:480px){ha-card{padding:14px}.targets{grid-template-columns:1fr}.memory{align-items:flex-start;flex-wrap:wrap}.memory>.actions{margin-left:auto}.editor-actions button{flex:1}.editor-actions #cancelScene{flex-basis:100%;margin:0}.review-row{flex-direction:column;gap:3px}.review-row small{text-align:left}}
+      </style><ha-card class="scene-shell"><div class="scene-head"><h3>I tuoi scenari</h3><button id="createScene" class="primary"><ha-icon icon="mdi:plus"></ha-icon>Crea scenario</button></div><p class="intro">Richiama le tue luci con le impostazioni salvate. Gli scenari sono personali per il tuo utente.</p><div id="sceneError" class="message" role="alert" hidden></div><div id="sceneNotice" class="message" role="status" hidden></div><div id="sceneList"></div><button id="refresh" class="quiet">Aggiorna elenco</button><section id="sceneEditor" class="editor" aria-label="Crea scenario" hidden></section></ha-card>`;
+      root.querySelector('#createScene').onclick=()=>this._sceneStepTo(1);
+      root.querySelector('#refresh').onclick=()=>this._load();
+      this._sceneRenderedStep=-1;
+    }
+    const names=Object.fromEntries((this._config.entities||[]).map(e=>[e.entity_id,e.name||e.entity_id]));
+    const areas=Object.fromEntries((this._config.entities||[]).map(e=>[e.entity_id,e.area_name]));
+    root.querySelector('#sceneList').innerHTML=this._items.map(item=>{
+      const ids=Object.keys(item.states),on=Object.values(item.states).filter(s=>s.state==='on').length;
+      const summary=ids.length===1?memoryDescription(item.states):on===0?'Tutte spente':sceneCounts(on,ids.length-on);
+      const areaNames=[...new Set(ids.map(id=>areas[id]).filter(Boolean))].join(' · ');
+      return `<div class="memory"><div><strong>${esc(item.name)}</strong>${areaNames?`<small>${esc(areaNames)}</small>`:''}<small>${ids.length} ${ids.length===1?'luce':'luci'} · ${esc(summary)}</small><details><summary>Luci incluse</summary><small>${esc(ids.map(id=>names[id]||id).join(', '))}</small></details><small data-availability hidden>Controlla le luci dello scenario prima di avviarlo.</small></div><div class="actions"><button data-apply="${esc(item.id)}" aria-label="Avvia ${esc(item.name)}"><ha-icon icon="mdi:play"></ha-icon>Avvia</button><button data-delete="${esc(item.id)}" aria-label="Elimina ${esc(item.name)}"><ha-icon icon="mdi:delete-outline"></ha-icon>Elimina</button></div></div>`;
+    }).join('')||`<p class="empty">${this._loading?'Caricamento…':'Non hai ancora scenari. Crea il primo con le luci che preferisci.'}</p>`;
+    root.querySelectorAll('[data-apply]').forEach(button=>button.onclick=()=>{
+      const item=this._items.find(i=>i.id===button.dataset.apply);
+      if(!button.disabled&&item&&window.confirm(`Avviare “${item.name}”? Verranno richiamate le impostazioni salvate di ${Object.keys(item.states).length} luci.`))this._action('apply',{item_id:item.id});
+    });
+    root.querySelectorAll('[data-delete]').forEach(button=>button.onclick=()=>{
+      const item=this._items.find(i=>i.id===button.dataset.delete);
+      if(item&&window.confirm(`Eliminare “${item.name}”?`))this._action('delete',{item_id:item.id});
+    });
+    const editor=root.querySelector('#sceneEditor');editor.hidden=!this._sceneStep;
+    if(this._sceneRenderedStep!==this._sceneStep){
+      const step=this._sceneStep;this._sceneRenderedStep=step;
+      if(!step)editor.replaceChildren();
+      else{
+        const titles=['','Scegli le luci','Dai un nome allo scenario','Controlla e salva'];
+        const groups=new Map();for(const entity of this._config.entities||[]){const group=entity.area_name||'Luci';if(!groups.has(group))groups.set(group,[]);groups.get(group).push(entity);}
+        const selector=[...groups].map(([area,entities])=>`<div class="area-name">${esc(area)}</div>${entities.map(e=>`<label><input type="checkbox" data-target="${esc(e.entity_id)}" ${this._selected.has(e.entity_id)?'checked':''}><span>${esc(e.name||e.entity_id)}<small></small></span></label>`).join('')}`).join('');
+        const review=[...this._selected].map(id=>`<div class="review-row"><span>${esc(names[id]||id)}</span><small data-review="${esc(id)}"></small></div>`).join('');
+        editor.innerHTML=`<p class="steps">Passaggio ${step} di 3</p><h4 id="sceneStepTitle" tabindex="-1">${titles[step]}</h4><p class="intro">${step===1?'Scegli fino a 32 luci, anche in ambienti diversi.':step===2?'Usa un nome facile da riconoscere, come “Relax” o “Cena”.':'Salveremo lo stato attuale delle luci, senza accenderle o spegnerle.'}</p>${step===1?`<div class="targets" role="group" aria-label="Luci dello scenario">${selector}</div>`:step===2?`<label class="name-label" for="name">Nome scenario</label><input id="name" maxlength="64" placeholder="Es. Serata in casa" value="${esc(this._name)}">`:`<p><strong>${esc(this._name.trim())}</strong></p>${review}`}<p id="selectionSummary" class="summary" role="status"></p><p id="selectionHint" class="intro"></p><div class="editor-actions"><button id="cancelScene" class="quiet">Annulla</button>${step>1?'<button id="previousScene">Indietro</button>':''}${step<3?'<button id="nextScene" class="primary">Continua</button>':'<button id="capture" class="primary"><ha-icon icon="mdi:camera-outline"></ha-icon>Salva stato attuale</button>'}</div>`;
+        editor.querySelector('#cancelScene').onclick=()=>this._cancelScene();
+        editor.querySelector('#previousScene')?.addEventListener('click',()=>this._sceneStepTo(step-1));
+        editor.querySelector('#nextScene')?.addEventListener('click',()=>this._sceneStepTo(step+1));
+        editor.querySelector('#capture')?.addEventListener('click',()=>this._capture());
+        editor.querySelector('#name')?.addEventListener('input',event=>{this._name=event.target.value;this._syncSceneState();});
+        editor.querySelectorAll('[data-target]').forEach(input=>input.onchange=()=>{input.checked?this._selected.add(input.dataset.target):this._selected.delete(input.dataset.target);this._syncState();});
+      }
+    }
+    this._syncSceneState();this._syncSavedAvailability();
+  }
+  _syncSceneState(){
+    const root=this.shadowRoot;if(!root.querySelector('.scene-shell'))return;
+    root.querySelector('#createScene').disabled=this._busy||this._sceneStep>0;
+    root.querySelector('#createScene').hidden=this._sceneStep>0;
+    root.querySelector('.scene-head h3').textContent=this._sceneStep?'Crea scenario':'I tuoi scenari';
+    root.querySelector('.scene-shell > .intro').textContent=this._sceneStep?'Salva le impostazioni da richiamare in seguito. Gli scenari sono personali per il tuo utente.':'Richiama le tue luci con le impostazioni salvate. Gli scenari sono personali per il tuo utente.';
+    root.querySelector('#sceneList').hidden=this._sceneStep>0;
+    root.querySelector('#refresh').hidden=this._sceneStep>0;
+    root.querySelector('#refresh').disabled=this._busy;
+    for(const [id,text] of [['sceneError',this._error],['sceneNotice',this._notice]]){const node=root.querySelector('#'+id);node.textContent=text;node.hidden=!text;}
+    root.querySelectorAll('[data-delete]').forEach(button=>button.disabled=this._busy);
+    if(!this._sceneStep)return;
+    root.querySelectorAll('[data-target]').forEach(input=>{
+      const available=this._sceneLightAvailable(input.dataset.target);
+      input.disabled=this._busy||(!input.checked&&(!available||this._selected.size>=32));
+      const label=input.closest('label').querySelector('small');label.textContent=available?this._sceneLightDescription(input.dataset.target):'Non selezionabile in questo momento';
+    });
+    root.querySelectorAll('[data-review]').forEach(node=>node.textContent=this._sceneLightDescription(node.dataset.review));
+    const ids=[...this._selected],on=ids.filter(id=>this._sceneLightAvailable(id)&&this._hass.states[id].state==='on').length,off=ids.filter(id=>this._sceneLightAvailable(id)&&this._hass.states[id].state==='off').length;
+    const ready=this._sceneSelectionReady();
+    root.querySelector('#selectionSummary').textContent=ids.length?`${ids.length} ${ids.length===1?'luce selezionata':'luci selezionate'} · ${sceneCounts(on,off)}`:'Nessuna luce selezionata';
+    const hint=root.querySelector('#selectionHint');
+    hint.textContent=ids.length&&!ready?'Rimuovi le luci non selezionabili o attendi che tornino raggiungibili.':this._sceneStep===3?(on===0?'Questo scenario spegnerà tutte le luci selezionate quando lo avvierai.':'Le luci non selezionate resteranno invariate. Lo stato viene letto al momento del salvataggio.'):'La selezione non comanda le luci.';
+    root.querySelector('#nextScene')?.toggleAttribute('disabled',this._busy||!ready||(this._sceneStep===2&&!this._name.trim()));
+    root.querySelector('#capture')?.toggleAttribute('disabled',this._busy||!ready||!this._name.trim());
+    root.querySelector('#name')?.toggleAttribute('disabled',this._busy);
+    root.querySelectorAll('#cancelScene,#previousScene').forEach(button=>button.disabled=this._busy);
+  }
   _syncState(){
+    this._syncSavedAvailability();
+    if(!this._isPreset()){this._syncSceneState();return;}
     if(!this._isPreset())this.shadowRoot.querySelectorAll('[data-target]').forEach(el=>{
       const state=this._hass?.states?.[el.dataset.target];
       const available=['on','off'].includes(state?.state)&&!state?.attributes?.entity_id&&!state?.attributes?.group_entities;
@@ -162,6 +274,7 @@ export class CLLightMemoriesCard extends HTMLElement {
     if(this._isPreset())this._syncControls();
   }
   _render(){
+    if(!this._isPreset()){this._renderScenes();return;}
     const preset=this._isPreset();
     const names=Object.fromEntries((this._config.entities||[]).map(e=>[e.entity_id,e.name||e.entity_id]));
     const selector=preset?'':`<div class="targets" role="group" aria-label="Luci dello scenario">${(this._config.entities||[]).map(e=>{

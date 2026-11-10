@@ -1,4 +1,4 @@
-# Collaudo CL Control 3.5.3-beta.8
+# Collaudo CL Control 3.5.3-beta.9
 
 Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un aggiornamento stabile. Richiede Home Assistant >= 2026.9.0; il collaudo reale precedente alla confezione della release è stato eseguito su 2026.10.4. Non certifica ogni dispositivo o versione di HA.
 
@@ -6,10 +6,10 @@ Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un agg
 
 1. Crea un backup completo Home Assistant e annota la versione CL Control precedente.
 2. Usa preferibilmente un'istanza di test. L'integrazione genera una dashboard dalle entità esistenti: i suoi pulsanti possono comandare dispositivi reali.
-3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.8**. Se già installata, scegli questa versione nella procedura di riscaricamento.
-4. In alternativa scarica `cl-control-3.5.3-beta.8.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
+3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.9**. Se già installata, scegli questa versione nella procedura di riscaricamento. Su HA 2026.11 usa Marketplace nelle Impostazioni; l'eventuale avviso iniziale deve essere letto e accettato dall'utente.
+4. In alternativa scarica `cl-control-3.5.3-beta.9.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
 5. Riavvia Home Assistant. Alla prima installazione aggiungi **CL Control** da Impostazioni → Dispositivi e servizi. Apri la dashboard generata dalla barra laterale.
-6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.8** e revisione degli asset **3.5.3-beta.8-r1**. Non servono risorse Lovelace manuali.
+6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.9** e revisione degli asset **3.5.3-beta.9-r1**. Non servono risorse Lovelace manuali.
 
 L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenziali, entità o screenshot della demo. Non richiede di eliminare dispositivi. Nessun merge sul ramo stabile è necessario per provare questa prerelease.
 
@@ -23,6 +23,9 @@ L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenzial
 
 ## Controlli consigliati
 
+- Scenari luci: elenco iniziale, creazione per ambiente, nome e riepilogo; annullare non salva. Verifica il caso di sole luci spente, che deve essere esplicitato prima del salvataggio.
+- Scenari realtime: una luce selezionata che perde connessione deve bloccare Salva e poter essere rimossa; Avvia deve adeguarsi senza aggiornare manualmente l'elenco. Per questi test usare entità simulate.
+- Home: nessun conteggio di dispositivi non disponibili nei riepiloghi. Senza stati noti il sottotitolo resta vuoto, senza dichiarare falsamente spento o disinserito.
 - Home e aree: intestazioni, meteo, Assistenza, nomi lunghi, card native e collegamenti Installatore visibili solo agli utenti autorizzati.
 - Luci: riepilogo compatto, colore/intensità, dettagli e preferiti coerenti con le capacità dell'entità.
 - Aperture: pulsanti disponibili, icona e percentuale aggiornate; una modifica alla percentuale deve restare una bozza fino ad Applica.
@@ -51,6 +54,7 @@ node tests/test_glass_coverage.cjs
 node tests/test_installer_layout.cjs
 node tests/test_energy_missing_data.cjs
 node tests/test_light_memories_ui.cjs
+node tests/test_scenes_guided.cjs
 ```
 
 I test browser usano API simulate e segnaposto per componenti nativi HA: non collaudano l'intero runtime Home Assistant. Producono screenshot locali sotto `test-artifacts/`, esclusi dal repository. Per usare Chrome installato imposta `CL_TEST_BROWSER_CHANNEL=chrome`; `PLAYWRIGHT_MODULE` consente un percorso alternativo del modulo. `CL_BASELINE_REF` abilita screenshot di confronto dove previsti, solo se il riferimento Git contiene il relativo asset.
@@ -59,8 +63,8 @@ Il test DOM opzionale `test_light_memories_dom.cjs` richiede anche jsdom; è dis
 
 ### Verifiche eseguite per questa release
 
-- 89 test Python offline: superati.
-- Otto suite in Chrome tramite Playwright 1.62.1 con API simulate: multimedia, aperture, energia, sicurezza/clima, Home/header/Assistenza, copertura Glass, sovrapposizioni Installatore e luci/preferiti. Superate; layout responsive verificato alle sei larghezze indicate.
+- 97 test Python offline, incluse le regressioni B&B e i nomi degli ambienti per gli scenari: superati.
+- Suite browser in Chrome tramite Playwright 1.62.1 con API simulate, incluso il nuovo percorso scenari a sei larghezze: scelta, nome, riepilogo, annullamento, conferma, errore di salvataggio, limite di 32 luci e focus/cursore durante gli aggiornamenti.
 - Regressione Node sui dati energia assenti/zero: superata.
 - Sintassi di tutti i moduli frontend e test browser: verificata. Archivio ZIP: integrità, versioni, asset richiesti e impronta SHA256 verificati.
 - Test DOM aggiuntivo con jsdom non eseguito in questa preparazione perché la dipendenza non era disponibile.

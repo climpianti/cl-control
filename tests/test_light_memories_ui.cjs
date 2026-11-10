@@ -102,9 +102,12 @@ if(require.main===module)(async()=>{
    assert.equal(await root.locator('ha-card').evaluate(e=>e.style.getPropertyValue('--light-level')),'100%');
    if(process.env.SCREENSHOT_DIR)await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'summary-green-100.png')});
    await page.goto(url+'/?scenes');await page.waitForFunction(()=>window.ready);
-   await root.locator('#name').fill('Serata');
-   assert.equal(await root.locator('#capture').isDisabled(),true);
+   await root.locator('#createScene').click();
+   assert.equal(await root.locator('#nextScene').isDisabled(),true);
    await root.locator('[data-target]').check();
+   await root.locator('#nextScene').click();
+   await root.locator('#name').fill('Serata');
+   await root.locator('#nextScene').click();
    await root.locator('#capture').click();await root.locator('[data-apply]').waitFor();
    assert.deepEqual((await page.evaluate(()=>calls.find(x=>x.type.endsWith('/capture')))).entity_ids,['light.fixture']);
    await root.locator('[data-apply]').click();

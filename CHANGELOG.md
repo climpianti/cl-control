@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.5.3-beta.9 — Scenari guidati e riepiloghi Home
+
+- Scenari salvati in primo piano con ambiente, conteggio delle luci e dettagli espandibili.
+- Creazione separata in tre passaggi: luci per ambiente, nome, riepilogo e salvataggio esplicito dello stato attuale, senza comandi ai dispositivi.
+- Avviso per uno scenario di sole luci spente; annullamento della bozza senza scritture e conservazione della bozza in caso di errore.
+- Disponibilità realtime di selezione, salvataggio e avvio; possibilità di rimuovere una luce selezionata non più raggiungibile.
+- Nome, selezione e cursore preservati durante gli aggiornamenti realtime e dell'elenco.
+- Eliminata la dicitura di indisponibilità dai riepiloghi Home, conservando icone e grafica esistenti.
+- Persistenza personale e API esistenti preservate; nessuna migrazione dell'archivio. Cache frontend `3.5.3-beta.9-r1`.
+- Conservato il collegamento CL B&B Manager e le autorizzazioni della beta.8.
+
 ## 3.5.3-beta.8 — collegamento CL B&B Manager
 
 - Riconoscimento automatico di CL B&B Manager quando la relativa Config Entry e il pannello `/cl-bb-manager` sono presenti.
@@ -8,7 +19,6 @@
 - Cache dashboard invalidata anche quando cambia l’elenco degli operatori.
 - Nessuna variazione ai comandi di varchi, prenotazioni o installatore, e nessuna migrazione dati.
 - Test offline di regressione con pipeline dedicata GitHub Actions.
-
 
 ## 3.5.3-beta.7 — Glass e collaudo su altre installazioni
 

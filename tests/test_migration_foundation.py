@@ -41,6 +41,15 @@ def cards(view):
 
 
 class MigrationFoundationTests(unittest.TestCase):
+    def test_scene_light_selector_receives_area_names(self):
+        views = build_native_lovelace(fixture_model())["views"]
+        view = next(view for view in views if view["path"] == "light-scenes")
+        selector = next(card for card in cards(view) if card["type"] == "custom:cl-control-light-memories-card")
+        self.assertEqual(selector["entities"], [{
+            "entity_id": "light.migration_test", "name": "Luce di prova con nome molto lungo",
+            "area_name": "Ambiente sintetico",
+        }])
+
     def test_native_customer_views_exist(self):
         config = build_native_lovelace(fixture_model())
         views = {view["path"]: view for view in config["views"]}

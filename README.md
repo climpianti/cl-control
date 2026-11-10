@@ -1,6 +1,6 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.8**: interfaccia Glass di beta.7 e riconoscimento automatico CL B&B Manager in Sistemi CL con autorizzazioni admin/operatore.
+> Prerelease **3.5.3-beta.9**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
@@ -10,11 +10,18 @@ Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaud
 
 ### Scenari luci e preferiti nella beta
 
-Da **Sistemi → Scenari luci**, seleziona le singole luci, assegna un nome e premi
-**Fotografa e salva**. Il salvataggio legge lo stato senza azionare le luci.
-**Applica** richiede conferma per gli scenari con più luci e riproduce gli stati
+**Sistemi → Scenari luci** mostra prima gli scenari personali salvati.
+**Crea scenario** apre tre passaggi: selezione delle singole luci per ambiente,
+nome e riepilogo. **Salva stato attuale** legge lo stato senza azionare le luci;
+il riepilogo evidenzia anche gli scenari che spegneranno tutte le luci selezionate.
+**Avvia** richiede conferma e riproduce gli stati
 tramite Home Assistant. Il comando può avere effetti parziali se un dispositivo
 si scollega durante l'esecuzione: controlla sempre il risultato.
+
+La selezione e i comandi seguono la disponibilità realtime. Una luce selezionata
+che perde la connessione può essere rimossa; il salvataggio resta bloccato finché
+la selezione non è valida. Nome e cursore restano stabili durante gli aggiornamenti.
+Il percorso guidato è incluso dalla prerelease beta.9.
 
 Le schede luce compatte riflettono colore e luminosità; il pulsante dettagli apre le regolazioni. La scheda clima Glass mostra temperatura ambiente/target e apre i controlli nativi HA per modalità HVAC, preset, ventola, oscillazione e umidità, secondo le capacità reali dell'entità. La precedente `cl-control-climate-card` rimane disponibile per le configurazioni manuali.
 Il canale **Bianco W** appare solo per RGBW; la temperatura solo se supportata.
@@ -170,6 +177,6 @@ Per bug e richieste di miglioramento usa la sezione **Issues** del repository Gi
 
 ## Versione
 
-**3.5.3-beta.8 — Prerelease**. La precedente baseline stabile rimane 3.5.1.
+**3.5.3-beta.9 — Prerelease**. La precedente baseline stabile rimane 3.5.1.
 
 Vedi [CHANGELOG.md](CHANGELOG.md) per le modifiche principali.

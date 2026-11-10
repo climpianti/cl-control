@@ -4,6 +4,7 @@ on:
     branches:
       - feature/beta7-bb-manager-systems-link
       - beta/3.5.3-beta.8
+      - beta/3.5.3-beta.9
   pull_request:
     paths:
       - "custom_components/cl_control/**"
@@ -23,3 +24,19 @@ jobs:
         run: python -m compileall -q custom_components/cl_control tests
       - name: Run offline regression suite
         run: python tests/run_offline.py
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Verify Home, lights and guided scenes with simulated APIs
+        run: |
+          node tests/test_home_glass.cjs
+          node tests/test_light_memories_ui.cjs
+          node tests/test_scenes_guided.cjs

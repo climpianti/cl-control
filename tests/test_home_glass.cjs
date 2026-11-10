@@ -29,8 +29,20 @@ const out=path.resolve(process.env.CL_TEST_ARTIFACTS||'test-artifacts', 'home-gl
  await page.evaluate(()=>{hass.states['climate.fixture'].attributes.hvac_action='idle';cards.climate.hass=hass;});assert.equal(await page.evaluate(()=>cards.climate.shadowRoot.querySelector('.tile').dataset.tone),'blue');assert.match(await page.evaluate(()=>cards.climate.shadowRoot.querySelector('.state').textContent),/attesa/);
  await page.evaluate(()=>{hass.states['climate.fixture'].state='off';hass.states['climate.fixture'].attributes.hvac_action='heating';cards.climate.hass=hass;});assert.equal(await page.evaluate(()=>cards.climate.shadowRoot.querySelector('.tile').dataset.motion),'none');
  await page.evaluate(()=>{hass.states['alarm_control_panel.fixture'].state='triggered';cards.security.hass=hass;});assert.equal(await page.evaluate(()=>cards.security.shadowRoot.querySelector('.tile').dataset.tone),'alert');
- await page.evaluate(()=>{hass.states['light.fixture'].state='unavailable';cards.lights.hass=hass;});assert.match(await page.evaluate(()=>cards.lights.shadowRoot.querySelector('.state').textContent),/non disponibile/);assert.doesNotMatch(await page.evaluate(()=>cards.lights.shadowRoot.querySelector('.state').textContent),/Tutte spente/);
- await page.evaluate(()=>{hass.states['light.other'].state='unavailable';cards.lights.hass=hass;});assert.equal(await page.evaluate(()=>cards.lights.shadowRoot.querySelector('.tile').dataset.tone),'unavailable');
+ await page.evaluate(()=>{hass.states['light.fixture'].state='unavailable';cards.lights.hass=hass;});assert.equal(await page.evaluate(()=>cards.lights.shadowRoot.querySelector('.state').textContent),'Nessuna accesa rilevata');
+ await page.evaluate(()=>{hass.states['light.other'].state='unavailable';cards.lights.hass=hass;});assert.equal(await page.evaluate(()=>cards.lights.shadowRoot.querySelector('.tile').dataset.tone),'neutral');assert.equal(await page.evaluate(()=>cards.lights.shadowRoot.querySelector('.state').hidden),true);
+ const summaries=await page.evaluate(()=>{
+  const result={};
+  const cases={lights:['on',{}],covers:['open',{current_position:80}],climate:['heat',{hvac_action:'heating'}],security:['armed_away',{}],media:['playing',{}],cameras:['streaming',{}]};
+  for(const [module,[state,attributes]] of Object.entries(cases)){
+   const fixture={states:{live:{state,attributes},offline:{state:'unavailable',attributes:{}},unknown:{state:'unknown',attributes:{}}}};
+   result[module]={active:presentation(module,['live'],fixture),partial:presentation(module,['live','offline','unknown','missing'],fixture),empty:presentation(module,['offline','unknown','missing'],fixture)};
+  }
+  hass.states['light.fixture'].state='on';cards.lights.hass=hass;
+  return result;
+ });
+ for(const [module,{active,partial,empty}] of Object.entries(summaries)){assert.deepEqual(partial,active,module+' keeps only the known activity');assert.equal(empty.text,'');assert.equal(empty.tone,'neutral');assert.doesNotMatch(partial.text,/non disponibil/i);}
+ assert.equal(await page.evaluate(()=>cards.lights.shadowRoot.querySelector('.state').hidden),false);assert.equal(await page.evaluate(()=>cards.lights.shadowRoot.querySelector('svg')===lightIcon),true);
  await page.evaluate(()=>{hass.states['weather.fixture'].state='unavailable';header.hass=hass;});assert.match(await page.locator('cl-control-header-card .weather').innerText(),/Non disponibile/);assert.equal(await page.locator('cl-control-header-card .weather').isDisabled(),true);
  await page.emulateMedia({reducedMotion:'reduce'});assert.equal(await page.evaluate(()=>getComputedStyle(cards.media.shadowRoot.querySelector('.bar')).animationName),'none');
  await page.evaluate(()=>{window.nativeConfigs=[];window.loadCardHelpers=async()=>({createCardElement:config=>{nativeConfigs.push(config);const node=document.createElement('div');node.textContent='Card nativa HA · segnaposto';return node;}});window.surface=document.createElement('cl-control-home-surface');surface.setConfig({card:{type:'area',area:'living',navigation_path:'area-living'}});surface.hass=hass;document.querySelector('main').append(surface);});

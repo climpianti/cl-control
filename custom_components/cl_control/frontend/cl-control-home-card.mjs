@@ -10,7 +10,8 @@ export function systemPresentation(module,ids,hass){
  const missing=states.length-valid.length;
  const result={tone:'neutral',motion:'none',text:'Apri sezione',position:0,brightness:0};
  if(!ids.length)return result;
- if(!valid.length)return {...result,text:'Non disponibile',tone:'unavailable'};
+ // Keep navigation and the original icon without inventing an inactive state.
+ if(!valid.length)return {...result,text:''};
  const count=predicate=>valid.filter(predicate).length;
  if(module==='lights'){
   const on=valid.filter(s=>s.state==='on');result.text=on.length?`${on.length} ${on.length===1?'luce accesa':'luci accese'}`:'Tutte spente';
@@ -42,7 +43,7 @@ export function systemPresentation(module,ids,hass){
  if(module==='security'&&valid.some(s=>!['disarmed','triggered','pending','arming','disarming'].includes(s.state)&&!s.state.startsWith('armed_'))&&result.tone==='neutral')result.text='Stato da verificare';
  if(missing){
   const partial={'Tutte spente':'Nessuna accesa rilevata','Tutte chiuse':'Nessuna aperta rilevata','Tutto spento':'Nessuna zona abilitata rilevata','Disinserito':'Nessun inserimento rilevato'};
-  result.text=(partial[result.text]||result.text)+` · ${missing} non ${missing===1?'disponibile':'disponibili'}`;
+  result.text=partial[result.text]||result.text;
  }
  return result;
 }
@@ -80,7 +81,7 @@ class CLControlSystemCard extends HTMLElement{
   const cfg=this._config,p=systemPresentation(cfg.module,cfg.entities||[],this._hass);
   const colors={neutral:'#b8c1ce',unavailable:'#8794a8',warm:'#ffd075',cool:'#77d1ff',blue:'#8ac8ff',good:'#6ce0c5',purple:'#c3a0ff',alert:'#ff9bae',mixed:'#d8b5ff'};
   tile.dataset.motion=p.motion;tile.dataset.tone=p.tone;tile.style.setProperty('--accent',colors[p.tone]);tile.style.setProperty('--slats',p.position===null?1:Math.max(.05,1-p.position/100));
-  this.shadowRoot.querySelector('strong').textContent=cfg.name||'Sistema';this.shadowRoot.querySelector('.state').textContent=p.text;
+  this.shadowRoot.querySelector('strong').textContent=cfg.name||'Sistema';const status=this.shadowRoot.querySelector('.state');status.textContent=p.text;status.hidden=!p.text;
   const icon=this.shadowRoot.querySelector('.icon'),drawing=glyphs[cfg.module];
   if(drawing){const svg=`<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${drawing}</svg>`;if(this._glyph!==svg){icon.innerHTML=svg;this._glyph=svg;}}
   else if(!icon.firstChild){const fallback=document.createElement('ha-icon');fallback.setAttribute('icon',cfg.icon||'mdi:view-grid-outline');icon.append(fallback);}
