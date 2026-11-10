@@ -4,7 +4,9 @@ const {fixture,asset}=require('./test_light_memories_ui.cjs');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const output=path.resolve(process.env.CL_TEST_ARTIFACTS||'test-artifacts','scenes-guided');fs.mkdirSync(output,{recursive:true});
 const baseline=process.env.CL_BASELINE_REF?cp.execFileSync('git',['show',process.env.CL_BASELINE_REF+':custom_components/cl_control/frontend/cl-control-light-memories-card.mjs'],{encoding:'utf8'}):null;
-const html=fixture.replace('<html lang="it">','<html lang="it"><meta charset="utf-8">').replace('<main></main>','<main><p>Anteprima locale · dati simulati · nessun dispositivo connesso</p></main>');
+const html=fixture.replace('<html lang="it">','<html lang="it"><meta charset="utf-8">').replace('<main></main>','<main><p>Anteprima locale · dati simulati · nessun dispositivo connesso</p></main>')
+ .replace('--primary-text-color:#f5f8ff','--primary-text-color:#111111')
+ .replace("this.style.display='block'","this.style.display='block';this.style.color='var(--primary-text-color, #111111)'");
 const server=http.createServer((req,res)=>{
  res.setHeader('Content-Type',req.url.endsWith('.mjs')?'text/javascript':'text/html');
  res.end(req.url==='/card.mjs'?fs.readFileSync(asset):req.url==='/baseline.mjs'?baseline:html.replace("from '/card.mjs'",req.url.startsWith('/before')?"from '/baseline.mjs'":"from '/card.mjs'"));
@@ -39,6 +41,9 @@ async function prepare(page,url){
   if(baseline){await prepare(page,base+'/before?scenes');await page.locator('cl-control-light-memories-card').screenshot({path:path.join(output,'before-390.png')});}
   await prepare(page,base+'/?scenes');const root=page.locator('cl-control-light-memories-card');
   assert.equal(await root.locator('#sceneEditor').isVisible(),false);
+  // Native ha-card inherits the active HA theme, including a dark text color in light mode.
+  const contrastText=await root.locator('h3').evaluate(el=>getComputedStyle(el).color);
+  assert.ok(contrastText.match(/[0-9]+/g).slice(0,3).every(value=>Number(value)>180),'Glass heading must stay readable under the native light theme: '+contrastText);
   await page.evaluate(()=>{window.originalIcon=null;window.dialogs=[];});
   const verifyWidths=async label=>{for(const width of [320,390,768,1024,1440,1920]){
    await page.setViewportSize({width,height:950});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,label+' '+width);

@@ -1,6 +1,6 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.9**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
+> Prerelease **3.5.3-beta.10**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
@@ -177,6 +177,6 @@ Per bug e richieste di miglioramento usa la sezione **Issues** del repository Gi
 
 ## Versione
 
-**3.5.3-beta.9 — Prerelease**. La precedente baseline stabile rimane 3.5.1.
+**3.5.3-beta.10 — Prerelease**. La precedente baseline stabile rimane 3.5.1.
 
 Vedi [CHANGELOG.md](CHANGELOG.md) per le modifiche principali.

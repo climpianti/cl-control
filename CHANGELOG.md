@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.5.3-beta.10 — Contrasto scenari con tema chiaro HA
+
+- Colori di testo espliciti sulla superficie Glass degli scenari per mantenere leggibili titoli, nomi e dettagli anche quando la card nativa HA eredita un tema chiaro.
+- Regressione browser riprodotta con testo scuro nativo HA prima della correzione; il percorso guidato conserva le funzioni della beta.9.
+- Cache frontend `3.5.3-beta.10-r1`.
+
 ## 3.5.3-beta.9 — Scenari guidati e riepiloghi Home
 
 - Scenari salvati in primo piano con ambiente, conteggio delle luci e dettagli espandibili.

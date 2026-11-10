@@ -5,6 +5,7 @@ on:
       - feature/beta7-bb-manager-systems-link
       - beta/3.5.3-beta.8
       - beta/3.5.3-beta.9
+      - beta/3.5.3-beta.10
   pull_request:
     paths:
       - "custom_components/cl_control/**"
