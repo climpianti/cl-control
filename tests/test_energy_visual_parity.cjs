@@ -1,0 +1,46 @@
+// Concept parity and truthful visual-only smoothing. No HA commands.
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
+const source=fs.readFileSync(path.join(__dirname,'../custom_components/cl_control/frontend/cl-control-energy-card.mjs'),'utf8');
+const sandbox=vm.createContext({HTMLElement:class{},customElements:{get(){return undefined;},define(){}},window:{}});
+vm.runInContext(source.replace('export {CLEnergyCard};','')+'\nthis.probe={visualEnergySegments,energyCurveSegments,CLEnergyCard,ENERGY_LEGEND_ICONS}',sandbox);
+const {visualEnergySegments:visual,CLEnergyCard,ENERGY_LEGEND_ICONS}=sandbox.probe;
+const t0=Date.UTC(2026,10,10,18,0);
+const input=Array.from({length:45},(_,i)=>({x:i*8,t:t0+i*300000,y:i%2?32:70,zero:false}));
+const before=JSON.stringify(input),out=visual(input);
+assert.equal(out.length,1);
+assert.equal(out[0].length,input.length);
+assert.equal(JSON.stringify(input),before,'visual rendering must not mutate original measurements');
+assert.equal(out[0][0].y,input[0].y);
+assert.equal(out[0][44].y,input[44].y);
+const center=51,from=out[0].slice(8,-8);
+const inputDeviation=input.slice(8,-8).reduce((s,p)=>s+Math.abs(p.y-center),0);
+const outputDeviation=from.reduce((s,p)=>s+Math.abs(p.y-center),0);
+assert.ok(outputDeviation<inputDeviation*.65,'five-minute display should be visually smoother');
+const solar=input.map((p,i)=>({...p,zero:i>=18,y:i>=18?200:p.y}));
+assert.ok(visual(solar)[0].slice(18).every(p=>p.y===200),'explicit real zero must stay at baseline');
+const missing=[...input.slice(0,18),null,...input.slice(19)];
+assert.equal(visual(missing).length,2,'null samples must split traces');
+const sparse=Array.from({length:9},(_,i)=>({t:t0+i*3600000,x:i*9,y:i%2?10:80,zero:false}));
+assert.deepEqual(Array.from(visual(sparse)[0],p=>p.y),sparse.map(p=>p.y),'hourly sparse samples must retain unsmoothed shape');
+const disconnected=[...input.slice(0,10),...input.slice(10,20).map(p=>({...p,t:p.t+90*60000,x:p.x+80}))];
+assert.equal(visual(disconnected).length,2,'large gaps must split traces');
+const cfg=Object.create(CLEnergyCard.prototype);
+cfg._plotWidth=380;cfg._range='24h';cfg._barMetric='home';cfg._statsLoading=new Set();
+cfg._rangeStats={points:input.map((p,i)=>({t:p.t,pv:0,home:i%2?.08:.12,import:i%2?.08:.12,export:0}))};
+const markup=cfg._chartMarkup();
+for(const phrase of ['trendPremium','trendTitleIcon','legendIcon','curveNote','data-energy-chart']){
+  assert.ok(markup.includes(phrase),'missing '+phrase);
+}
+for(const key of ['pv','home','import','export'])assert.ok(ENERGY_LEGEND_ICONS[key].includes('<svg'));
+assert.equal((markup.match(/class="legendIcon"/g)||[]).length,4);
+cfg._collectLoads=()=>[{id:'demo',name:'Consumo Co.he.s',ranking:0,rankValue:120,power:120,energyToday:.25,source:'cl_control',energyIds:['sensor.demo'],powerEntity:'sensor.power',command:null,suspended:false,mode:''}];
+cfg._state=()=>({state:'off'});cfg._loadRange='now';
+const loads=cfg._loadsMarkup();
+assert.ok(loads.includes('class="loadDetailArrow"'));
+assert.ok(loads.includes('data-load-detail="demo"'));
+assert.ok(loads.includes('loadHeadMain')&&loads.includes('loadMeter'));
+assert.ok(source.includes('.trendPremium .chartTooltip::after'));
+assert.ok(source.includes('--cl-pointer-x'));
+assert.ok(source.includes('.trendPremium::before,.loadsPremium::before'));
+console.log('Glass parity OK: smoothing only presentation, zero and missing samples preserved, 4 icons, tooltip pointer and detail actions.');

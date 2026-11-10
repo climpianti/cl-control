@@ -118,6 +118,62 @@ function monotoneEnergyPath(samples) {
   return d;
 }
 
+
+// Display smoothing affects only the drawn SVG. Every tooltip, sum and
+// automation keeps the original Home Assistant statistics unchanged.
+// A ~20-minute triangular window removes small sawtooth noise in 5-min
+// samples; hourly data and gaps are not smoothed into imaginary readings.
+function visualEnergySegments(samples, smoothing = true) {
+  const chunks = energyCurveSegments(samples);
+  if (!smoothing) return chunks;
+  const output = [];
+  for (const chunk of chunks) {
+    const steps = chunk.slice(1).map((p,i) => {
+      const last = chunk[i];
+      return p.t !== undefined && last.t !== undefined ? p.t - last.t : null;
+    }).filter(d => Number.isFinite(d) && d > 0).sort((a,b) => a-b);
+    const typicalMs = steps.length ? steps[Math.floor(steps.length/2)] : Infinity;
+    const maxGapMs = Math.max(15 * 60000, typicalMs * 2.5);
+    const groups = [];
+    let group = [];
+    for (const point of chunk) {
+      const previous = group[group.length - 1];
+      if (previous && Number.isFinite(point.t) && Number.isFinite(previous.t)
+          && point.t - previous.t > maxGapMs) {
+        groups.push(group);
+        group = [];
+      }
+      group.push(point);
+    }
+    if (group.length) groups.push(group);
+    for (const series of groups) {
+      const radius = Number.isFinite(typicalMs)
+        ? Math.min(4, Math.max(0, Math.floor(21 * 60000 / typicalMs))) : 0;
+      if (radius === 0 || series.length < 5) { output.push(series); continue; }
+      output.push(series.map((point,i) => {
+        // Keep measured zero readings at the baseline, especially FV after
+        // sunset. Never show generation during a period recorded as zero.
+        if (point.zero === true || i === 0 || i === series.length - 1) return point;
+        let total = 0, weightSum = 0;
+        for (let j = Math.max(0,i-radius); j <= Math.min(series.length-1,i+radius); j++) {
+          const w = radius + 1 - Math.abs(j-i);
+          total += series[j].y * w;
+          weightSum += w;
+        }
+        return {...point, y: total / weightSum};
+      }));
+    }
+  }
+  return output;
+}
+
+const ENERGY_LEGEND_ICONS = Object.freeze({
+  pv: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg>',
+  home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"></path><path d="M9 21v-7h6v7"></path></svg>',
+  import: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 9 5-9 5-9-5 9-5z"></path><path d="m3 12 9 5 9-5M3 16l9 5 9-5"></path></svg>',
+  export: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h17m0 0-4-4m4 4-4 4M21 16H4m0 0 4-4m-4 4 4 4"></path></svg>',
+});
+
 function formatPower(value) {
   const watts = number(value);
   if (watts === null) return '—';
@@ -284,6 +340,128 @@ class CLEnergyCard extends HTMLElement {
         @media(max-width:620px){.trendPremium,.loadsPremium{border-radius:23px}.trendPremium .sectionHead h3{font-size:17px}.trendPremium .rangeTabs,.loadsPremium .rangeTabs{max-width:none}.trendPremium .range,.loadsPremium .range{font-size:11px;min-height:43px}.trendPremium .legend{padding:10px;gap:7px;flex-wrap:wrap;justify-content:flex-start;border-radius:18px}.trendPremium .chartWrap{padding:5px 4px}.trendPremium .chartTooltip{max-width:190px;font-size:11px}}
         @media(max-width:350px){.trendPremium .range,.loadsPremium .range{font-size:10px;padding:6px 2px}.trendPremium .legendItem{font-size:10px}}
         @media(prefers-reduced-motion:reduce){.trendPremium .range,.loadsPremium .range{transition:none}.chartHalo{filter:none;opacity:.12}}
+
+        /* Blue Tech Concept parity — 3.5.3-beta.13. High-fidelity, responsive glass. */
+        .trendPremium,.loadsPremium{
+          isolation:isolate;overflow:visible;
+          background:radial-gradient(ellipse 94% 80% at 0% 0%,#20517d99,transparent 65%),
+                     radial-gradient(ellipse 90% 95% at 100% 100%,#51368688,transparent 70%),
+                     linear-gradient(123deg,#111f31 5%,#111b2b 52%,#201833 100%);
+          border:1px solid #78c8ff99;border-radius:28px;
+          box-shadow:-2px 0 13px #4dc6ff75,3px 5px 18px #965dff66,0 20px 40px #0009,inset 0 1px 3px #eaf8ff45;
+        }
+        .trendPremium::before,.loadsPremium::before{
+          content:"";position:absolute;inset:-1px;pointer-events:none;border-radius:inherit;
+          padding:1.6px;background:linear-gradient(135deg,#93e4ff 0%,#6bb8fb 28%,#526fe6 56%,#b57cff 94%);
+          -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+          -webkit-mask-composite:xor;mask-composite:exclude;
+          opacity:.92;z-index:1;
+        }
+        .trendPremium .sectionHead h3,.loadsPremium .sectionHead h3{font-size:20px;line-height:1.2;letter-spacing:-.035em;font-weight:800}
+        .trendPremium .sectionHead p,.loadsPremium .sectionHead p{color:#d1deed;font-size:12px;margin-top:7px}
+        .trendPremium .sectionHead{gap:14px;margin-bottom:18px}
+        .trendTitleIcon{width:43px;height:43px;flex:0 0 43px;display:grid;place-items:center;border-radius:14px;
+          background:linear-gradient(145deg,#204e76,#132b44 65%,#2c2b56);border:1px solid #82d5ff75;
+          box-shadow:inset 0 1px 3px #d4f6ff35,0 4px 15px #43bfff33}
+        .trendTitleIcon .trendIcon{--mdc-icon-size:25px;color:#63bfff;filter:drop-shadow(0 0 6px #62b9ffbb)}
+        .trendPremium .rangeTabs,.loadsPremium .rangeTabs{
+          border-radius:999px;background:linear-gradient(100deg,#1a405e99,#282641b8);
+          border:1px solid #80c9fa73;padding:5px;box-shadow:inset 0 2px 9px #0006,0 1px 2px #b0deff22;
+        }
+        .trendPremium .range.active,.loadsPremium .range.active{
+          background:linear-gradient(112deg,#11bdec 0%,#497ce5 49%,#8650d3 100%);
+          border:1px solid #b8dfff90;
+          box-shadow:0 0 14px #458de966,0 5px 15px #0005,inset 0 1px 3px #fff7;
+        }
+        .trendPremium .chartWrap{
+          min-height:265px;margin-top:14px;border-radius:25px;padding:14px 9px 7px;
+          background:radial-gradient(ellipse at 14% 10%,#2a537a55,transparent 68%),
+                     radial-gradient(ellipse at 96% 95%,#3e285e70,transparent 57%),
+                     linear-gradient(150deg,#121f32,#121a2d 66%,#1b1a30);
+          border:1px solid #8dbde957;
+          box-shadow:inset 0 1px 6px #0006,0 2px 8px #0003;
+        }
+        .premiumCurveChart .gridLine{stroke:#c2d8f227;stroke-dasharray:3 7}
+        .chartStroke{stroke-width:2.45;opacity:.96}
+        .chartHalo{stroke-width:8;opacity:.27;filter:blur(4px)}
+        .chartArea{opacity:.62}
+        .trendPremium .chartTooltip{
+          top:9px;border-radius:21px;padding:12px 14px;
+          background:linear-gradient(140deg,#304b68f5,#27304ff2 76%,#2c2d4bf3);
+          border:1px solid #a8dcffbb;
+          box-shadow:0 12px 28px #0009,inset 0 1px 4px #e9f8ff55;
+          backdrop-filter:blur(18px);
+        }
+        .trendPremium .chartTooltip::after{
+          content:"";position:absolute;width:14px;height:14px;
+          bottom:-8px;left:var(--cl-pointer-x,35%);transform:translateX(-50%) rotate(45deg);
+          background:#283451;border-right:1px solid #a8dcffbb;border-bottom:1px solid #a8dcffbb;
+          border-radius:0 0 3px 0;pointer-events:none;
+        }
+        .trendPremium .chartTooltipTitle{font-size:14px;margin-bottom:8px;color:#fff}
+        .trendPremium .chartTooltipRow{gap:19px;margin-top:4px}
+        .trendPremium .chartTooltipValue{font-weight:900;white-space:nowrap}
+        .trendPremium .chartTooltipSwatch{width:9px;height:9px;box-shadow:0 0 9px currentColor}
+        .trendPremium .chartCursor{background:#9fd9ff70}
+        .trendPremium .chartCursor::after{width:12px;height:12px;border:2px solid #b7e7ff;box-shadow:0 0 0 5px #43bfff36,0 0 13px #6ccfff}
+        .curveNote{font-size:10px;color:#91adc9;text-align:right;margin:5px 6px 0}
+        .trendPremium .legend{
+          display:flex;align-items:center;justify-content:space-between;
+          gap:7px;padding:12px 15px;margin-top:13px;
+          border-radius:999px;background:linear-gradient(115deg,#223e5888,#29214299);
+          border:1px solid #83c6ff58;box-shadow:inset 0 1px 2px #c5e3ff1f;
+        }
+        .trendPremium .legendItem{display:flex;align-items:center;gap:5px;min-width:0;font-size:11px;white-space:nowrap}
+        .trendPremium .legendLabel{color:#cbdbee}
+        .trendPremium .legendIcon{width:19px;height:19px;display:flex;align-items:center;justify-content:center;flex:none;filter:drop-shadow(0 0 5px currentColor)}
+        .trendPremium .legendIcon svg{width:100%;height:100%}
+        .loadsPremium{margin-top:3px}
+        .loadsPremium .loadGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:5px}
+        .loadsPremium .loadCard{
+          border-radius:23px;padding:16px 18px 15px;
+          background:linear-gradient(112deg,#234766a8,#1b2743d9 65%,#28244cbb);
+          border:1px solid #98cdfa80;box-shadow:inset 0 1px 3px #c5e7ff28,0 5px 13px #0003;
+        }
+        .loadsPremium .loadCardHead{gap:12px;align-items:center}
+        .loadsPremium .loadCardIcon{width:47px;height:47px;flex:0 0 47px;border-radius:17px;color:#87d9ff;background:linear-gradient(140deg,#2c669a88,#2b2b5977)}
+        .loadsPremium .loadHeadMain{min-width:0;flex:1}
+        .loadsPremium .loadName{font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+        .loadsPremium .loadHeroValue{font-size:12px;margin-top:4px;color:#cbdcf1;font-variant-numeric:tabular-nums}
+        .loadsPremium .loadDetailArrow{
+          width:40px;height:42px;flex:0 0 40px;border:0;border-radius:12px;background:transparent;
+          color:#d7eaff;cursor:pointer;display:grid;place-items:center;
+        }
+        .loadsPremium .loadDetailArrow ha-icon{--mdc-icon-size:24px}
+        .loadsPremium .loadDetailArrow:focus-visible{outline:2px solid #8bd5ff;outline-offset:1px}
+        .loadsPremium .loadMeter{margin:14px 0 4px;height:10px;background:#132e50;border:1px solid #75b1eb77;overflow:visible;position:relative}
+        .loadsPremium .loadMeterFill{position:relative;box-shadow:0 0 12px #36c9ff88,inset 0 1px 3px #c9ffff75}
+        .loadsPremium .loadCardFooter{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px}
+        .loadsPremium .loadBadge{margin-top:0;align-self:center}
+        .loadsPremium .loadCommand{margin-top:0}
+        .loadsPremium .loadSub{margin-top:7px}
+        @media(max-width:900px){.loadsPremium .loadGrid{grid-template-columns:1fr}}
+        @media(max-width:620px){
+          .trendPremium,.loadsPremium{padding:16px 13px 16px;border-radius:26px}
+          .trendPremium .sectionHead h3,.loadsPremium .sectionHead h3{font-size:19px}
+          .trendTitleIcon{width:37px;height:37px;flex-basis:37px;border-radius:12px}
+          .trendTitleIcon .trendIcon{--mdc-icon-size:22px}
+          .trendPremium .range,.loadsPremium .range{min-height:41px}
+          .trendPremium .chartWrap{min-height:252px;padding:10px 5px 5px}
+          .trendPremium .legend{padding:11px 9px;gap:5px}
+          .trendPremium .legendItem{font-size:10px;gap:4px}
+          .trendPremium .legendIcon{width:17px;height:17px}
+          .trendPremium .chartTooltip{min-width:172px;max-width:215px;padding:11px 11px}
+          .curveNote{font-size:9px}
+          .loadsPremium .loadCard{padding:14px}
+        }
+        @media(max-width:350px){
+          .trendPremium .legend{flex-wrap:wrap;justify-content:center;gap:9px 13px}
+          .trendPremium .legendItem{font-size:11px}
+        }
+        @media(prefers-reduced-motion:reduce){
+          .trendPremium .range,.loadsPremium .range{transition:none}
+          .trendPremium .chartHalo{filter:none;opacity:.14}
+        }
       </style>
       <ha-card><div id="root" class="stack"></div></ha-card>
     `;
@@ -656,10 +834,11 @@ class CLEnergyCard extends HTMLElement {
         : 'Totali giornalieri: scegli la metrica e confronta gli ultimi 30 giorni.';
     return `
       <div class="card trendPremium">
-        <div class="sectionHead"><div><h3><ha-icon icon="mdi:chart-line" class="trendIcon"></ha-icon>Andamento energia</h3><p>${description}</p></div><div class="rangeTabs">${buttons}</div></div>
+        <div class="sectionHead"><div><h3><span class="trendTitleIcon"><ha-icon icon="mdi:chart-line" class="trendIcon"></ha-icon></span>Andamento energia</h3><p>${description}</p></div><div class="rangeTabs">${buttons}</div></div>
         ${metricTabs}
         <div class="chartWrap">${content}${stats?.points?.length ? '<div class="chartCursor" data-chart-cursor hidden></div><div class="chartTooltip" data-chart-tooltip hidden></div>' : ''}</div>
-        ${stats?.points?.length ? `<div class="legend">${legendSeries.map(([key,label,css]) => `<span class="legendItem"><span class="legendDot" style="background:var(${css})"></span>${esc(label)}</span>`).join('')}</div>` : ''}
+        ${!isBarRange && stats?.points?.length ? '<p class="curveNote">Curve levigate per la lettura · Valori originali al tocco</p>' : ''}
+        ${stats?.points?.length ? `<div class="legend">${legendSeries.map(([key,label,css]) => `<span class="legendItem legend-${key}" style="color:var(${css})"><span class="legendIcon">${ENERGY_LEGEND_ICONS[key] || ''}</span><span class="legendLabel">${esc(label)}</span></span>`).join('')}</div>` : ''}
       </div>`;
   }
 
@@ -684,9 +863,11 @@ class CLEnergyCard extends HTMLElement {
     ).join('');
     const areas = [], halos = [], lines = [];
     for (const [key,_label,color] of CHART_SERIES) {
-      const segments = energyCurveSegments(points.map(point => {
+      const segments = visualEnergySegments(points.map(point => {
         const t = number(point.t), value = number(point[key]);
-        return t === null || value === null ? null : {x:xForT(t), y:y(Math.max(0,value))};
+        return t === null || value === null ? null : {
+          x:xForT(t), y:y(Math.max(0,value)), t, zero:value === 0,
+        };
       }));
       for (const segment of segments) {
         const d = monotoneEnergyPath(segment);
@@ -848,8 +1029,11 @@ class CLEnergyCard extends HTMLElement {
       const energyText = this._loadRange === 'now' ? (load.energyToday !== null ? `${formatEnergy(load.energyToday)} oggi` : (load.mode ? load.mode : status)) : (load.rangeEnergy !== null ? `Consumo ${rangeLabel.toLowerCase()}` : 'Energia periodo non disponibile');
       const command = load.command ? `<button type="button" class="loadCommand ${commandOn ? 'on' : ''}" data-load-toggle data-entity="${esc(load.command)}" data-turn-on="${commandOn ? 'false' : 'true'}" ${commandAvailable ? '' : 'disabled'}>${commandOn ? 'SPEGNI' : 'ACCENDI'}</button>` : '';
       const detailAvailable = Boolean(load.powerEntity || load.energyIds.length);
+      const detailArrow = detailAvailable
+        ? `<button type="button" class="loadDetailArrow" data-load-detail="${esc(load.id)}" aria-label="Apri andamento di ${esc(load.name)}"><ha-icon icon="mdi:chevron-right"></ha-icon></button>`
+        : '';
       const detailBadge = detailAvailable ? `<button type="button" class="loadBadge ${load.source === 'power_control' ? 'pc' : 'cl'}" data-load-detail="${esc(load.id)}" title="Apri grafico e andamento"><ha-icon icon="${load.source === 'power_control' ? 'mdi:lightning-bolt' : 'mdi:eye-outline'}"></ha-icon>${esc(sourceLabel)}</button>` : `<span class="loadBadge ${load.source === 'power_control' ? 'pc' : 'cl'}"><ha-icon icon="${load.source === 'power_control' ? 'mdi:lightning-bolt' : 'mdi:eye-outline'}"></ha-icon>${esc(sourceLabel)}</span>`;
-      return `<div class="loadCard"><div class="loadCardHead"><span class="loadCardIcon"><ha-icon icon="${esc(icon)}"></ha-icon></span><div class="loadName ${load.suspended ? 'suspended' : ''}">${esc(load.name)}</div></div><div class="loadValue">${this._loadRange === 'now' ? formatPower(load.power) : formatEnergy(load.rangeEnergy)}</div><div class="loadSub">${esc(energyText)}</div>${meter}${detailBadge}${detailAvailable ? '<div class="loadDetailHint">Tocca il badge per il grafico</div>' : ''}${command}</div>`;
+      return `<div class="loadCard"><div class="loadCardHead"><span class="loadCardIcon"><ha-icon icon="${esc(icon)}"></ha-icon></span><div class="loadHeadMain"><div class="loadName ${load.suspended ? 'suspended' : ''}">${esc(load.name)}</div><div class="loadHeroValue">${this._loadRange === 'now' ? formatPower(load.power) : formatEnergy(load.rangeEnergy)}</div></div>${detailArrow}</div>${meter}<div class="loadSub">${esc(energyText)}</div><div class="loadCardFooter">${detailBadge}${command}</div></div>`;
     }).join('') : '<div class="empty" style="grid-column:1/-1">Nessun carico o utenza monitorata configurata.</div>';
     const tabs = Object.entries(LOAD_RANGE_OPTIONS).map(([key,cfg]) => `<button type="button" class="range ${key === this._loadRange ? 'active' : ''}" data-load-range="${key}">${esc(cfg.label)}</button>`).join('');
     const loading = this._statsLoading.has(`loads:${this._loadRange}`);
@@ -925,9 +1109,9 @@ class CLEnergyCard extends HTMLElement {
     const xForT=t=>left+(maxT<=minT?plotW/2:clamp((t-minT)/(maxT-minT),0,1)*plotW);
     const y=value=>top+plotH-clamp(value/maxValue,0,1)*plotH;
     const baseline=top+plotH;
-    const chunks=energyCurveSegments(points.map(point=>{
+    const chunks=visualEnergySegments(points.map(point=>{
       const t=number(point.t),value=number(point.value);
-      return t===null||value===null?null:{x:xForT(t),y:y(Math.max(0,value))};
+      return t===null||value===null?null:{x:xForT(t),y:y(Math.max(0,value)),t,zero:value===0};
     }));
     const areas=[],glows=[],paths=[];
     for(const chunk of chunks) {
@@ -1190,7 +1374,10 @@ class CLEnergyCard extends HTMLElement {
       const tooltipSeries=this._range==='30d'?CHART_SERIES.filter(([key])=>key===this._effectiveBarMetric(points)&&number(point[key])!==null):CHART_SERIES.filter(([key])=>number(point[key])!==null);
       const rows=tooltipSeries.map(([key,label,css])=>`<div class="chartTooltipRow"><span class="chartTooltipName"><span class="chartTooltipSwatch" style="background:var(${css})"></span>${esc(label)}</span><span class="chartTooltipValue">${formatEnergy(point[key])}</span></div>`).join('');
       tooltip.innerHTML=`<div class="chartTooltipTitle">${esc(this._chartTooltipTime(point.t))}</div>${rows}`;tooltip.hidden=false;
-      const wrapRect=wrap.getBoundingClientRect(),tooltipWidth=tooltip.offsetWidth||180;let leftPx=pointPx+10;if(leftPx+tooltipWidth>wrapRect.width-4)leftPx=pointPx-tooltipWidth-10;tooltip.style.left=`${Math.max(4,leftPx)}px`;
+      const wrapRect=wrap.getBoundingClientRect(),tooltipWidth=tooltip.offsetWidth||180;
+      const leftPx=clamp(pointPx-tooltipWidth*.34,4,Math.max(4,wrapRect.width-tooltipWidth-4));
+      tooltip.style.left=`${leftPx}px`;
+      tooltip.style.setProperty('--cl-pointer-x',`${clamp(pointPx-leftPx,18,tooltipWidth-18)}px`);
       if(pin)this._chartSelection={range:this._range,barMetric:this._effectiveBarMetric(points),t:point.t};
     };
     const showAt=(clientX,pin=false)=>{

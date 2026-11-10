@@ -8,6 +8,7 @@ on:
       - beta/3.5.3-beta.10
       - beta/3.5.3-beta.11
       - beta/3.5.3-beta.12
+      - beta/3.5.3-beta.13
   pull_request:
     paths:
       - "custom_components/cl_control/**"

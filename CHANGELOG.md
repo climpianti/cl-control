@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.5.3-beta.13 — Restyling Energia fedele all'anteprima
+
+- Cornice Glass sfumata blu elettrico/viola e bagliori perimetrali, titolo con icona in badge e migliore composizione.
+- Legenda con icone SVG (FV, Casa, Prelievo, Immissione), tooltip con puntatore alla selezione e pulsanti periodo in vetro.
+- Curve 12/24 h visivamente smussate con filtro triangolare ±20 minuti sui campioni ravvicinati. I valori nei tooltip sono quelli originali; gli zeri rimangono tali e i periodi senza dati non vengono collegati. Le serie orarie rade e i grafici 7/30 giorni restano invariati.
+- Carichi con layout a riga, valore, barra relativa, icona e freccia accessibile verso il dettaglio; mantenuti tutti i comandi precedenti.
+- Nuovi test visivi/funzionali; asset `3.5.3-beta.13-r1`. Nessuna migrazione o modifica backend. Rollback: beta.12.
+
+
 ## 3.5.3-beta.12 — Energia Blue Tech, grafici morbidi
 
 - Andamento energia 12/24 h: curve SVG monotone (Fritsch-Carlson), senza interpolazioni negative o picchi artificiali. Intervalli senza campioni restano disconnessi; i valori zero rimangono zero. Stesse entità, periodi, unità, statistiche e tooltip aggiornabili.
