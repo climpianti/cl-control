@@ -48,11 +48,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           if gh release view v3.5.3-beta.11 >/dev/null 2>&1; then
-            echo "Prerelease already exists."
+            echo "Prerelease exists: ensure GitHub marks it as a prerelease."
+            gh release edit v3.5.3-beta.11 --prerelease
             exit 0
           fi
           gh release create v3.5.3-beta.11 \
             dist/cl-control-3.5.3-beta.11.zip dist/SHA256SUMS.txt \
             --target "$GITHUB_SHA" \
             --title "CL Control 3.5.3-beta.11 - Navigazione Home" \
+            --prerelease \
             --notes "Beta di collaudo derivata dalla beta.10. Le tre icone di navigazione Home, Energia e Scenari luci sono rimosse dalla barra in alto. Energia e Scenari rimangono sottoviste raggiungibili dalle card della Home, con pulsante Indietro. Nessuna migrazione o modifica a dispositivi, permessi, scene e dati. Collaudare su telefono reale; per rollback installare la beta.10."
