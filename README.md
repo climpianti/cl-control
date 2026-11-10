@@ -1,12 +1,14 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.11**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
+> Prerelease **3.5.3-beta.12**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
 > Test offline: `python tests/run_offline.py` (non emula il runtime HA).
 
 La beta.11 nasconde la barra delle tre schede rapide Home/Energia/Scenari: **Energia** e **Scenari luci** rimangono raggiungibili esclusivamente dalle rispettive card nella Home CL Control. Il pulsante Indietro torna a Home; il menu laterale HA resta disponibile.
+
+**Energia Blue Tech beta.12:** curve SVG monotone sui campioni storici a 12/24 ore (senza sovraoscillazione o picchi fittizi), riempimenti sfumati, tooltip Glass con serie colorate, legenda e selezione periodi migliorate. I grafici a barre di 7/30 giorni restano invariati nella logica. I carichi mostrano una barra di confronto relativo rispetto al massimo tra quelli visualizzati, non una percentuale di carico nominale. Il grafico del dettaglio giornaliero dei carichi è altrettanto smussato. Dati, statistica, comandi, nomi entità e API non cambiano. Le interruzioni dei dati non vengono trasformate in zeri.
 
 Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaudo](docs/BETA_TESTING.md).
 

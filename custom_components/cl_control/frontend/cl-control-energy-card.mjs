@@ -55,6 +55,69 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+// Monotone Hermite curves: smooth between real samples without inventing
+// intermediate peaks or crossing below zero. A gap remains a gap.
+function energyCurveSegments(samples) {
+  const segments = [];
+  let current = [];
+  const flush = () => { if (current.length) segments.push(current); current = []; };
+  for (const point of samples) {
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      flush();
+      continue;
+    }
+    if (current.length && point.x <= current[current.length - 1].x) flush();
+    current.push(point);
+  }
+  flush();
+  return segments;
+}
+
+function monotoneEnergyPath(samples) {
+  if (!samples.length) return '';
+  const fmt = n => Number(n.toFixed(2));
+  const start = 'M' + fmt(samples[0].x) + ',' + fmt(samples[0].y);
+  if (samples.length === 1) return start;
+  const deltaX = [], secant = [], slopes = [];
+  for (let i = 0; i < samples.length - 1; i++) {
+    const dx = samples[i + 1].x - samples[i].x;
+    if (!(dx > 0)) return '';
+    deltaX.push(dx);
+    secant.push((samples[i + 1].y - samples[i].y) / dx);
+  }
+  slopes[0] = secant[0];
+  slopes[samples.length - 1] = secant[secant.length - 1];
+  for (let i = 1; i < samples.length - 1; i++) {
+    const a = secant[i - 1], b = secant[i];
+    if (!a || !b || a * b <= 0) slopes[i] = 0;
+    else {
+      const w1 = 2 * deltaX[i] + deltaX[i - 1];
+      const w2 = deltaX[i] + 2 * deltaX[i - 1];
+      slopes[i] = (w1 + w2) / (w1 / a + w2 / b);
+    }
+  }
+  for (let i = 0; i < secant.length; i++) {
+    if (!secant[i]) { slopes[i] = 0; slopes[i + 1] = 0; continue; }
+    let a = slopes[i] / secant[i], b = slopes[i + 1] / secant[i];
+    if (a < 0) { slopes[i] = 0; a = 0; }
+    if (b < 0) { slopes[i + 1] = 0; b = 0; }
+    const length = Math.hypot(a, b);
+    if (length > 3) {
+      const scale = 3 / length;
+      slopes[i] = scale * a * secant[i];
+      slopes[i + 1] = scale * b * secant[i];
+    }
+  }
+  let d = start;
+  for (let i = 0; i < deltaX.length; i++) {
+    const before = samples[i], after = samples[i + 1], third = deltaX[i] / 3;
+    d += ' C' + fmt(before.x + third) + ',' + fmt(before.y + slopes[i] * third)
+      + ' ' + fmt(after.x - third) + ',' + fmt(after.y - slopes[i + 1] * third)
+      + ' ' + fmt(after.x) + ',' + fmt(after.y);
+  }
+  return d;
+}
+
 function formatPower(value) {
   const watts = number(value);
   if (watts === null) return '—';
@@ -192,6 +255,35 @@ class CLEnergyCard extends HTMLElement {
         @media(max-width:620px){.flowScene{height:380px;min-height:380px}.energyNode{width:105px}.energyNode.home{top:39%}.energyNode.battery{left:0}.energyNode.grid{right:0}.energyNode .nodeName{font-size:12px}.energyNode .nodeValue{font-size:20px}.energyNode .nodeSub{font-size:11px}.flowCard .sectionHead p{font-size:12px}}
         @media(max-width:390px){.flowScene{height:370px;min-height:370px}.energyNode{width:82px}.energyNode .iconBox{width:52px;height:52px;border-radius:17px}.energyNode.home .iconBox{width:74px;height:74px;border-radius:23px}.energyNode.home .iconBox svg{width:52px;height:52px}.energyNode .nodeValue{font-size:18px}.energyNode .nodeName{font-size:11px}.energyNode .nodeSub{font-size:10px}.flowCard .provider{display:block}}
         @media(prefers-reduced-motion:reduce){.flowPath.active.forward,.flowPath.active.reverse{animation:none}}
+
+        /* Premium Blue Tech energy analytics (beta.12). No data or API changes. */
+        .trendPremium,.loadsPremium{position:relative;overflow:hidden;background:radial-gradient(ellipse at 6% 0%,#265a8760,transparent 66%),radial-gradient(ellipse at 100% 100%,#44307045,transparent 65%),linear-gradient(135deg,#132437,#111827 62%,#201a32);border:1px solid #7bc7ff6e;box-shadow:0 16px 40px #0007,inset 0 1px 2px #d5efff40;border-radius:26px}
+        .trendPremium .sectionHead h3{display:flex;align-items:center;gap:10px;letter-spacing:-.02em;font-size:20px}.trendIcon{--mdc-icon-size:20px;color:#7fd2ff;filter:drop-shadow(0 0 7px #55bdff66)}
+        .trendPremium .sectionHead p,.loadsPremium .sectionHead p{font-size:12px;color:#c7d5e7;line-height:1.55}
+        .trendPremium .rangeTabs,.loadsPremium .rangeTabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));width:100%;max-width:460px;padding:5px;border:1px solid #91cfff45;border-radius:999px;background:linear-gradient(120deg,#21425a99,#2b254c88);box-shadow:inset 0 2px 8px #030a1266}
+        .trendPremium .range,.loadsPremium .range{min-width:0;min-height:43px;display:grid;place-items:center;padding:7px 4px;white-space:nowrap;font-size:12px;color:#c8d6ec;font-weight:800;transition:background .16s ease,box-shadow .16s ease}
+        .trendPremium .range.active,.loadsPremium .range.active{color:#fff;background:linear-gradient(115deg,#16b2ee,#497ae7 55%,#7b4dcb);border:1px solid #d8f8ff68;box-shadow:0 4px 15px #438be866,inset 0 1px 2px #fff6}
+        .trendPremium .chartWrap,.loadsPremium .chartWrap,.loadChartWrap{background:radial-gradient(ellipse at 20% 12%,#315b8550,transparent 70%),linear-gradient(150deg,#102235,#101729 62%,#221b39);border:1px solid #9ccaff38;border-radius:24px;padding:12px 8px 5px;box-shadow:inset 0 1px 6px #0005}
+        .chartArea{pointer-events:none}.chartHalo{fill:none;stroke-width:7;opacity:.28;filter:blur(3px);pointer-events:none}.chartStroke{fill:none;stroke-width:2.8;stroke-linejoin:round;stroke-linecap:round;pointer-events:none}
+        .premiumCurveChart .gridLine{stroke:#c5dbff29;stroke-dasharray:3 7}.premiumCurveChart .axisText{fill:#b7cbe3}
+        .trendPremium .barRect,.loadBarRect{rx:5;ry:5;opacity:.92}.trendPremium .barRect:hover,.loadBarRect:hover{opacity:1;filter:drop-shadow(0 0 3px #83baff66)}
+        .trendPremium .chartTooltip,.loadChartTooltip{max-width:min(250px,calc(100% - 12px));border:1px solid #98cfff92;border-radius:18px;padding:11px 13px;background:linear-gradient(140deg,#1c354eea,#24243dea);backdrop-filter:blur(14px);box-shadow:0 14px 35px #0009,inset 0 1px 2px #dff8ff40;color:#f2f7ff;font-size:12px;line-height:1.4}
+        .trendPremium .chartTooltipTitle{font-size:14px;font-weight:850;margin-bottom:7px}
+        .trendPremium .chartTooltipRow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;margin-top:3px}
+        .trendPremium .chartTooltipName{display:flex;align-items:center;gap:7px;color:#c7d8e9}.trendPremium .chartTooltipValue{color:#f5f9ff;font-variant-numeric:tabular-nums}
+        .chartTooltipSwatch{flex:none;width:8px;height:8px;border-radius:50%;box-shadow:0 0 8px currentColor}
+        .trendPremium .chartCursor{background:#91cfff55}.trendPremium .chartCursor::after{width:10px;height:10px;background:#83d2ff;box-shadow:0 0 0 5px #49b8ff35,0 0 14px #60bfff}
+        .trendPremium .legend{display:flex;justify-content:space-between;gap:8px;padding:10px 13px;margin-top:12px;border:1px solid #85bfff3a;border-radius:999px;background:linear-gradient(120deg,#23445a66,#2c224d77)}
+        .trendPremium .legendItem{color:#d0deed;font-size:11px;white-space:nowrap}.trendPremium .legendDot{width:10px;height:10px;box-shadow:0 0 9px #9acaff55}
+        .loadsPremium .loadCard{min-height:0;padding:16px;border-radius:22px;background:linear-gradient(125deg,#23466166,#22233c99);border:1px solid #93caff59;box-shadow:inset 0 1px 2px #c7e9ff22}
+        .loadsPremium .loadCardIcon{width:44px;height:44px;border-radius:15px;color:#8bd5ff;background:linear-gradient(145deg,#2e699888,#2d2d5688);border:1px solid #9acfff5c}
+        .loadsPremium .loadName{font-size:14px;color:#f5f8ff}.loadsPremium .loadValue{font-size:21px;letter-spacing:-.02em}
+        .loadMeter{height:8px;margin:12px 0 4px;border-radius:999px;background:#152942;border:1px solid #679bcc4d;overflow:hidden;box-shadow:inset 0 2px 3px #0008}
+        .loadMeterFill{display:block;height:100%;min-width:0;border-radius:999px;background:linear-gradient(90deg,#30dbea,#4d92ed 55%,#8a6dea);box-shadow:0 0 12px #38bfffa0}
+        .loadMeterCaption{font-size:10px;line-height:1.4;color:#b7c8dd;margin-bottom:10px}
+        @media(max-width:620px){.trendPremium,.loadsPremium{border-radius:23px}.trendPremium .sectionHead h3{font-size:17px}.trendPremium .rangeTabs,.loadsPremium .rangeTabs{max-width:none}.trendPremium .range,.loadsPremium .range{font-size:11px;min-height:43px}.trendPremium .legend{padding:10px;gap:7px;flex-wrap:wrap;justify-content:flex-start;border-radius:18px}.trendPremium .chartWrap{padding:5px 4px}.trendPremium .chartTooltip{max-width:190px;font-size:11px}}
+        @media(max-width:350px){.trendPremium .range,.loadsPremium .range{font-size:10px;padding:6px 2px}.trendPremium .legendItem{font-size:10px}}
+        @media(prefers-reduced-motion:reduce){.trendPremium .range,.loadsPremium .range{transition:none}.chartHalo{filter:none;opacity:.12}}
       </style>
       <ha-card><div id="root" class="stack"></div></ha-card>
     `;
@@ -563,8 +655,8 @@ class CLEnergyCard extends HTMLElement {
         ? 'Totali giornalieri: una barra per ogni giorno e metrica.'
         : 'Totali giornalieri: scegli la metrica e confronta gli ultimi 30 giorni.';
     return `
-      <div class="card">
-        <div class="sectionHead"><div><h3>Andamento energia</h3><p>${description}</p></div><div class="rangeTabs">${buttons}</div></div>
+      <div class="card trendPremium">
+        <div class="sectionHead"><div><h3><ha-icon icon="mdi:chart-line" class="trendIcon"></ha-icon>Andamento energia</h3><p>${description}</p></div><div class="rangeTabs">${buttons}</div></div>
         ${metricTabs}
         <div class="chartWrap">${content}${stats?.points?.length ? '<div class="chartCursor" data-chart-cursor hidden></div><div class="chartTooltip" data-chart-tooltip hidden></div>' : ''}</div>
         ${stats?.points?.length ? `<div class="legend">${legendSeries.map(([key,label,css]) => `<span class="legendItem"><span class="legendDot" style="background:var(${css})"></span>${esc(label)}</span>`).join('')}</div>` : ''}
@@ -579,26 +671,45 @@ class CLEnergyCard extends HTMLElement {
 
   _svgChart(points) {
     const width = this._plotWidth || 720, height = 240, left = 42, right = 14, top = 30, bottom = 34;
-    const plotW = width-left-right, plotH = height-top-bottom;
+    const plotW = width - left - right, plotH = height - top - bottom;
     const maxValue = Math.max(0.1, ...points.flatMap(p => ['pv','home','import','export'].map(key => number(p[key]) || 0)));
     const timestamps = points.map(p => number(p.t)).filter(t => t !== null);
     const minT = timestamps.length ? Math.min(...timestamps) : 0;
     const maxT = timestamps.length ? Math.max(...timestamps) : minT;
-    const xForT = t => left + (maxT <= minT ? plotW/2 : clamp((Number(t)-minT)/(maxT-minT),0,1)*plotW);
-    const y = value => top + plotH - (Math.max(0,value)/maxValue)*plotH;
-    const lines = CHART_SERIES.map(([key,_label,css]) => {
-      const available = points.some(p => number(p[key]) !== null);
-      if (!available) return '';
-      const d = points.map((p,i) => `${i ? 'L':'M'}${xForT(p.t).toFixed(1)},${y(number(p[key]) || 0).toFixed(1)}`).join(' ');
-      return `<path class="chartPath" d="${d}" style="stroke:var(${css})"></path>`;
-    }).join('');
+    const xForT = t => left + (maxT <= minT ? plotW / 2 : clamp((t - minT) / (maxT - minT), 0, 1) * plotW);
+    const y = value => top + plotH - clamp(value / maxValue, 0, 1) * plotH;
+    const baseline = top + plotH;
+    const defs = CHART_SERIES.map(([key,_label,color]) =>
+      `<linearGradient id="clTrendFill-${key}" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" style="stop-color:var(${color});stop-opacity:.24"></stop><stop offset="100%" style="stop-color:var(${color});stop-opacity:0"></stop></linearGradient>`
+    ).join('');
+    const areas = [], halos = [], lines = [];
+    for (const [key,_label,color] of CHART_SERIES) {
+      const segments = energyCurveSegments(points.map(point => {
+        const t = number(point.t), value = number(point[key]);
+        return t === null || value === null ? null : {x:xForT(t), y:y(Math.max(0,value))};
+      }));
+      for (const segment of segments) {
+        const d = monotoneEnergyPath(segment);
+        if (!d) continue;
+        if (segment.length > 1) {
+          const first = segment[0], last = segment[segment.length - 1];
+          const areaPath = d + ' L' + last.x.toFixed(2) + ',' + baseline.toFixed(2)
+            + ' L' + first.x.toFixed(2) + ',' + baseline.toFixed(2) + ' Z';
+          areas.push(`<path class="chartArea" d="${areaPath}" fill="url(#clTrendFill-${key})"></path>`);
+          halos.push(`<path class="chartPath chartHalo" d="${d}" style="stroke:var(${color})"></path>`);
+        }
+        lines.push(`<path class="chartPath chartStroke" d="${d}" style="stroke:var(${color})"></path>`);
+      }
+    }
     const grid = [0,.5,1].map(frac => {
-      const yy = top + plotH - frac*plotH;
+      const yy = top + plotH - frac * plotH;
       return `<line class="gridLine" x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}"></line><text class="axisText" x="4" y="${yy+4}">${(maxValue*frac).toLocaleString('it-IT',{maximumFractionDigits:2})}</text>`;
     }).join('');
-    const labelIndexes = [...new Set([0, Math.floor((points.length-1)/2), points.length-1])];
-    const labels = labelIndexes.map(i => `<text class="axisText" text-anchor="${i===0?'start':i===points.length-1?'end':'middle'}" x="${xForT(points[i].t)}" y="${height-8}">${esc(this._pointLabel(points[i].t))}</text>`).join('');
-    return `<svg class="chart" data-energy-chart data-chart-kind="line" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico energia in kWh con risoluzione fino a 5 minuti. Tocca o trascina per leggere i valori.">${grid}${lines}${labels}<text class="axisText" x="4" y="12">kWh</text></svg>`;
+    const labelIndexes = [...new Set([0, Math.floor((points.length - 1) / 2), points.length - 1])];
+    const labels = labelIndexes.map(i =>
+      `<text class="axisText" text-anchor="${i===0?'start':i===points.length-1?'end':'middle'}" x="${xForT(Number(points[i].t))}" y="${height-8}">${esc(this._pointLabel(points[i].t))}</text>`
+    ).join('');
+    return `<svg class="chart premiumCurveChart" data-energy-chart data-chart-kind="line" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico energia in kWh con curve smussate tra campioni reali, dettaglio fino a 5 minuti. Tocca o trascina per leggere i valori."><defs>${defs}</defs>${grid}${areas.join('')}${halos.join('')}${lines.join('')}${labels}<text class="axisText" x="4" y="12">kWh</text></svg>`;
   }
 
   _svgBarChart(points) {
@@ -721,7 +832,11 @@ class CLEnergyCard extends HTMLElement {
     const rows = this._collectLoads();
     rows.sort((a,b)=>Number(b.ranking)-Number(a.ranking)||(b.rankValue??-1)-(a.rankValue??-1)||String(a.name).localeCompare(String(b.name),'it'));
     const shown = rows.slice(0,8);
+    const maxRelative=Math.max(0,...shown.map(load=>Math.max(0,number(load.rankValue)||0)));
     const cards = shown.length ? shown.map(load => {
+      const rank=number(load.rankValue);
+      const relative=rank===null||maxRelative<=0?null:Math.round(clamp(Math.max(0,rank)/maxRelative*100,0,100));
+      const meter=relative===null?'':`<div class="loadMeter" role="meter" aria-label="Consumo relativo al valore più alto tra i carichi mostrati" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${relative}"><span class="loadMeterFill" style="width:${relative}%"></span></div><span class="loadMeterCaption">Rispetto al carico maggiore mostrato</span>`;
       const commandState = load.command ? this._state(load.command)?.state : '';
       const commandAvailable = load.command && !['unknown','unavailable',''].includes(String(commandState || ''));
       const commandOn = commandState === 'on';
@@ -734,11 +849,11 @@ class CLEnergyCard extends HTMLElement {
       const command = load.command ? `<button type="button" class="loadCommand ${commandOn ? 'on' : ''}" data-load-toggle data-entity="${esc(load.command)}" data-turn-on="${commandOn ? 'false' : 'true'}" ${commandAvailable ? '' : 'disabled'}>${commandOn ? 'SPEGNI' : 'ACCENDI'}</button>` : '';
       const detailAvailable = Boolean(load.powerEntity || load.energyIds.length);
       const detailBadge = detailAvailable ? `<button type="button" class="loadBadge ${load.source === 'power_control' ? 'pc' : 'cl'}" data-load-detail="${esc(load.id)}" title="Apri grafico e andamento"><ha-icon icon="${load.source === 'power_control' ? 'mdi:lightning-bolt' : 'mdi:eye-outline'}"></ha-icon>${esc(sourceLabel)}</button>` : `<span class="loadBadge ${load.source === 'power_control' ? 'pc' : 'cl'}"><ha-icon icon="${load.source === 'power_control' ? 'mdi:lightning-bolt' : 'mdi:eye-outline'}"></ha-icon>${esc(sourceLabel)}</span>`;
-      return `<div class="loadCard"><div class="loadCardHead"><span class="loadCardIcon"><ha-icon icon="${esc(icon)}"></ha-icon></span><div class="loadName ${load.suspended ? 'suspended' : ''}">${esc(load.name)}</div></div><div class="loadValue">${this._loadRange === 'now' ? formatPower(load.power) : formatEnergy(load.rangeEnergy)}</div><div class="loadSub">${esc(energyText)}</div>${detailBadge}${detailAvailable ? '<div class="loadDetailHint">Tocca il badge per il grafico</div>' : ''}${command}</div>`;
+      return `<div class="loadCard"><div class="loadCardHead"><span class="loadCardIcon"><ha-icon icon="${esc(icon)}"></ha-icon></span><div class="loadName ${load.suspended ? 'suspended' : ''}">${esc(load.name)}</div></div><div class="loadValue">${this._loadRange === 'now' ? formatPower(load.power) : formatEnergy(load.rangeEnergy)}</div><div class="loadSub">${esc(energyText)}</div>${meter}${detailBadge}${detailAvailable ? '<div class="loadDetailHint">Tocca il badge per il grafico</div>' : ''}${command}</div>`;
     }).join('') : '<div class="empty" style="grid-column:1/-1">Nessun carico o utenza monitorata configurata.</div>';
     const tabs = Object.entries(LOAD_RANGE_OPTIONS).map(([key,cfg]) => `<button type="button" class="range ${key === this._loadRange ? 'active' : ''}" data-load-range="${key}">${esc(cfg.label)}</button>`).join('');
     const loading = this._statsLoading.has(`loads:${this._loadRange}`);
-    return `<div class="card"><div class="sectionHead"><div><div class="headIcon"><ha-icon icon="mdi:power-plug"></ha-icon><h3>Carichi monitorati</h3></div><p>Carichi Power Control e utenze monitorate da CL Control</p></div><div class="rangeTabs">${tabs}</div></div>${loading ? '<div class="empty" style="margin-bottom:8px">Caricamento consumi utenze…</div>' : ''}<div class="loadGrid">${cards}</div></div>`;
+    return `<div class="card loadsPremium"><div class="sectionHead"><div><div class="headIcon"><ha-icon icon="mdi:power-plug"></ha-icon><h3>Carichi monitorati</h3></div><p>Carichi Power Control e utenze monitorate da CL Control</p></div><div class="rangeTabs">${tabs}</div></div>${loading ? '<div class="empty" style="margin-bottom:8px">Caricamento consumi utenze…</div>' : ''}<div class="loadGrid">${cards}</div></div>`;
   }
 
   _loadDetailBounds(rangeKey = this._loadDetailRange) {
@@ -807,13 +922,28 @@ class CLEnergyCard extends HTMLElement {
     const timestamps=points.map(p=>number(p.t)).filter(t=>t!==null);
     const minT=timestamps.length?Math.min(...timestamps):0;
     const maxT=timestamps.length?Math.max(...timestamps):minT;
-    const xForT=t=>left+(maxT<=minT?plotW/2:clamp((Number(t)-minT)/(maxT-minT),0,1)*plotW);
-    const y=value=>top+plotH-(Math.max(0,value)/maxValue)*plotH;
-    const d=points.map((p,i)=>`${i?'L':'M'}${xForT(p.t).toFixed(1)},${y(number(p.value)||0).toFixed(1)}`).join(' ');
+    const xForT=t=>left+(maxT<=minT?plotW/2:clamp((t-minT)/(maxT-minT),0,1)*plotW);
+    const y=value=>top+plotH-clamp(value/maxValue,0,1)*plotH;
+    const baseline=top+plotH;
+    const chunks=energyCurveSegments(points.map(point=>{
+      const t=number(point.t),value=number(point.value);
+      return t===null||value===null?null:{x:xForT(t),y:y(Math.max(0,value))};
+    }));
+    const areas=[],glows=[],paths=[];
+    for(const chunk of chunks) {
+      const d=monotoneEnergyPath(chunk);if(!d)continue;
+      if(chunk.length>1) {
+        const first=chunk[0],last=chunk[chunk.length-1];
+        const area=d+' L'+last.x.toFixed(2)+','+baseline+' L'+first.x.toFixed(2)+','+baseline+' Z';
+        areas.push(`<path class="chartArea" d="${area}" fill="url(#clLoadGradient)"></path>`);
+        glows.push(`<path class="loadChartPath chartHalo" d="${d}"></path>`);
+      }
+      paths.push(`<path class="loadChartPath chartStroke" d="${d}"></path>`);
+    }
     const grid=[0,.5,1].map(frac=>{const yy=top+plotH-frac*plotH;return `<line class="gridLine" x1="${left}" y1="${yy}" x2="${width-right}" y2="${yy}"></line><text class="axisText" x="4" y="${yy+4}">${formatPower(maxValue*frac).replace(' kW','k').replace(' W','')}</text>`}).join('');
     const idx=[...new Set([0,Math.floor((points.length-1)/2),points.length-1])];
-    const labels=idx.map(i=>`<text class="axisText" text-anchor="${i===0?'start':i===points.length-1?'end':'middle'}" x="${xForT(points[i].t)}" y="${height-8}">${esc(this._loadPointLabel(points[i].t))}</text>`).join('');
-    return `<svg class="loadChart" data-load-chart data-load-chart-kind="line" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico potenza del carico">${grid}<path class="loadChartPath" d="${d}"></path>${labels}<text class="axisText" x="4" y="12">W</text></svg>`;
+    const labels=idx.map(i=>`<text class="axisText" text-anchor="${i===0?'start':i===points.length-1?'end':'middle'}" x="${xForT(Number(points[i].t))}" y="${height-8}">${esc(this._loadPointLabel(points[i].t))}</text>`).join('');
+    return `<svg class="loadChart premiumCurveChart" data-load-chart data-load-chart-kind="line" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico potenza del carico con curve smussate tra campioni reali"><defs><linearGradient id="clLoadGradient" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:var(--cl-blue);stop-opacity:.25"></stop><stop offset="100%" style="stop-color:var(--cl-blue);stop-opacity:0"></stop></linearGradient></defs>${grid}${areas.join('')}${glows.join('')}${paths.join('')}${labels}<text class="axisText" x="4" y="12">W</text></svg>`;
   }
 
   _svgLoadBarChart(points) {
@@ -1058,7 +1188,7 @@ class CLEnergyCard extends HTMLElement {
       const pointPx=(pointSvgX/width)*rect.width+(rect.left-wrap.getBoundingClientRect().left);
       cursor.style.left=`${pointPx}px`;cursor.hidden=false;
       const tooltipSeries=this._range==='30d'?CHART_SERIES.filter(([key])=>key===this._effectiveBarMetric(points)&&number(point[key])!==null):CHART_SERIES.filter(([key])=>number(point[key])!==null);
-      const rows=tooltipSeries.map(([key,label])=>`<div class="chartTooltipRow"><span class="chartTooltipName">${esc(label)}</span><span class="chartTooltipValue">${formatEnergy(point[key])}</span></div>`).join('');
+      const rows=tooltipSeries.map(([key,label,css])=>`<div class="chartTooltipRow"><span class="chartTooltipName"><span class="chartTooltipSwatch" style="background:var(${css})"></span>${esc(label)}</span><span class="chartTooltipValue">${formatEnergy(point[key])}</span></div>`).join('');
       tooltip.innerHTML=`<div class="chartTooltipTitle">${esc(this._chartTooltipTime(point.t))}</div>${rows}`;tooltip.hidden=false;
       const wrapRect=wrap.getBoundingClientRect(),tooltipWidth=tooltip.offsetWidth||180;let leftPx=pointPx+10;if(leftPx+tooltipWidth>wrapRect.width-4)leftPx=pointPx-tooltipWidth-10;tooltip.style.left=`${Math.max(4,leftPx)}px`;
       if(pin)this._chartSelection={range:this._range,barMetric:this._effectiveBarMetric(points),t:point.t};

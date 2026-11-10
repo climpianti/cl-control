@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.5.3-beta.12 — Energia Blue Tech, grafici morbidi
+
+- Andamento energia 12/24 h: curve SVG monotone (Fritsch-Carlson), senza interpolazioni negative o picchi artificiali. Intervalli senza campioni restano disconnessi; i valori zero rimangono zero. Stesse entità, periodi, unità, statistiche e tooltip aggiornabili.
+- Riempimenti sfumati e halo leggero sulle serie FV (ambra), Casa (blu), Prelievo (ghiaccio), Immissione (turchese); tooltip con indicatori cromatici, pannello Glass, legenda e tab più eleganti.
+- Dettaglio 24 h dei carichi: curva monotona + area trasparente; i totali 7/30 giorni continuano a barre, con bordi smussati.
+- Carichi monitorati con pannelli Blue Tech e metro comparativo derivato dal valore massimo **fra i carichi mostrati**; non è la percentuale della potenza nominale. Quando la misura manca il metro non appare.
+- Nuovi test di interpolazione e di valori mancanti, regressioni mobile 320–1920 px e dati simulati. Nessuna modifica a backend, azioni dispositivi, storage, scenari o permessi. Revisione asset `3.5.3-beta.12-r1`.
+
+
 ## 3.5.3-beta.11 — Home senza schede di navigazione in alto
 
 - Home è l'unica vista principale Lovelace, eliminando la fila di icone Home/Energia/Scenari luci nella barra superiore nativa.
