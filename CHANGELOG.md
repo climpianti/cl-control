@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5.3-beta.11 — Home senza schede di navigazione in alto
+
+- Home è l'unica vista principale Lovelace, eliminando la fila di icone Home/Energia/Scenari luci nella barra superiore nativa.
+- Energia e Scenari luci sono sottoviste native con `subview: true`, `visible: false` e `back_path: home`: i collegamenti restano nelle card della Home e il pulsante Indietro torna alla Home.
+- Nessuna modifica a route, controlli, autorizzazioni, scenari personali o dati energetici.
+- Test di regressione per la navigazione con e senza sorgente Energia; revisione cache `3.5.3-beta.11-r1`; nessuna migrazione.
+
+
 ## 3.5.3-beta.10 — Contrasto scenari con tema chiaro HA
 
 - Colori di testo espliciti sulla superficie Glass degli scenari per mantenere leggibili titoli, nomi e dettagli anche quando la card nativa HA eredita un tema chiaro.

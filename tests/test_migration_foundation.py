@@ -59,6 +59,26 @@ class MigrationFoundationTests(unittest.TestCase):
             self.assertTrue(any(card.get("entity") == f"{domain}.migration_test" and card["type"] == expected_type for card in cards(views[view])))
         self.assertTrue(any(card["type"] == "custom:cl-control-energy-card" for card in cards(views["energy"])))
 
+    def test_only_home_is_top_tab_and_shortcuts_open_subviews(self):
+        model = fixture_model()
+        model["admin_user_ids"] = ["synthetic-admin"]
+        views = build_native_lovelace(model)["views"]
+        self.assertEqual([v["path"] for v in views if not v.get("subview")], ["home"])
+        home = next(v for v in views if v["path"] == "home")
+        shortcuts = [c.get("card", c) for c in cards(home)]
+        for name, label in (("energy", "Energia"), ("light-scenes", "Scenari luci")):
+            view = next(v for v in views if v["path"] == name)
+            self.assertTrue(view["subview"])
+            self.assertIs(view["visible"], False)
+            self.assertEqual(view["back_path"], "home")
+            self.assertNotIn("icon", view)
+            self.assertTrue(any(c.get("label") == label and
+                c.get("tap_action") == {"action": "navigate", "navigation_path": name}
+                for c in shortcuts))
+        unavailable = build_native_lovelace(fixture_model(energy=False))["views"]
+        self.assertEqual([v["path"] for v in unavailable if not v.get("subview")], ["home"])
+        self.assertNotIn("energy", [v["path"] for v in unavailable])
+
     def test_energy_is_not_fabricated_without_a_provider(self):
         config = build_native_lovelace(fixture_model(energy=False))
         self.assertNotIn("energy", [view["path"] for view in config["views"]])

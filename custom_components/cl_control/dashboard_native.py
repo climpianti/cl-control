@@ -1688,7 +1688,10 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 "type": "sections",
                 "title": "Energia",
                 "path": "energy",
-                "icon": "mdi:lightning-bolt",
+                # Navigate from the Home card; hide this native tab.
+                "subview": True,
+                "visible": False,
+                "back_path": "home",
                 "max_columns": 3,
                 "sections": energy_sections,
             }
@@ -1698,7 +1701,8 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
         scene_area_names = {area["id"]: area["name"] for area in model["areas"]}
         views.append({
             "type": "sections", "title": "Scenari luci", "path": "light-scenes",
-            "icon": "mdi:palette-outline", "max_columns": 2,
+            "subview": True, "visible": False, "back_path": "home",
+            "max_columns": 2,
             "sections": [
                 _branding_section(model, "Scenari luci", column_span=2),
                 {"type": "grid", "column_span": 2, "cards": [{

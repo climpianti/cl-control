@@ -1,0 +1,58 @@
+name: Publish CL Control 3.5.3-beta.11
+
+on:
+  push:
+    branches:
+      - beta/3.5.3-beta.11
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check versions and syntax
+        run: |
+          python -m compileall -q custom_components/cl_control tests
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          v = "3.5.3-beta.11"
+          assert json.loads(Path("custom_components/cl_control/manifest.json").read_text())["version"] == v
+          assert f'VERSION = "{v}"' in Path("custom_components/cl_control/const.py").read_text()
+          assert f'ASSET_REVISION = "{v}-r1"' in Path("custom_components/cl_control/frontend.py").read_text()
+          PY
+      - name: Run Python offline regressions
+        run: python tests/run_offline.py
+      - name: Browser regressions with simulated devices
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install --with-deps chromium
+          node tests/test_home_glass.cjs
+          node tests/test_light_memories_ui.cjs
+          node tests/test_scenes_guided.cjs
+      - name: Build release ZIP and checksum
+        run: python scripts/build_release.py
+      - name: Publish prerelease after successful tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view v3.5.3-beta.11 >/dev/null 2>&1; then
+            echo "Prerelease already exists."
+            exit 0
+          fi
+          gh release create v3.5.3-beta.11 \
+            dist/cl-control-3.5.3-beta.11.zip dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" \
+            --title "CL Control 3.5.3-beta.11 - Navigazione Home" \
+            --notes "Beta di collaudo derivata dalla beta.10. Le tre icone di navigazione Home, Energia e Scenari luci sono rimosse dalla barra in alto. Energia e Scenari rimangono sottoviste raggiungibili dalle card della Home, con pulsante Indietro. Nessuna migrazione o modifica a dispositivi, permessi, scene e dati. Collaudare su telefono reale; per rollback installare la beta.10."

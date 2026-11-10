@@ -1,10 +1,12 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.10**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
+> Prerelease **3.5.3-beta.11**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
 > Test offline: `python tests/run_offline.py` (non emula il runtime HA).
+
+La beta.11 nasconde la barra delle tre schede rapide Home/Energia/Scenari: **Energia** e **Scenari luci** rimangono raggiungibili esclusivamente dalle rispettive card nella Home CL Control. Il pulsante Indietro torna a Home; il menu laterale HA resta disponibile.
 
 Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaudo](docs/BETA_TESTING.md).
 
