@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.5.3-beta.14 — Distinzione fra potenza in kW e storico energia in kWh
+
+- I grafici 12 h e 24 h mostrano potenza media ogni 5 minuti in **kW**, con tooltip e asse corretti e titolo "Andamento potenza".
+- Le statistiche di potenza vengono lette da Recorder (`mean`, `W`), con dati CL Power Control o Home Assistant Energy; la rete firmata viene separata in prelievo/immissione.
+- Se e solo se una media di potenza non e disponibile, il `change` energetico di un intervallo Recorder di 5 minuti viene convertito in potenza media `change_kWh * 12`; valori assenti restano null.
+- I grafici 7/30 giorni mantengono le barre in **kWh**, e lo storico dei giorni, dei mesi e degli anni resta in **kWh**. Nessun nuovo contatore o modifica backend.
+- Test per sorgenti dirette, conversioni, valori nulli/zero, segno rete, periodi e tooltip. Revisione asset `3.5.3-beta.14-r1`. Rollback: beta.13.
+
+
 ## 3.5.3-beta.13 — Restyling Energia fedele all'anteprima
 
 - Cornice Glass sfumata blu elettrico/viola e bagliori perimetrali, titolo con icona in badge e migliore composizione.

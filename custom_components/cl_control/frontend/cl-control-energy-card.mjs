@@ -191,6 +191,11 @@ function formatSignedPower(value) {
   return `${sign}${Math.round(abs).toLocaleString('it-IT')} W`;
 }
 
+function formatChartKw(value) {
+  const kw=number(value);
+  return kw===null?'—':`${Math.max(0,kw).toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2})} kW`;
+}
+
 function formatEnergy(value) {
   const kwh = number(value);
   if (kwh === null) return '—';
@@ -828,13 +833,13 @@ class CLEnergyCard extends HTMLElement {
       ? availableSeries.filter(([key]) => key === barMetricKey)
       : availableSeries;
     const description = this._range === '12h' || this._range === '24h'
-      ? 'Dettaglio fino a 5 minuti nel periodo selezionato.'
+      ? 'Potenza media ogni 5 minuti in kW (statistiche Recorder).'
       : this._range === '7d'
         ? 'Totali giornalieri: una barra per ogni giorno e metrica.'
         : 'Totali giornalieri: scegli la metrica e confronta gli ultimi 30 giorni.';
     return `
       <div class="card trendPremium">
-        <div class="sectionHead"><div><h3><span class="trendTitleIcon"><ha-icon icon="mdi:chart-line" class="trendIcon"></ha-icon></span>Andamento energia</h3><p>${description}</p></div><div class="rangeTabs">${buttons}</div></div>
+        <div class="sectionHead"><div><h3><span class="trendTitleIcon"><ha-icon icon="mdi:chart-line" class="trendIcon"></ha-icon></span>${isBarRange?'Storico energia':'Andamento potenza'}</h3><p>${description}</p></div><div class="rangeTabs">${buttons}</div></div>
         ${metricTabs}
         <div class="chartWrap">${content}${stats?.points?.length ? '<div class="chartCursor" data-chart-cursor hidden></div><div class="chartTooltip" data-chart-tooltip hidden></div>' : ''}</div>
         ${!isBarRange && stats?.points?.length ? '<p class="curveNote">Curve levigate per la lettura · Valori originali al tocco</p>' : ''}
@@ -890,7 +895,7 @@ class CLEnergyCard extends HTMLElement {
     const labels = labelIndexes.map(i =>
       `<text class="axisText" text-anchor="${i===0?'start':i===points.length-1?'end':'middle'}" x="${xForT(Number(points[i].t))}" y="${height-8}">${esc(this._pointLabel(points[i].t))}</text>`
     ).join('');
-    return `<svg class="chart premiumCurveChart" data-energy-chart data-chart-kind="line" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico energia in kWh con curve smussate tra campioni reali, dettaglio fino a 5 minuti. Tocca o trascina per leggere i valori."><defs>${defs}</defs>${grid}${areas.join('')}${halos.join('')}${lines.join('')}${labels}<text class="axisText" x="4" y="12">kWh</text></svg>`;
+    return `<svg class="chart premiumCurveChart" data-energy-chart data-chart-kind="line" viewBox="0 0 ${width} ${height}" role="img" aria-label="Grafico potenza media in kW con curve smussate tra campioni reali, dettaglio fino a 5 minuti. Tocca o trascina per leggere i valori."><defs>${defs}</defs>${grid}${areas.join('')}${halos.join('')}${lines.join('')}${labels}<text class="axisText" x="4" y="12">kW</text></svg>`;
   }
 
   _svgBarChart(points) {
@@ -1372,7 +1377,7 @@ class CLEnergyCard extends HTMLElement {
       const pointPx=(pointSvgX/width)*rect.width+(rect.left-wrap.getBoundingClientRect().left);
       cursor.style.left=`${pointPx}px`;cursor.hidden=false;
       const tooltipSeries=this._range==='30d'?CHART_SERIES.filter(([key])=>key===this._effectiveBarMetric(points)&&number(point[key])!==null):CHART_SERIES.filter(([key])=>number(point[key])!==null);
-      const rows=tooltipSeries.map(([key,label,css])=>`<div class="chartTooltipRow"><span class="chartTooltipName"><span class="chartTooltipSwatch" style="background:var(${css})"></span>${esc(label)}</span><span class="chartTooltipValue">${formatEnergy(point[key])}</span></div>`).join('');
+      const rows=tooltipSeries.map(([key,label,css])=>`<div class="chartTooltipRow"><span class="chartTooltipName"><span class="chartTooltipSwatch" style="background:var(${css})"></span>${esc(label)}</span><span class="chartTooltipValue">${['12h','24h'].includes(this._range)?formatChartKw(point[key]):formatEnergy(point[key])}</span></div>`).join('');
       tooltip.innerHTML=`<div class="chartTooltipTitle">${esc(this._chartTooltipTime(point.t))}</div>${rows}`;tooltip.hidden=false;
       const wrapRect=wrap.getBoundingClientRect(),tooltipWidth=tooltip.offsetWidth||180;
       const leftPx=clamp(pointPx-tooltipWidth*.34,4,Math.max(4,wrapRect.width-tooltipWidth-4));
@@ -1442,6 +1447,70 @@ class CLEnergyCard extends HTMLElement {
     if(selectionMatches())queueMicrotask(restorePinned);
   }
 
+  _globalPowerStatisticIds() {
+    const keys=['pv_power','home_power','grid_power','grid_import_power',
+      'grid_export_power','battery_power'];
+    return [...new Set(keys.flatMap(key=>this._sourceIds(key)))];
+  }
+
+  _fetchPowerStatistics(start,end,ids) {
+    return this._hass.callWS({
+      type:'recorder/statistics_during_period',
+      start_time:start.toISOString(),end_time:end.toISOString(),
+      statistic_ids:ids,period:'5minute',units:{power:'W'},types:['mean'],
+    });
+  }
+
+  _powerSeriesFromResult(powerResult,energyResult) {
+    const keys=['pv_power','home_power','grid_power','grid_import_power',
+      'grid_export_power','battery_power'];
+    const power={};
+    for (const key of keys) {
+      const map=new Map();
+      for (const id of this._sourceIds(key)) {
+        for (const row of (Array.isArray(powerResult?.[id])?powerResult[id]:[])) {
+          const t=number(row.start),watts=number(row.mean);
+          if (t!==null&&watts!==null)map.set(t,(map.get(t)||0)+watts);
+        }
+      }
+      if (this._source(key)?.metadata?.invert)
+        for(const [t,w] of map)map.set(t,-w);
+      power[key]=map;
+    }
+    const fallback={
+      pv:this._metricSeries('pv_energy_total',energyResult),
+      home:this._metricSeries('home_energy_total',energyResult),
+      import:this._metricSeries('grid_import_energy_total',energyResult),
+      export:this._metricSeries('grid_export_energy_total',energyResult),
+      charge:this._metricSeries('battery_charge_energy_total',energyResult),
+      discharge:this._metricSeries('battery_discharge_energy_total',energyResult),
+    };
+    const times=new Set();
+    Object.values(power).forEach(map=>map.forEach((_value,t)=>times.add(t)));
+    Object.values(fallback).forEach(map=>map.forEach((_value,t)=>times.add(t)));
+    const p=(key,t)=>power[key].has(t)?power[key].get(t)/1000:null;
+    // Recorder 5minute changes: energy (kWh) divided by 5/60 h gives kW.
+    const e=(key,t)=>fallback[key].has(t)?Math.max(0,fallback[key].get(t))*12:null;
+    const points=[...times].sort((a,b)=>a-b).map(t=>{
+      const pv=p('pv_power',t)??e('pv',t);
+      const grid=p('grid_power',t);
+      const importPower=p('grid_import_power',t);
+      const exportPower=p('grid_export_power',t);
+      const imp=importPower!==null?Math.max(0,importPower)
+        :grid!==null?Math.max(0,grid):e('import',t);
+      const exp=exportPower!==null?Math.max(0,exportPower)
+        :grid!==null?Math.max(0,-grid):e('export',t);
+      const battery=p('battery_power',t);
+      const measuredHome=p('home_power',t)??e('home',t);
+      const home=measuredHome!==null?Math.max(0,measuredHome)
+        :pv!==null&&imp!==null&&exp!==null
+          ?Math.max(0,pv+imp-exp+(battery??((e('discharge',t)??0)-(e('charge',t)??0))))
+          :null;
+      return {t,pv:pv===null?null:Math.max(0,pv),home,import:imp,export:exp};
+    });
+    return {points,unit:'kW',mode:'power'};
+  }
+
   _globalStatisticIds() {
     const ids = new Set();
     ['pv_energy_total','home_energy_total','grid_import_energy_total','grid_export_energy_total','battery_charge_energy_total','battery_discharge_energy_total'].forEach(key => this._statIds(key).forEach(id => ids.add(id)));
@@ -1464,7 +1533,7 @@ class CLEnergyCard extends HTMLElement {
     if (!this._hass?.callWS) return;
     const tasks = [];
     if (this._allStatisticIds().length) tasks.push(this._ensureToday());
-    if (this._globalStatisticIds().length) tasks.push(this._ensureRange(this._range));
+    if (this._globalStatisticIds().length || (['12h','24h'].includes(this._range)&&this._globalPowerStatisticIds().length)) tasks.push(this._ensureRange(this._range));
     if (this._viewMode === 'history' && this._globalStatisticIds().length) tasks.push(this._ensureHistorySummary());
     if (this._loadRange !== 'now' && this._monitoredStatisticIds().length) tasks.push(this._ensureLoadRange(this._loadRange));
     if (tasks.length) await Promise.all(tasks);
@@ -1519,21 +1588,33 @@ class CLEnergyCard extends HTMLElement {
     const start = new Date(now);
     if (cfg.hours) start.setTime(now.getTime() - cfg.hours*3600000);
     else { start.setHours(0,0,0,0); start.setDate(start.getDate() - (cfg.days-1)); }
+    const isPower=rangeKey==='12h'||rangeKey==='24h';
     const key = `range:${rangeKey}:${start.toISOString().slice(0,13)}`;
     if (this._cacheFresh(key)) {
-      if (rangeKey === this._range && !this._rangeStats) { this._rangeStats = this._seriesFromResult(this._statsCache.get(key).data); this._render(); }
+      if (rangeKey === this._range && !this._rangeStats) { this._rangeStats = this._statsCache.get(key).data; this._render(); }
       return;
     }
     const loadingKey = `range:${rangeKey}`;
     if (this._statsLoading.has(loadingKey)) return;
     this._statsLoading.add(loadingKey);
     try {
-      const result = await this._fetchStatistics(start, now, cfg.period, this._globalStatisticIds());
-      this._statsCache.set(key,{at:Date.now(),data:result});
-      if (rangeKey === this._range) this._rangeStats = this._seriesFromResult(result);
+      let stats;
+      if(isPower) {
+        const energyIds=this._globalStatisticIds();
+        const powerIds=this._globalPowerStatisticIds();
+        const [powerResult,energyResult]=await Promise.all([
+          powerIds.length?this._fetchPowerStatistics(start,now,powerIds).catch(()=>({})):Promise.resolve({}),
+          energyIds.length?this._fetchStatistics(start,now,cfg.period,energyIds).catch(()=>({})):Promise.resolve({}),
+        ]);
+        stats=this._powerSeriesFromResult(powerResult,energyResult);
+      } else {
+        stats=this._seriesFromResult(await this._fetchStatistics(start,now,cfg.period,this._globalStatisticIds()));
+      }
+      this._statsCache.set(key,{at:Date.now(),data:stats});
+      if (rangeKey === this._range) this._rangeStats = stats;
       this._statsError = '';
-    } catch (error) {
-      this._statsError = 'Impossibile leggere lo storico energetico.';
+    } catch(error) {
+      this._statsError='Impossibile leggere le statistiche del periodo.';
     } finally {
       this._statsLoading.delete(loadingKey);
       this._render();

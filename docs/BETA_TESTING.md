@@ -1,4 +1,4 @@
-# Collaudo CL Control 3.5.3-beta.13
+# Collaudo CL Control 3.5.3-beta.14
 
 Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un aggiornamento stabile. Richiede Home Assistant >= 2026.9.0; il collaudo reale precedente alla confezione della release è stato eseguito su 2026.10.4. Non certifica ogni dispositivo o versione di HA.
 
@@ -6,10 +6,10 @@ Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un agg
 
 1. Crea un backup completo Home Assistant e annota la versione CL Control precedente.
 2. Usa preferibilmente un'istanza di test. L'integrazione genera una dashboard dalle entità esistenti: i suoi pulsanti possono comandare dispositivi reali.
-3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.13**. Se già installata, scegli questa versione nella procedura di riscaricamento. Su HA 2026.11 usa Marketplace nelle Impostazioni; l'eventuale avviso iniziale deve essere letto e accettato dall'utente.
-4. In alternativa scarica `cl-control-3.5.3-beta.13.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
+3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.14**. Se già installata, scegli questa versione nella procedura di riscaricamento. Su HA 2026.11 usa Marketplace nelle Impostazioni; l'eventuale avviso iniziale deve essere letto e accettato dall'utente.
+4. In alternativa scarica `cl-control-3.5.3-beta.14.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
 5. Riavvia Home Assistant. Alla prima installazione aggiungi **CL Control** da Impostazioni → Dispositivi e servizi. Apri la dashboard generata dalla barra laterale.
-6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.13** e revisione degli asset **3.5.3-beta.13-r1**. Non servono risorse Lovelace manuali.
+6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.14** e revisione degli asset **3.5.3-beta.14-r1**. Non servono risorse Lovelace manuali.
 
 L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenziali, entità o screenshot della demo. Non richiede di eliminare dispositivi. Nessun merge sul ramo stabile è necessario per provare questa prerelease.
 
@@ -22,6 +22,10 @@ L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenzial
 - Il pannello B&B verifica sempre i permessi lato server, indipendentemente dalla visibilità del collegamento.
 
 ## Controlli consigliati
+
+- **Potenza vs Energia beta.14:** su Cohes 12/24 h devono essere **kW** ("Andamento potenza"), con medie Recorder a 5 minuti, asse kW e tooltip kW. Verificare 0 W -> 0,00 kW e 540 W -> 0,54 kW, senza cambiare l'origine dei dati. Prelievo e immissione devono usare la potenza di rete firmata.
+- **Fallback corretto:** senza una statistica di potenza, 0,05 kWh in 5 minuti corrispondono a 0,60 kW; se mancano entrambe le statistiche non disegnare zero. Un vero zero resta zero.
+- **Storico invariato:** 7/30 giorni continuano a mostrare kWh nelle barre e nel tooltip; riepiloghi giorno/mese/anno continuano in kWh. Nessuna modifica ai comandi carichi o alle sorgenti.
 
 - **Fedeltà al mock beta.13:** verificare bordo sfumato blu/viola, badge del grafico, legenda con quattro icone SVG, tooltip Glass con puntatore, card dei carichi e freccia di dettaglio su Android/desktop. L'anteprima ha dati illustrativi, non valori di un impianto.
 - **Fedeltà ai dati:** per 12/24h la linea è solo visivamente smussata; al tocco leggere il campione effettivo. I punti FV a zero devono restare a zero e nessun tratto deve unire intervalli senza dati. Per 7/30 giorni verificare grafici a barre invariati.

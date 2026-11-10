@@ -1,6 +1,6 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.13**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
+> Prerelease **3.5.3-beta.14**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
@@ -11,6 +11,8 @@ La beta.11 nasconde la barra delle tre schede rapide Home/Energia/Scenari: **Ene
 **Energia Blue Tech beta.12:** curve SVG monotone sui campioni storici a 12/24 ore (senza sovraoscillazione o picchi fittizi), riempimenti sfumati, tooltip Glass con serie colorate, legenda e selezione periodi migliorate. I grafici a barre di 7/30 giorni restano invariati nella logica. I carichi mostrano una barra di confronto relativo rispetto al massimo tra quelli visualizzati, non una percentuale di carico nominale. Il grafico del dettaglio giornaliero dei carichi è altrettanto smussato. Dati, statistica, comandi, nomi entità e API non cambiano. Le interruzioni dei dati non vengono trasformate in zeri.
 
 **Energia Glass beta.13:** cornice sfumata blu/viola, iconografia SVG di FV/Casa/Prelievo/Immissione, selettori periodo e tooltip con puntatore, nuovo layout orizzontale dei carichi con freccia di dettaglio. Solo il **tracciato visualizzato** 12/24h usa un filtro triangolare di circa ±20 minuti per ridurre seghettature: i dati al tocco sono sempre originali. I periodi mancanti restano disconnessi e i campioni a zero non vengono trasformati in produzione. I grafici settimanali e mensili rimangono a barre. Nessuna modifica a dati persistenti, statistiche, calcoli, entità, API o comandi. L'anteprima è illustrativa, non coincide necessariamente con i profili di consumo reali.
+
+**Beta.14: potenza vs energia.** I grafici **12/24 ore** visualizzano la potenza media a campioni di 5 minuti in **kW**, usando Recorder `mean` dei sensori di potenza W (FV, Casa, rete firmata; prelievo positivo/immissione negativa). Solo se una media non e disponibile viene usato il cambiamento `kWh` del medesimo intervallo per stimare la potenza media equivalente (`kWh * 12`); i dati assenti non diventano zeri. I grafici **7/30 giorni** e i riepiloghi giorno/mese/anno restano in **kWh**. Nessuna modifica ai sensori o ai controlli; stesse curve e lo stesso stile Blue Tech Glass. Il grafico 12/24h e uno storico della potenza, non una misura live ad alta frequenza.
 
 Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaudo](docs/BETA_TESTING.md).
 
