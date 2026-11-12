@@ -16,6 +16,7 @@ window.hass={callService:async(...args)=>{serviceCalls.push(args);},user:{id:'fi
  calls.push(m);
  if(m.type.endsWith('/list'))return {items:items.filter(i=>i.kind===m.kind)};
  if(m.type.endsWith('/capture')){items.push({id:String(items.length+1),name:m.name,kind:m.kind,available:true,states:Object.fromEntries(m.entity_ids.map(e=>[e,{state:'on',brightness:100,color_mode:'rgb',rgb_color:[32,64,128]}]))});return {};}
+ if(m.type.endsWith('/create')){items.push({id:String(items.length+1),name:m.name,kind:'scene',available:true,states:JSON.parse(JSON.stringify(m.states))});return {};}
  if(m.type.endsWith('/delete')){window.items=items.filter(i=>i.id!==m.item_id);return {};}
  if(m.type.endsWith('/apply'))return {dispatched:true};
  throw Error('Unexpected API');
@@ -106,10 +107,10 @@ if(require.main===module)(async()=>{
    assert.equal(await root.locator('#nextScene').isDisabled(),true);
    await root.locator('[data-target]').check();
    await root.locator('#nextScene').click();
-   await root.locator('#name').fill('Serata');
    await root.locator('#nextScene').click();
+   await root.locator('#name').fill('Serata');
    await root.locator('#capture').click();await root.locator('[data-apply]').waitFor();
-   assert.deepEqual((await page.evaluate(()=>calls.find(x=>x.type.endsWith('/capture')))).entity_ids,['light.fixture']);
+   assert.deepEqual(Object.keys((await page.evaluate(()=>calls.find(x=>x.type.endsWith('/create')))).states),['light.fixture']);
    await root.locator('[data-apply]').click();
    await page.waitForFunction(()=>calls.some(x=>x.type.endsWith('/apply')));
    for(const width of [320,390,768,1024,1440,1920]){

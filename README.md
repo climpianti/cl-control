@@ -18,16 +18,22 @@ Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaud
 
 **Beta.15: letture Recorder affidabili.** Nei grafici 12/24 ore un totale di potenza richiede un campione valido da ogni sensore configurato: se ne manca uno, viene usato il fallback energetico quando disponibile oppure rimane un intervallo senza dati. Se tutte le richieste statistiche falliscono, viene mostrato un errore senza memorizzare il risultato come una lettura vuota riuscita. Uno zero misurato resta zero. Nessuna migrazione dati; sensori, comandi e stile Glass conservati.
 
-### Scenari luci e preferiti nella beta
+### Scenari luci e preferiti
+
+L'editor descritto qui è in sviluppo nel branch `feat/scenes-draft-editor`; non è ancora incluso nella beta.15 pubblicata.
 
 **Sistemi → Scenari luci** mostra prima gli scenari personali salvati.
 **Crea scenario** apre tre passaggi: selezione delle singole luci per ambiente,
-nome e riepilogo. **Salva stato attuale** legge lo stato senza azionare le luci;
+regolazioni, nome e riepilogo. Nel secondo passaggio scegli acceso/spento e luminosità,
+colore, bianchi o temperatura secondo le capacità della singola luce. **Usa stato attuale**
+copia le impostazioni nella bozza. **Salva scenario** memorizza la bozza senza azionare le luci;
 il riepilogo evidenzia anche gli scenari che spegneranno tutte le luci selezionate.
 **Avvia** richiede conferma e riproduce gli stati
 tramite Home Assistant. Il comando può avere effetti parziali se un dispositivo
 si scollega durante l'esecuzione: controlla sempre il risultato.
 
+Le impostazioni della bozza non vengono sovrascritte dagli aggiornamenti realtime.
+Il salvataggio riporta a **I tuoi scenari**, con il pulsante **Avvia** per applicare le impostazioni salvate.
 La selezione e i comandi seguono la disponibilità realtime. Una luce selezionata
 che perde la connessione può essere rimossa; il salvataggio resta bloccato finché
 la selezione non è valida. Nome e cursore restano stabili durante gli aggiornamenti.

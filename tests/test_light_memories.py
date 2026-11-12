@@ -55,6 +55,10 @@ class SnapshotTests(unittest.TestCase):
     def test_incomplete_mode_rejected(self):
         with self.assertRaises(ValueError): capture_light(light(color_mode=None))
 
+    def test_malformed_client_values_return_validation_errors(self):
+        for value in ({"state": []}, {"state": "on", "color_mode": []}, {"state": "on", "brightness": True}):
+            with self.assertRaises(ValueError): validate_snapshot(value)
+
 
 class FakeStore:
     def __init__(self): self.saved = None; self.fail = False
@@ -180,3 +184,97 @@ class MemoryTests(unittest.IsolatedAsyncioTestCase):
         for name in (" ", "x"*65):
             with self.assertRaises(ValueError):
                 await self.library.async_capture("alice", self.allowed, name, ["light.a"], "scene")
+
+    async def test_create_explicit_draft_does_not_capture_or_actuate(self):
+        self.states["light.a"] = light(state="off", mode="brightness", color_mode=None, brightness=None)
+        draft = {"light.a": {"state": "on", "color_mode": "brightness", "brightness": 133}, "light.b": {"state": "off"}}
+        item = await self.library.async_create_scene("alice", self.allowed, " Relax ", draft)
+        draft["light.a"]["brightness"] = 255
+        self.assertEqual(item["states"]["light.a"]["brightness"], 133)
+        self.assertEqual(item["name"], "Relax")
+        self.assertEqual(self.states["light.a"].state, "off")
+        self.assertEqual(self.applied, [])
+        await self.library.async_apply("alice", self.allowed, item["id"], self.apply)
+        self.assertEqual(self.applied[0]["light.a"]["brightness"], 133)
+
+    async def test_explicit_scene_reloads_with_legacy_snapshot(self):
+        legacy = await self.capture("preset")
+        created = await self.library.async_create_scene("alice", self.allowed, "Off", {"light.b": {"state": "off"}})
+        restarted = LightMemoryLibrary(self.store, self.states.get)
+        await restarted.async_load()
+        listed = await restarted.async_list("alice", self.allowed)
+        self.assertEqual({i["id"] for i in listed}, {legacy["id"], created["id"]})
+        self.assertEqual(self.store.saved["schema_version"], 1)
+
+    async def test_explicit_scene_checks_permissions_and_availability(self):
+        for denied in (lambda e,p:p=="read", lambda e,p:e!="light.b"):
+            with self.assertRaises(PermissionError):
+                await self.library.async_create_scene("alice", denied, "Test", {"light.b": {"state": "off"}})
+        self.states["light.b"] = light(state="unavailable")
+        with self.assertRaises(ValueError):
+            await self.library.async_create_scene("alice", self.allowed, "Test", {"light.b": {"state": "off"}})
+        self.assertIsNone(self.store.saved)
+
+    async def test_explicit_scene_rejects_unsupported_controls(self):
+        self.states["light.b"] = light(mode="onoff")
+        for target in ({"state": "on", "brightness": 100}, {"state": "on", "color_mode": "rgb", "rgb_color": [1,2,3]}):
+            with self.assertRaises(ValueError):
+                await self.library.async_create_scene("alice", self.allowed, "Test", {"light.b": target})
+        self.assertIsNone(self.store.saved)
+
+    async def test_explicit_scene_validates_color_and_white_channels(self):
+        self.states["light.a"] = light(mode="rgbww")
+        target = {"state": "on", "brightness": 120, "color_mode": "rgbww", "rgbww_color": [12,34,56,78,90]}
+        item = await self.library.async_create_scene("alice", self.allowed, "Color", {"light.a": target})
+        self.assertEqual(item["states"]["light.a"], target)
+        target["rgbww_color"][4] = 300
+        with self.assertRaises(ValueError):
+            await self.library.async_create_scene("alice", self.allowed, "Bad", {"light.a": target})
+
+    async def test_explicit_scene_checks_device_kelvin_and_effect(self):
+        self.states["light.a"] = light(mode="color_temp", min_color_temp_kelvin=2200, max_color_temp_kelvin=6000, effect_list=["Relax"])
+        for target in ({"state": "on", "color_mode": "color_temp", "color_temp_kelvin": 6500}, {"state": "on", "effect": "Unknown"}):
+            with self.assertRaises(ValueError):
+                await self.library.async_create_scene("alice", self.allowed, "Test", {"light.a": target})
+        item = await self.library.async_create_scene("alice", self.allowed, "Warm", {"light.a": {"state": "on", "color_mode": "color_temp", "color_temp_kelvin": 2700}})
+        self.assertEqual(item["states"]["light.a"]["color_temp_kelvin"], 2700)
+
+    async def test_explicit_scene_rejects_unknown_fields_and_non_lights(self):
+        for states in ({"light.a": {"state": "on", "service": "unlock"}}, {"lock.front": {"state": "off"}}, {1: {"state": "off"}}, {}, {"light.a": {"state": "off", "brightness": 1}}):
+            with self.assertRaises(ValueError):
+                await self.library.async_create_scene("alice", self.allowed, "Test", states)
+        self.states["light.b"] = light(entity_id=["light.secret"])
+        with self.assertRaises(ValueError):
+            await self.library.async_create_scene("alice", self.allowed, "Test", {"light.b": {"state": "off"}})
+        self.assertIsNone(self.store.saved)
+
+    async def test_explicit_save_failure_keeps_existing_library(self):
+        previous = await self.capture()
+        self.store.fail = True
+        with self.assertRaises(OSError):
+            await self.library.async_create_scene("alice", self.allowed, "Test", {"light.a": {"state": "off"}})
+        self.assertEqual(list(self.library.items), [previous["id"]])
+
+    async def test_explicit_scene_is_owner_scoped(self):
+        item = await self.library.async_create_scene("alice", self.allowed, "Test", {"light.a": {"state": "off"}})
+        self.assertNotIn("owner", item)
+        self.assertEqual(await self.library.async_list("bob", self.allowed), [])
+        with self.assertRaises(ValueError):
+            await self.library.async_apply("bob", self.allowed, item["id"], self.apply)
+
+    async def test_explicit_scene_shares_quota_with_existing_presets(self):
+        import asyncio
+        for _ in range(63): await self.capture("preset")
+        async def create():
+            return await self.library.async_create_scene("alice", self.allowed, "Test", {"light.a": {"state": "off"}})
+        results = await asyncio.gather(create(), create(), return_exceptions=True)
+        self.assertEqual(sum(isinstance(result, ValueError) for result in results), 1)
+        self.assertEqual(len(self.library.items), 64)
+
+    async def test_explicit_scene_invalid_name_and_target_limit(self):
+        for name in (" ", "x"*65):
+            with self.assertRaises(ValueError):
+                await self.library.async_create_scene("alice", self.allowed, name, {"light.a": {"state": "off"}})
+        with self.assertRaises(ValueError):
+            await self.library.async_create_scene("alice", self.allowed, "Test", {f"light.test_{i}": {"state": "off"} for i in range(33)})
+        self.assertIsNone(self.store.saved)

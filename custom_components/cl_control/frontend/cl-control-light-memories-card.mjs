@@ -33,7 +33,7 @@ export class CLLightMemoriesCard extends HTMLElement {
     this._name=''; this._busy=false; this._loading=true; this._error=''; this._notice='';
     this._sequence=0; this._native=null; this._nativeKey=''; this._connected=false;
     this._expanded=false; this._detailsExpanded=false; this._controlBusy=false; this._controlKey='';
-    this._sceneStep=0; this._sceneRenderedStep=-1;
+    this._sceneStep=0; this._sceneRenderedStep=-1; this._sceneDrafts={};
     this._refresh=()=>this._load();
   }
   setConfig(config) { this._config={...config}; this._sceneRenderedStep=-1; this._render(); }
@@ -50,7 +50,7 @@ export class CLLightMemoriesCard extends HTMLElement {
     const first=!this._hass;
     const changedUser=this._hass?.user?.id!==hass?.user?.id;
     this._hass=hass;
-    if(changedUser){this._items=[];this._name='';this._selected.clear();this._sceneStep=0;this._sceneRenderedStep=-1;if(!this._isPreset())this._render();}
+    if(changedUser){this._items=[];this._name='';this._selected.clear();this._sceneDrafts={};this._sceneStep=0;this._sceneRenderedStep=-1;if(!this._isPreset())this._render();}
     if(this._native)this._native.hass=hass;
     this._syncState();
     if((first||changedUser)&&this._connected)this._load();
@@ -79,13 +79,17 @@ export class CLLightMemoriesCard extends HTMLElement {
     try{
       await this._hass.callWS({type:`cl_control/light_memories/${operation}`,...data});
       this._notice=operation==='apply'?'Richiesta inviata. Verifica le luci.':operation==='delete'?'Eliminato.':'Stato attuale salvato.';
-      if(operation==='capture'){this._name='';if(!this._isPreset()){this._sceneStep=0;this._selected.clear();this._notice='Scenario salvato.';}}
+      if(operation==='capture'||operation==='create'){this._name='';if(!this._isPreset()){this._sceneStep=0;this._selected.clear();this._sceneDrafts={};this._notice='Scenario salvato. Premi Avvia per applicarlo alle luci.';}}
       window.dispatchEvent(new Event(CHANGED));
     }catch(e){this._error=e?.message||'Operazione non completata. Verifica lo stato prima di riprovare.';}
-    finally{this._busy=false;this._render();if(operation==='capture'&&!this._isPreset()&&!this._sceneStep)this.shadowRoot.querySelector('#createScene')?.focus();}
+    finally{this._busy=false;this._render();if(['capture','create'].includes(operation)&&!this._isPreset()&&!this._sceneStep)this.shadowRoot.querySelector('#createScene')?.focus();}
   }
   _capture(){
     if(!this._isPreset()&&(this._sceneStep!==3||!this._sceneSelectionReady()||!this._name.trim()))return;
+    if(!this._isPreset()){
+      const states=Object.fromEntries([...this._selected].map(id=>[id,this._sceneSnapshot(id)]));
+      this._action('create',{name:this._name.trim(),states});return;
+    }
     const entity_ids=this._isPreset()?[this._config.entity]:[...this._selected];
     this._action('capture',{name:this._name.trim(),entity_ids,kind:this._isPreset()?'preset':'scene'});
   }
@@ -154,7 +158,94 @@ export class CLLightMemoriesCard extends HTMLElement {
     const s=this._hass?.states?.[id];
     return ['on','off'].includes(s?.state)&&!s.attributes?.entity_id&&!s.attributes?.group_entities;
   }
-  _sceneSelectionReady(){return this._selected.size>0&&this._selected.size<=32&&[...this._selected].every(id=>this._sceneLightAvailable(id));}
+  _sceneDraftFromState(id){
+    const s=this._hass?.states?.[id],a=s?.attributes||{},modes=a.supported_color_modes||[];
+    const mode=modes.includes(a.color_mode)?a.color_mode:modes[0]||null;
+    const channels=(key,fallback,limits=fallback.map(()=>255))=>Array.isArray(a[key])&&a[key].length===fallback.length&&a[key].every((v,i)=>Number.isFinite(v)&&v>=0&&v<=limits[i])?[...a[key]]:fallback;
+    return {state:s?.state==='on'?'on':'off',color_mode:mode,
+      brightness:Number.isInteger(a.brightness)&&a.brightness>0?Math.min(255,a.brightness):255,
+      color_temp_kelvin:Math.max(a.min_color_temp_kelvin||2000,Math.min(a.max_color_temp_kelvin||6500,a.color_temp_kelvin||a.min_color_temp_kelvin||2700)),
+      rgb_color:channels('rgb_color',[255,255,255]),rgbw_color:channels('rgbw_color',[255,255,255,0]),
+      rgbww_color:channels('rgbww_color',[255,255,255,0,0]),hs_color:channels('hs_color',[30,70],[360,100]),
+      xy_color:channels('xy_color',[.3127,.329],[1,1]),effect:(a.effect_list||[]).includes(a.effect)?a.effect:''};
+  }
+  _sceneSnapshot(id){
+    const draft=this._sceneDrafts[id];
+    if(!draft||draft.state==='off')return {state:'off'};
+    const snapshot={state:'on'},mode=draft.color_mode;
+    const modes=this._hass?.states?.[id]?.attributes?.supported_color_modes||[];
+    if(modes.some(m=>DIM.has(m)))snapshot.brightness=draft.brightness;
+    if(mode)snapshot.color_mode=mode;
+    const field={rgb:'rgb_color',rgbw:'rgbw_color',rgbww:'rgbww_color',hs:'hs_color',xy:'xy_color',color_temp:'color_temp_kelvin'}[mode];
+    if(field)snapshot[field]=Array.isArray(draft[field])?[...draft[field]]:draft[field];
+    if(draft.effect)snapshot.effect=draft.effect;
+    return snapshot;
+  }
+  _sceneDraftValid(id){
+    const d=this._sceneDrafts[id],a=this._hass?.states?.[id]?.attributes||{};
+    if(!d||!this._sceneLightAvailable(id))return false;
+    if(d.state==='off')return true;
+    const modes=a.supported_color_modes||[];
+    if(modes.length&&!modes.includes(d.color_mode))return false;
+    if(d.color_mode==='color_temp'&&(d.color_temp_kelvin<(a.min_color_temp_kelvin||1000)||d.color_temp_kelvin>(a.max_color_temp_kelvin||40000)))return false;
+    return !d.effect||(a.effect_list||[]).includes(d.effect);
+  }
+  _sceneSelectionReady(){return this._selected.size>0&&this._selected.size<=32&&[...this._selected].every(id=>this._sceneDraftValid(id));}
+  _sceneDraftDescription(id){
+    if(!this._sceneDrafts[id])return 'Impostazioni da scegliere';
+    const snapshot=this._sceneSnapshot(id),description=memoryDescription({[id]:snapshot}).replace('Colore salvato','Colore impostato');
+    return snapshot.state==='on'&&description!=='Accesa'?`Accesa · ${description}`:description;
+  }
+  _sceneAdjustmentsHTML(names){
+    const modeNames={onoff:'Acceso/spento',brightness:'Luminosità',white:'Bianco',color_temp:'Temperatura bianco',rgb:'Colore RGB',rgbw:'Colore RGBW',rgbww:'Colore RGB + due bianchi',hs:'Tonalità e saturazione',xy:'Colore XY'};
+    return [...this._selected].map(id=>{
+      const d=this._sceneDrafts[id],a=this._hass?.states?.[id]?.attributes||{},modes=a.supported_color_modes||[];
+      const slider=(key,label,value,min,max,step=1)=>`<label class="draft-slider"><span>${label}<output data-draft-output="${key}">${value}</output></span><input type="range" data-draft-control="${key}" aria-label="${esc(label)} · ${esc(names[id]||id)}" min="${min}" max="${max}" step="${step}" value="${value}"></label>`;
+      const field={rgb:'rgb_color',rgbw:'rgbw_color',rgbww:'rgbww_color'}[d.color_mode];
+      let color='';
+      if(field){
+        const hex='#'+d[field].slice(0,3).map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
+        color=`<label class="draft-color">Colore<input type="color" data-draft-control="color" aria-label="Colore · ${esc(names[id]||id)}" value="${hex}"></label>`;
+        if(d.color_mode==='rgbw')color+=slider('white','Bianco W',Math.round(d.rgbw_color[3]/255*100),0,100);
+        if(d.color_mode==='rgbww')color+=slider('coldWhite','Bianco freddo',Math.round(d.rgbww_color[3]/255*100),0,100)+slider('warmWhite','Bianco caldo',Math.round(d.rgbww_color[4]/255*100),0,100);
+      }else if(d.color_mode==='hs')color=slider('hue','Tonalità',d.hs_color[0],0,360)+slider('saturation','Saturazione',d.hs_color[1],0,100);
+      else if(d.color_mode==='xy')color=slider('x','Coordinata colore X',d.xy_color[0],0,1,.0001)+slider('y','Coordinata colore Y',d.xy_color[1],0,1,.0001);
+      else if(d.color_mode==='color_temp')color=slider('kelvin','Temperatura bianco',d.color_temp_kelvin,a.min_color_temp_kelvin||2000,a.max_color_temp_kelvin||6500);
+      const modeSelect=modes.length>1?`<label class="draft-mode">Regolazione<select data-draft-control="mode" aria-label="Regolazione · ${esc(names[id]||id)}">${modes.map(m=>`<option value="${esc(m)}" ${m===d.color_mode?'selected':''}>${esc(modeNames[m]||m)}</option>`).join('')}</select></label>`:'';
+      const effect=(a.effect_list||[]).length?`<label class="draft-mode">Effetto<select data-draft-control="effect" aria-label="Effetto · ${esc(names[id]||id)}"><option value="">Nessun effetto selezionato</option>${a.effect_list.map(e=>`<option value="${esc(e)}" ${d.effect===e?'selected':''}>${esc(e)}</option>`).join('')}</select></label>`:'';
+      return `<article class="draft-light" data-draft-id="${esc(id)}"><div class="draft-heading"><ha-icon icon="mdi:lightbulb-outline"></ha-icon><strong>${esc(names[id]||id)}</strong></div><small data-draft-status></small><div class="draft-power" role="group" aria-label="Stato nello scenario · ${esc(names[id]||id)}"><button type="button" data-draft-on="on" aria-pressed="${d.state==='on'}">Accesa</button><button type="button" data-draft-on="off" aria-pressed="${d.state==='off'}">Spenta</button></div><div data-draft-settings ${d.state==='off'?'hidden':''}>${modes.some(m=>DIM.has(m))?slider('brightness','Luminosità',Math.round(d.brightness/255*100),1,100):'<small>Questa luce supporta solo acceso/spento.</small>'}${modeSelect}${color}${effect}</div><button type="button" class="quiet draft-current" data-draft-current>Usa stato attuale</button></article>`;
+    }).join('');
+  }
+  _bindSceneAdjustments(editor){
+    editor.querySelectorAll('[data-draft-id]').forEach(row=>{
+      const id=row.dataset.draftId;
+      row.querySelectorAll('[data-draft-on]').forEach(button=>button.onclick=()=>{if(this._busy)return;this._sceneDrafts[id].state=button.dataset.draftOn;this._syncSceneState();});
+      row.querySelector('[data-draft-current]').onclick=()=>{
+        if(this._busy||!this._sceneLightAvailable(id))return;
+        this._sceneDrafts[id]=this._sceneDraftFromState(id);this._sceneRenderedStep=-1;this._renderScenes();
+      };
+      row.querySelectorAll('[data-draft-control]').forEach(input=>{
+        const update=()=>{
+          if(this._busy)return;
+          const d=this._sceneDrafts[id],key=input.dataset.draftControl,v=Number(input.value);
+          if(key==='brightness')d.brightness=Math.round(v/100*255);
+          else if(key==='mode')d.color_mode=input.value;
+          else if(key==='effect')d.effect=input.value;
+          else if(key==='kelvin')d.color_temp_kelvin=v;
+          else if(key==='color'){
+            const field={rgb:'rgb_color',rgbw:'rgbw_color',rgbww:'rgbww_color'}[d.color_mode];
+            d[field].splice(0,3,...[1,3,5].map(i=>parseInt(input.value.slice(i,i+2),16)));
+          }else if(key==='white')d.rgbw_color[3]=Math.round(v/100*255);
+          else if(key==='coldWhite'||key==='warmWhite')d.rgbww_color[key==='coldWhite'?3:4]=Math.round(v/100*255);
+          else if(key==='hue'||key==='saturation')d.hs_color[key==='hue'?0:1]=v;
+          else if(key==='x'||key==='y')d.xy_color[key==='x'?0:1]=v;
+          if(key==='mode'){this._sceneRenderedStep=-1;this._renderScenes();}
+          else this._syncSceneState();
+        };
+        input.addEventListener(input.tagName==='SELECT'?'change':'input',update);
+      });
+    });
+  }
   _syncSavedAvailability(){
     this.shadowRoot.querySelectorAll('[data-apply]').forEach(button=>{
       const item=this._items.find(i=>i.id===button.dataset.apply);
@@ -172,13 +263,14 @@ export class CLLightMemoriesCard extends HTMLElement {
   }
   _sceneStepTo(step){
     if(this._busy)return;
+    if(step===1&&this._sceneStep===0){this._error='';this._notice='';}
     if(step>this._sceneStep&&step===2&&!this._sceneSelectionReady())return;
-    if(step>this._sceneStep&&step===3&&(!this._sceneSelectionReady()||!this._name.trim()))return;
+    if(step>this._sceneStep&&step===3&&!this._sceneSelectionReady())return;
     this._sceneStep=step;this._renderScenes();
-    const focus=this.shadowRoot.querySelector(step===2?'#name':step?'#sceneStepTitle':'#createScene');
+    const focus=this.shadowRoot.querySelector(step===3?'#name':step?'#sceneStepTitle':'#createScene');
     focus?.focus();
   }
-  _cancelScene(){this._name='';this._selected.clear();this._sceneStepTo(0);}
+  _cancelScene(){this._name='';this._selected.clear();this._sceneDrafts={};this._sceneStepTo(0);}
   _renderScenes(){
     const root=this.shadowRoot;
     if(!root.querySelector('.scene-shell')){
@@ -188,6 +280,7 @@ export class CLLightMemoriesCard extends HTMLElement {
         h3,h4,p{margin:0}h3{font-size:18px}h4{font-size:16px}.intro,small{color:#bdcadd;font-size:13px;line-height:1.5}small{display:block}.intro{margin:6px 0 14px}.scene-head,.memory,.actions,.editor-actions{display:flex;align-items:center;gap:10px}.scene-head{justify-content:space-between;flex-wrap:wrap}.memory{justify-content:space-between;padding:14px 0;border-top:1px solid #ffffff20}.memory>div:first-child{min-width:0;overflow-wrap:anywhere}.actions{flex-shrink:0}.memory strong{display:block;margin-bottom:4px}.empty{padding:18px 0;color:#bdcadd;font-size:14px}
         button,input{font:inherit}button{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:9px 12px;border:1px solid #ffffff25;border-radius:12px;background:#ffffff08;color:#f5f7fc;cursor:pointer}button ha-icon{--mdc-icon-size:19px}button:disabled{opacity:.45;cursor:default}.primary{background:#356a9c;border-color:#6599c455}.quiet{background:transparent}button:focus-visible,input:focus-visible,h4:focus-visible{outline:2px solid #78c5ff;outline-offset:3px}
         .editor{margin-top:18px;padding-top:18px;border-top:1px solid #ffffff25}.steps{color:#8ac8ff;font-size:12px;margin-bottom:6px}.editor-actions{justify-content:flex-end;flex-wrap:wrap;margin-top:16px}.editor-actions #cancelScene{margin-right:auto}.targets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.targets label{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid #ffffff20;border-radius:12px;min-width:0;overflow-wrap:anywhere}.targets input{accent-color:#78c5ff;width:18px;height:18px;flex-shrink:0}.area-name{grid-column:1/-1;margin:12px 0 0;font-weight:600;font-size:14px;color:#bdcadd}.targets label span{min-width:0}.name-label{display:block;margin:14px 0 6px}#name{display:block;width:100%;padding:12px;font-size:16px;color:#f5f7fc;background:#ffffff08;border:1px solid #ffffff30;border-radius:12px}.summary{margin:12px 0 0;padding:12px;background:#ffffff08;border-radius:12px;font-size:14px;overflow-wrap:anywhere}.review-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:1px solid #ffffff10;padding:10px 0;overflow-wrap:anywhere}.review-row span{min-width:0}.review-row small{text-align:right}.message{padding:10px;margin:10px 0;background:#ffffff0b;border-radius:10px;font-size:13px;overflow-wrap:anywhere}#refresh{margin-top:12px}[hidden]{display:none!important}
+        .draft-lights{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}.draft-light{min-width:0;padding:16px;border:1px solid #ffffff25;border-radius:18px;background:#ffffff06}.draft-heading{display:flex;align-items:center;gap:10px;overflow-wrap:anywhere}.draft-heading ha-icon{color:#91cfff;flex-shrink:0}.draft-heading strong{min-width:0}.draft-power{display:flex;gap:8px;margin:14px 0}.draft-power button{flex:1}.draft-power button[aria-pressed=true]{background:#356a9c;border-color:#91cfff}.draft-slider{display:block;margin:14px 0}.draft-slider>span{display:flex;justify-content:space-between;gap:10px;font-size:13px}.draft-slider output{font-variant-numeric:tabular-nums;white-space:nowrap}.draft-slider input{width:100%;height:36px;accent-color:#8ac8ff}.draft-color,.draft-mode{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:12px 0;font-size:13px}.draft-color input{width:64px;height:44px;background:#ffffff08;border:1px solid #ffffff30;border-radius:10px}.draft-mode{flex-wrap:wrap}.draft-mode select{min-width:0;max-width:100%;padding:10px;min-height:44px;font:inherit;font-size:16px;background:#18222b;color:#f5f7fc;border:1px solid #ffffff30;border-radius:10px}.draft-current{margin-top:10px;width:100%}select:focus-visible{outline:2px solid #78c5ff;outline-offset:3px}
         @media(max-width:480px){ha-card{padding:14px}.targets{grid-template-columns:1fr}.memory{align-items:flex-start;flex-wrap:wrap}.memory>.actions{margin-left:auto}.editor-actions button{flex:1}.editor-actions #cancelScene{flex-basis:100%;margin:0}.review-row{flex-direction:column;gap:3px}.review-row small{text-align:left}}
       </style><ha-card class="scene-shell"><div class="scene-head"><h3>I tuoi scenari</h3><button id="createScene" class="primary"><ha-icon icon="mdi:plus"></ha-icon>Crea scenario</button></div><p class="intro">Richiama le tue luci con le impostazioni salvate. Gli scenari sono personali per il tuo utente.</p><div id="sceneError" class="message" role="alert" hidden></div><div id="sceneNotice" class="message" role="status" hidden></div><div id="sceneList"></div><button id="refresh" class="quiet">Aggiorna elenco</button><section id="sceneEditor" class="editor" aria-label="Crea scenario" hidden></section></ha-card>`;
       root.querySelector('#createScene').onclick=()=>this._sceneStepTo(1);
@@ -215,17 +308,23 @@ export class CLLightMemoriesCard extends HTMLElement {
       const step=this._sceneStep;this._sceneRenderedStep=step;
       if(!step)editor.replaceChildren();
       else{
-        const titles=['','Scegli le luci','Dai un nome allo scenario','Controlla e salva'];
+        const titles=['','Scegli le luci','Regola le luci','Nome e riepilogo'];
         const groups=new Map();for(const entity of this._config.entities||[]){const group=entity.area_name||'Luci';if(!groups.has(group))groups.set(group,[]);groups.get(group).push(entity);}
         const selector=[...groups].map(([area,entities])=>`<div class="area-name">${esc(area)}</div>${entities.map(e=>`<label><input type="checkbox" data-target="${esc(e.entity_id)}" ${this._selected.has(e.entity_id)?'checked':''}><span>${esc(e.name||e.entity_id)}<small></small></span></label>`).join('')}`).join('');
         const review=[...this._selected].map(id=>`<div class="review-row"><span>${esc(names[id]||id)}</span><small data-review="${esc(id)}"></small></div>`).join('');
-        editor.innerHTML=`<p class="steps">Passaggio ${step} di 3</p><h4 id="sceneStepTitle" tabindex="-1">${titles[step]}</h4><p class="intro">${step===1?'Scegli fino a 32 luci, anche in ambienti diversi.':step===2?'Usa un nome facile da riconoscere, come “Relax” o “Cena”.':'Salveremo lo stato attuale delle luci, senza accenderle o spegnerle.'}</p>${step===1?`<div class="targets" role="group" aria-label="Luci dello scenario">${selector}</div>`:step===2?`<label class="name-label" for="name">Nome scenario</label><input id="name" maxlength="64" placeholder="Es. Serata in casa" value="${esc(this._name)}">`:`<p><strong>${esc(this._name.trim())}</strong></p>${review}`}<p id="selectionSummary" class="summary" role="status"></p><p id="selectionHint" class="intro"></p><div class="editor-actions"><button id="cancelScene" class="quiet">Annulla</button>${step>1?'<button id="previousScene">Indietro</button>':''}${step<3?'<button id="nextScene" class="primary">Continua</button>':'<button id="capture" class="primary"><ha-icon icon="mdi:camera-outline"></ha-icon>Salva stato attuale</button>'}</div>`;
+        editor.innerHTML=`<p class="steps">Passaggio ${step} di 3</p><h4 id="sceneStepTitle" tabindex="-1">${titles[step]}</h4><p class="intro">${step===1?'Scegli fino a 32 luci, anche in ambienti diversi.':step===2?'Scegli come dovrà essere ogni luce quando avvierai lo scenario. Queste regolazioni modificano soltanto la bozza.':'Controlla le impostazioni e scegli un nome. Salva scenario non aziona le luci.'}</p>${step===1?`<div class="targets" role="group" aria-label="Luci dello scenario">${selector}</div>`:step===2?`<div class="draft-lights">${this._sceneAdjustmentsHTML(names)}</div>`:`<label class="name-label" for="name">Nome scenario</label><input id="name" maxlength="64" placeholder="Es. Relax tavernetta" value="${esc(this._name)}">${review}`}<p id="selectionSummary" class="summary" role="status"></p><p id="selectionHint" class="intro"></p><div class="editor-actions"><button id="cancelScene" class="quiet">Annulla</button>${step>1?'<button id="previousScene">Indietro</button>':''}${step<3?'<button id="nextScene" class="primary">Continua</button>':'<button id="capture" class="primary"><ha-icon icon="mdi:content-save-outline"></ha-icon>Salva scenario</button>'}</div>`;
         editor.querySelector('#cancelScene').onclick=()=>this._cancelScene();
         editor.querySelector('#previousScene')?.addEventListener('click',()=>this._sceneStepTo(step-1));
         editor.querySelector('#nextScene')?.addEventListener('click',()=>this._sceneStepTo(step+1));
         editor.querySelector('#capture')?.addEventListener('click',()=>this._capture());
         editor.querySelector('#name')?.addEventListener('input',event=>{this._name=event.target.value;this._syncSceneState();});
-        editor.querySelectorAll('[data-target]').forEach(input=>input.onchange=()=>{input.checked?this._selected.add(input.dataset.target):this._selected.delete(input.dataset.target);this._syncState();});
+        editor.querySelectorAll('[data-target]').forEach(input=>input.onchange=()=>{
+          const id=input.dataset.target;
+          if(input.checked){this._selected.add(id);this._sceneDrafts[id]=this._sceneDraftFromState(id);}
+          else{this._selected.delete(id);delete this._sceneDrafts[id];}
+          this._syncState();
+        });
+        if(step===2)this._bindSceneAdjustments(editor);
       }
     }
     this._syncSceneState();this._syncSavedAvailability();
@@ -247,13 +346,24 @@ export class CLLightMemoriesCard extends HTMLElement {
       input.disabled=this._busy||(!input.checked&&(!available||this._selected.size>=32));
       const label=input.closest('label').querySelector('small');label.textContent=available?this._sceneLightDescription(input.dataset.target):'Non selezionabile in questo momento';
     });
-    root.querySelectorAll('[data-review]').forEach(node=>node.textContent=this._sceneLightDescription(node.dataset.review));
-    const ids=[...this._selected],on=ids.filter(id=>this._sceneLightAvailable(id)&&this._hass.states[id].state==='on').length,off=ids.filter(id=>this._sceneLightAvailable(id)&&this._hass.states[id].state==='off').length;
+    root.querySelectorAll('[data-review]').forEach(node=>node.textContent=this._sceneDraftDescription(node.dataset.review));
+    root.querySelectorAll('[data-draft-id]').forEach(row=>{
+      const id=row.dataset.draftId,d=this._sceneDrafts[id],available=this._sceneLightAvailable(id);
+      row.querySelector('[data-draft-settings]').hidden=d.state==='off';
+      row.querySelector('[data-draft-status]').textContent=this._sceneDraftValid(id)?`Nello scenario: ${this._sceneDraftDescription(id)}`:'Controlla disponibilità e capacità della luce. La bozza è conservata.';
+      row.querySelectorAll('[data-draft-on]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.draftOn===d.state)));
+      row.querySelectorAll('input,select,button').forEach(input=>input.disabled=this._busy||!available);
+      row.querySelectorAll('[data-draft-output]').forEach(output=>{
+        const key=output.dataset.draftOutput,input=row.querySelector(`[data-draft-control="${key}"]`);
+        output.textContent=input.value+(key==='kelvin'?' K':['brightness','white','coldWhite','warmWhite','saturation'].includes(key)?'%':key==='hue'?'°':'');
+      });
+    });
+    const ids=[...this._selected],on=ids.filter(id=>this._sceneDrafts[id]?.state==='on').length,off=ids.length-on;
     const ready=this._sceneSelectionReady();
     root.querySelector('#selectionSummary').textContent=ids.length?`${ids.length} ${ids.length===1?'luce selezionata':'luci selezionate'} · ${sceneCounts(on,off)}`:'Nessuna luce selezionata';
     const hint=root.querySelector('#selectionHint');
-    hint.textContent=ids.length&&!ready?'Rimuovi le luci non selezionabili o attendi che tornino raggiungibili.':this._sceneStep===3?(on===0?'Questo scenario spegnerà tutte le luci selezionate quando lo avvierai.':'Le luci non selezionate resteranno invariate. Lo stato viene letto al momento del salvataggio.'):'La selezione non comanda le luci.';
-    root.querySelector('#nextScene')?.toggleAttribute('disabled',this._busy||!ready||(this._sceneStep===2&&!this._name.trim()));
+    hint.textContent=ids.length&&!ready?'Rimuovi le luci non selezionabili, attendi che tornino raggiungibili oppure aggiorna le regolazioni con Usa stato attuale.':this._sceneStep===3?(on===0?'Questo scenario spegnerà tutte le luci selezionate quando lo avvierai.':'Le luci non selezionate resteranno invariate. Dopo il salvataggio lo troverai in I tuoi scenari: premi Avvia per applicarlo.'):'La bozza non comanda le luci. Le regolazioni scelte restano invariate durante gli aggiornamenti.';
+    root.querySelector('#nextScene')?.toggleAttribute('disabled',this._busy||!ready);
     root.querySelector('#capture')?.toggleAttribute('disabled',this._busy||!ready||!this._name.trim());
     root.querySelector('#name')?.toggleAttribute('disabled',this._busy);
     root.querySelectorAll('#cancelScene,#previousScene').forEach(button=>button.disabled=this._busy);

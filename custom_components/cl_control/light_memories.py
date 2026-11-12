@@ -1,4 +1,4 @@
-"""Bounded, user-owned light snapshots; no arbitrary client-supplied states.
+"""Bounded, user-owned light snapshots and capability-validated scene drafts.
 
 Persistence uses HA Store; activation delegates to native scene.apply. Permission
 checks and snapshot validation happen for every target before any dispatch.
@@ -37,9 +37,11 @@ def _number(value, low, high):
 
 def validate_snapshot(snapshot):
     """Reject unknown fields, malformed data and mixed color representations."""
-    if not isinstance(snapshot, dict) or snapshot.get("state") not in {"on", "off"}:
+    if not isinstance(snapshot, dict) or not isinstance(snapshot.get("state"), str) or snapshot["state"] not in {"on", "off"}:
         raise ValueError("Stato luce non valido")
     mode = snapshot.get("color_mode")
+    if mode is not None and not isinstance(mode, str):
+        raise ValueError("Modalità colore non valida")
     allowed = {"state", "brightness", "color_mode", "effect"}
     if mode in COLOR_FIELDS:
         key, limits = COLOR_FIELDS[mode]
@@ -102,6 +104,31 @@ def capture_light(state, *, preset=False):
     return validate_snapshot(snapshot)
 
 
+def validate_scene_target(snapshot, state):
+    """Validate a desired light state against its current device capabilities."""
+    saved = validate_snapshot(snapshot)
+    if state is None or state.state not in {"on", "off"}:
+        raise ValueError("Una luce selezionata non è disponibile")
+    attrs = state.attributes
+    if attrs.get("entity_id") or attrs.get("group_entities"):
+        raise ValueError("Seleziona le singole luci, senza gruppi aggregati")
+    modes = set(attrs.get("supported_color_modes") or [])
+    if "brightness" in saved and not modes.intersection(DIM_MODES):
+        raise ValueError("Questa luce non supporta la regolazione della luminosità")
+    mode = saved.get("color_mode")
+    if mode and mode not in modes:
+        raise ValueError("Le capacità della luce sono cambiate: controlla le regolazioni")
+    if "effect" in saved and saved["effect"] not in (attrs.get("effect_list") or []):
+        raise ValueError("L'effetto selezionato non è disponibile")
+    kelvin = saved.get("color_temp_kelvin")
+    if kelvin is not None and not (
+        attrs.get("min_color_temp_kelvin", 1000) <= kelvin
+        <= attrs.get("max_color_temp_kelvin", 40000)
+    ):
+        raise ValueError("Temperatura colore non supportata dalla luce")
+    return saved
+
+
 class LightMemoryLibrary:
     def __init__(self, store, get_state):
         self.store = store
@@ -141,7 +168,7 @@ class LightMemoryLibrary:
         if kind == "preset" and len(states) != 1:
             raise ValueError("Un preferito riguarda una sola luce")
         for entity_id, snapshot in states.items():
-            if not LIGHT_ID.fullmatch(entity_id):
+            if not isinstance(entity_id, str) or not LIGHT_ID.fullmatch(entity_id):
                 raise ValueError("Sono consentite solo luci")
             validate_snapshot(snapshot)
             if kind == "preset" and snapshot["state"] != "on":
@@ -217,6 +244,25 @@ class LightMemoryLibrary:
             items = {k: v for k, v in self.items.items() if k != item_id}
             await self._save(items)
 
+    async def async_create_scene(self, owner, allowed, name, states):
+        """Persist an explicit draft without sending any device command."""
+        if not isinstance(name, str) or not 1 <= len(name.strip()) <= 64:
+            raise ValueError("Il nome deve contenere da 1 a 64 caratteri")
+        self._validate_states(states, "scene")
+        # Copy before awaiting the lock, so callers cannot change a validated draft.
+        states = deepcopy(states)
+        async with self.lock:
+            if len(self.items) >= MAX_ITEMS or sum(i["owner"] == owner for i in self.items.values()) >= MAX_USER_ITEMS:
+                raise ValueError("Limite scenari e preferiti raggiunto")
+            self._authorize(states, allowed, control=True, available=True)
+            for entity_id, snapshot in states.items():
+                validate_scene_target(snapshot, self.get_state(entity_id))
+            item_id = uuid4().hex
+            item = {"id": item_id, "owner": owner, "name": name.strip(), "kind": "scene",
+                    "created_at": datetime.now(timezone.utc).isoformat(), "states": states}
+            await self._save({**self.items, item_id: item})
+            return {k: deepcopy(v) for k, v in item.items() if k != "owner"}
+
     async def async_apply(self, owner, allowed, item_id, apply):
         async with self.lock:
             item = self._owned(owner, item_id)
@@ -224,17 +270,6 @@ class LightMemoryLibrary:
             self._authorize(item["states"], allowed, control=True, available=True)
             # Check changed capabilities before sending anything.
             for entity_id, saved in item["states"].items():
-                attrs = self.get_state(entity_id).attributes
-                mode = saved.get("color_mode")
-                if mode and mode not in (attrs.get("supported_color_modes") or []):
-                    raise ValueError("Le capacità della luce sono cambiate: salva un nuovo scenario")
-                if "effect" in saved and saved["effect"] not in (attrs.get("effect_list") or []):
-                    raise ValueError("L'effetto salvato non è più disponibile")
-                kelvin = saved.get("color_temp_kelvin")
-                if kelvin is not None and not (
-                    attrs.get("min_color_temp_kelvin", 1000) <= kelvin
-                    <= attrs.get("max_color_temp_kelvin", 40000)
-                ):
-                    raise ValueError("Temperatura colore non più supportata")
+                validate_scene_target(saved, self.get_state(entity_id))
             await apply(deepcopy(item["states"]))
             return {"dispatched": True, "count": len(item["states"])}

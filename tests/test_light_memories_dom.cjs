@@ -50,9 +50,9 @@ function name(w,value){const n=w.card.shadowRoot.querySelector('#name');n.value=
  assert.equal(root().querySelector('.targets small').textContent,'Spenta');
  assert.equal(root().querySelector('#nextScene').disabled,true);
  const target=root().querySelector('[data-target]');target.checked=true;target.dispatchEvent(new w.Event('change'));
- root().querySelector('#nextScene').click();name(w,'Serata');root().querySelector('#nextScene').click();
+ root().querySelector('#nextScene').click();root().querySelector('#nextScene').click();name(w,'Serata');
  root().querySelector('#capture').click();await flush();await flush();
- assert.equal(w.calls.find(x=>x.type.endsWith('/capture')).entity_ids.join(','),'light.fixture');
+ assert.equal(Object.keys(w.calls.find(x=>x.type.endsWith('/create')).states).join(','),'light.fixture');
  root().querySelector('[data-apply]').click();await flush();
  assert.ok(w.calls.some(x=>x.type.endsWith('/apply')));
  const off=w.lightTileConfig('light.fixture','Test',{attributes:{supported_color_modes:['onoff']}});
