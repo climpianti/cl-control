@@ -1,6 +1,6 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.16**: editor scenari con acceso/spento, luminosità e colore nella bozza, senza azionare le luci durante il salvataggio. Include le correzioni Recorder, Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
+> Prerelease **3.5.3-beta.17**: modifica degli scenari salvati e nuova priorità grafica per Avvia. Include l'editor con regolazioni nella bozza, le correzioni Recorder, Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
@@ -22,7 +22,7 @@ Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaud
 
 L'editor con regolazioni della bozza è incluso dalla beta.16; gli scenari e i preferiti già salvati restano compatibili.
 
-In sviluppo nel branch `feat/scenes-edit-actions`: il menu **⋮ → Modifica** riapre le impostazioni salvate e permette di aggiungere/rimuovere luci, cambiare regolazioni e nome. **Salva modifiche** aggiorna lo stesso scenario senza attivarlo. **Avvia** è l'azione principale blu/viola; Modifica ed Elimina restano nel menu secondario. Queste aggiunte non sono ancora incluse nella beta.16 pubblicata.
+Dalla beta.17, il menu **⋮ → Modifica** riapre le impostazioni salvate e permette di aggiungere/rimuovere luci, cambiare regolazioni e nome. **Salva modifiche** aggiorna lo stesso scenario senza attivarlo. **Avvia** è l'azione principale blu/viola; Modifica ed Elimina restano nel menu secondario.
 
 **Sistemi → Scenari luci** mostra prima gli scenari personali salvati.
 **Crea scenario** apre tre passaggi: selezione delle singole luci per ambiente,
