@@ -1,5 +1,12 @@
 # Changelog
 
+## In sviluppo — Modifica scenari e priorità delle azioni
+
+- Menu secondario ⋮ con Modifica ed Elimina; Avvia evidenziato con gradiente blu/viola, conservando la conferma di attivazione.
+- Modifica riapre nome, luci e regolazioni salvate; Salva modifiche aggiorna lo stesso ID e conserva la data di creazione senza azionare dispositivi.
+- Annullamento senza scritture; errore o conflitto conserva la bozza. Le luci mancanti restano visibili nella selezione per poterle rimuovere.
+- Aggiornamento atomico, permessi e capacità verificati lato server; controllo della revisione per evitare sovrascritture da un'altra scheda. Nessuna migrazione dell'archivio.
+
 ## 3.5.3-beta.16 — Editor scenari con regolazioni nella bozza
 
 - Creazione in tre passaggi: luci per ambiente, acceso/spento e regolazioni supportate, nome e riepilogo.

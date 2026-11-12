@@ -22,6 +22,8 @@ Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaud
 
 L'editor con regolazioni della bozza è incluso dalla beta.16; gli scenari e i preferiti già salvati restano compatibili.
 
+In sviluppo nel branch `feat/scenes-edit-actions`: il menu **⋮ → Modifica** riapre le impostazioni salvate e permette di aggiungere/rimuovere luci, cambiare regolazioni e nome. **Salva modifiche** aggiorna lo stesso scenario senza attivarlo. **Avvia** è l'azione principale blu/viola; Modifica ed Elimina restano nel menu secondario. Queste aggiunte non sono ancora incluse nella beta.16 pubblicata.
+
 **Sistemi → Scenari luci** mostra prima gli scenari personali salvati.
 **Crea scenario** apre tre passaggi: selezione delle singole luci per ambiente,
 regolazioni, nome e riepilogo. Nel secondo passaggio scegli acceso/spento e luminosità,

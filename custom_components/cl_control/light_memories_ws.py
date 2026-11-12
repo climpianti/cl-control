@@ -31,6 +31,8 @@ def register_light_memory_commands(hass):
                 result = await library.async_capture(user.id, allowed, msg["name"], msg["entity_ids"], msg["kind"])
             elif action == "create":
                 result = await library.async_create_scene(user.id, allowed, msg["name"], msg["states"])
+            elif action == "update":
+                result = await library.async_update_scene(user.id, allowed, msg["item_id"], msg["name"], msg["states"], msg["expected_revision"])
             elif action == "delete":
                 await library.async_delete(user.id, msg["item_id"])
                 result = {"deleted": True}
@@ -82,6 +84,17 @@ def register_light_memory_commands(hass):
         await handle(hass, connection, msg, "create")
 
     @websocket_api.websocket_command({
+        vol.Required("type"): "cl_control/light_memories/update",
+        vol.Required("item_id"): str,
+        vol.Required("name"): vol.All(str, vol.Length(min=1, max=64)),
+        vol.Required("states"): vol.All({str: dict}, vol.Length(min=1, max=32)),
+        vol.Required("expected_revision"): vol.All(str, vol.Match(r"^[a-f0-9]{64}$")),
+    })
+    @websocket_api.async_response
+    async def update_scene(hass, connection, msg):
+        await handle(hass, connection, msg, "update")
+
+    @websocket_api.websocket_command({
         vol.Required("type"): "cl_control/light_memories/delete",
         vol.Required("item_id"): str,
     })
@@ -97,5 +110,5 @@ def register_light_memory_commands(hass):
     async def apply_memory(hass, connection, msg):
         await handle(hass, connection, msg, "apply")
 
-    for command in (list_memories, capture_memory, create_scene, delete_memory, apply_memory):
+    for command in (list_memories, capture_memory, create_scene, update_scene, delete_memory, apply_memory):
         websocket_api.async_register_command(hass, command)

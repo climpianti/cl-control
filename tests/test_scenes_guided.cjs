@@ -23,11 +23,16 @@ async function prepare(page,url){
   };
   card.setConfig({entities:[{entity_id:'light.a',name:'Lampada divano',area_name:'Salotto'},{entity_id:'light.b',name:'Faretti tavolo con un nome particolarmente lungo',area_name:'Salotto'},{entity_id:'light.c',name:'Luce cucina',area_name:'Cucina'},{entity_id:'light.d',name:'Strip RGBW',area_name:'Cucina'}]});
   const original=hass.callWS;hass.callWS=async message=>{
+   if(message.type.endsWith('/update')){
+    const item=items.find(i=>i.id===message.item_id);
+    if(!item||message.expected_revision!==item.revision)throw Error('Scenario modificato altrove');
+    calls.push(message);item.name=message.name;item.states=JSON.parse(JSON.stringify(message.states));item.revision='2'.repeat(64);return {};
+   }
    if(message.type.endsWith('/create')){
     calls.push(message);const states=JSON.parse(JSON.stringify(message.states));
     items.push({id:'new-'+items.length,kind:'scene',name:message.name,states,available:true});return {};
    }
-   const reply=await original(message);if(message.type.endsWith('/list'))for(const item of reply.items)item.available=Object.keys(item.states).every(id=>['on','off'].includes(hass.states[id]?.state));return reply;
+   const reply=await original(message);if(message.type.endsWith('/list'))for(const item of reply.items){item.available=Object.keys(item.states).every(id=>['on','off'].includes(hass.states[id]?.state));item.revision||='1'.repeat(64);}return reply;
   };
   card.hass={...hass};await card._load();
  });
@@ -56,6 +61,44 @@ async function prepare(page,url){
    if(label==='list'&&width===390)await root.screenshot({path:path.join(output,'after-390.png')});
   }};
   await verifyWidths('list');
+  // Secondary actions are disclosed; the coloured start button remains primary.
+  assert.equal(await root.locator('[data-delete="relax"]').isVisible(),false);
+  assert.equal(await root.locator('[data-edit="relax"]').isVisible(),false);
+  assert.match(await root.locator('[data-apply="relax"]').evaluate(el=>getComputedStyle(el).backgroundImage),/linear-gradient/);
+  await root.locator('[data-more="relax"]').click();
+  assert.equal(await root.locator('[data-edit="relax"]').isVisible(),true);
+  await verifyWidths('secondary-actions');
+  await page.keyboard.press('Escape');assert.equal(await root.locator('[data-edit="relax"]').isVisible(),false);
+  await root.locator('[data-more="relax"]').click();await page.locator('main > p').click();
+  assert.equal(await root.locator('[data-edit="relax"]').isVisible(),false);
+  await page.evaluate(()=>{hass.states['light.a'].attributes.brightness=220;card.hass={...hass};});
+  await root.locator('[data-more="relax"]').click();await root.locator('[data-edit="relax"]').click();
+  assert.equal(await root.locator('.scene-head h3').innerText(),'Modifica scenario');
+  assert.equal(await root.locator('[data-target]:checked').count(),2);
+  assert.equal(await page.evaluate(()=>card._sceneDrafts['light.a'].brightness),100,'edit must load saved brightness, not live brightness');
+  await root.locator('#nextScene').click();await root.locator('[data-draft-id="light.a"] [data-draft-control="brightness"]').fill('70');
+  await root.locator('#cancelScene').click();
+  assert.equal(await page.evaluate(()=>items.find(i=>i.id==='relax').states['light.a'].brightness),100);
+  assert.equal(await page.evaluate(()=>calls.filter(c=>c.type.endsWith('/update')).length),0);
+  await root.locator('[data-more="relax"]').click();await root.locator('[data-edit="relax"]').click();
+  await root.locator('[data-target="light.b"]').uncheck();await root.locator('[data-target="light.c"]').check();
+  await root.locator('#nextScene').click();await root.locator('[data-draft-id="light.a"] [data-draft-control="brightness"]').fill('52');
+  await root.locator('[data-draft-id="light.c"] [data-draft-on="off"]').click();
+  await root.locator('#nextScene').click();assert.equal(await root.locator('#name').inputValue(),'Relax');
+  assert.equal(await root.locator('#capture').innerText(),'Salva modifiche');
+  await root.locator('#name').fill('Relax aggiornato');
+  await page.evaluate(()=>{window.editAPI=hass.callWS;hass.callWS=async msg=>{if(msg.type.endsWith('/update'))throw Error('Conflitto simulato: bozza conservata');return editAPI(msg);};card.hass={...hass};});
+  await root.locator('#capture').click();await page.waitForFunction(()=>!card._busy&&card._error.includes('Conflitto simulato'));
+  assert.equal(await root.locator('#name').inputValue(),'Relax aggiornato');
+  await page.evaluate(()=>{hass.callWS=editAPI;card.hass={...hass};});
+  await root.locator('#capture').click();await page.waitForFunction(()=>!card._busy&&card._sceneStep===0);
+  assert.equal(await page.evaluate(()=>items.length),2);
+  assert.deepEqual(await page.evaluate(()=>Object.keys(items.find(i=>i.id==='relax').states)),['light.a','light.c']);
+  assert.equal(await page.evaluate(()=>items.find(i=>i.id==='relax').states['light.a'].brightness),133);
+  assert.equal(await root.locator('[aria-label="Avvia Relax aggiornato"]').count(),1);
+  assert.match(await root.locator('#sceneNotice').innerText(),/Modifiche salvate/);
+  assert.equal(await page.evaluate(()=>serviceCalls.length),0);
+  await page.setViewportSize({width:390,height:950});await page.screenshot({path:path.join(output,'edited-list-390.png'),fullPage:true});
   await root.locator('#createScene').click();assert.equal(await root.locator('#nextScene').isDisabled(),true);
   assert.deepEqual(await root.locator('.area-name').allTextContents(),['Salotto','Cucina']);
   assert.equal(await root.locator('[data-target="light.d"]').isDisabled(),true);
@@ -191,6 +234,23 @@ async function prepare(page,url){
   await root.locator('[data-target]').nth(0).uncheck();
   assert.equal(await root.locator('[data-target]').nth(32).isEnabled(),true);
   assert.equal(await captures(),2);
+  // A removed/offline saved target must remain removable from the edit selection.
+  await root.locator('#cancelScene').click();
+  await page.evaluate(async()=>{
+    items.push({id:'legacy-minimal',kind:'scene',name:'Scenario precedente',states:{'light.cap':{state:'on'},'light.missing':{state:'off'}}});
+    await card._load();
+  });
+  await root.locator('[data-more="legacy-minimal"]').click();await root.locator('[data-edit="legacy-minimal"]').click();
+  assert.equal(await root.locator('[data-target="light.missing"]').isChecked(),true);
+  assert.equal(await root.locator('[data-target="light.missing"]').isEnabled(),true);
+  assert.equal(await root.locator('#nextScene').isDisabled(),true);
+  assert.deepEqual(await page.evaluate(()=>card._sceneSnapshot('light.cap')),{state:'on'},'unspecified saved attributes must stay unspecified');
+  await root.locator('[data-target="light.missing"]').uncheck();
+  await root.locator('#nextScene').click();
+  await root.locator('[data-draft-control="brightness"]').fill('50');
+  assert.equal(await page.evaluate(()=>card._sceneSnapshot('light.cap').brightness),128);
+  await root.locator('#cancelScene').click();
+  assert.equal(await page.evaluate(()=>items.find(i=>i.id==='legacy-minimal').states['light.cap'].brightness),undefined);
   assert.equal(await page.evaluate(()=>serviceCalls.length),0);assert.deepEqual(errors,[]);
   console.log('Scene editor OK: six widths, draft on/off/brightness and all colour modes, RGBW whites, current-state shortcut, live capability validation, focus/cursor, explicit save, saved Avvia and confirmation; no device services.');
  }finally{await browser?.close();await new Promise(r=>server.close(r));}

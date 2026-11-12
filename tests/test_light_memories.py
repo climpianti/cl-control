@@ -278,3 +278,69 @@ class MemoryTests(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(ValueError):
             await self.library.async_create_scene("alice", self.allowed, "Test", {f"light.test_{i}": {"state": "off"} for i in range(33)})
         self.assertIsNone(self.store.saved)
+
+    async def editable(self):
+        item = await self.capture(entities=["light.a", "light.b"])
+        listed = await self.library.async_list("alice", self.allowed)
+        return item, next(i["revision"] for i in listed if i["id"] == item["id"])
+
+    async def test_update_keeps_identity_and_persists_without_commands(self):
+        item, revision = await self.editable()
+        self.states["light.c"] = light(mode="brightness", state="off")
+        target = {"light.c": {"state": "on", "brightness": 133, "color_mode": "brightness"}}
+        updated = await self.library.async_update_scene("alice", self.allowed, item["id"], " Nuovo nome ", target, revision)
+        self.assertEqual(updated["id"], item["id"])
+        self.assertEqual(updated["created_at"], item["created_at"])
+        self.assertEqual(updated["name"], "Nuovo nome")
+        self.assertNotEqual(updated["revision"], revision)
+        self.assertEqual(len(self.library.items), 1)
+        self.assertEqual(self.applied, [])
+        self.assertEqual(self.states["light.c"].state, "off")
+        restarted = LightMemoryLibrary(self.store, self.states.get)
+        await restarted.async_load()
+        self.assertEqual((await restarted.async_list("alice", self.allowed))[0]["states"], target)
+
+    async def test_update_is_owner_scoped_and_checks_control_permission(self):
+        item, revision = await self.editable()
+        with self.assertRaises(ValueError):
+            await self.library.async_update_scene("bob", self.allowed, item["id"], "Test", {"light.a": {"state": "off"}}, revision)
+        with self.assertRaises(PermissionError):
+            await self.library.async_update_scene("alice", lambda e,p:p=="read", item["id"], "Test", {"light.a": {"state": "off"}}, revision)
+        self.assertEqual(self.library.items[item["id"]]["states"], item["states"])
+
+    async def test_update_can_remove_offline_targets_but_not_retain_them(self):
+        item, revision = await self.editable()
+        self.states["light.b"] = light(state="unavailable")
+        with self.assertRaises(ValueError):
+            await self.library.async_update_scene("alice", self.allowed, item["id"], "Test", item["states"], revision)
+        updated = await self.library.async_update_scene("alice", self.allowed, item["id"], "Test", {"light.a": {"state": "off"}}, revision)
+        self.assertNotIn("light.b", updated["states"])
+
+    async def test_update_failure_and_conflict_keep_previous_data(self):
+        item, revision = await self.editable()
+        self.store.fail = True
+        with self.assertRaises(OSError):
+            await self.library.async_update_scene("alice", self.allowed, item["id"], "Test", {"light.a": {"state": "off"}}, revision)
+        self.assertEqual(self.library.items[item["id"]]["name"], item["name"])
+        self.store.fail = False
+        await self.library.async_update_scene("alice", self.allowed, item["id"], "Primo", {"light.a": {"state": "off"}}, revision)
+        with self.assertRaisesRegex(ValueError, "modificato altrove"):
+            await self.library.async_update_scene("alice", self.allowed, item["id"], "Secondo", item["states"], revision)
+        self.assertEqual(self.library.items[item["id"]]["name"], "Primo")
+
+    async def test_update_allowed_at_quota_and_presets_unchanged(self):
+        item, revision = await self.editable()
+        for _ in range(63): await self.capture("preset")
+        await self.library.async_update_scene("alice", self.allowed, item["id"], "Updated", {"light.a": {"state": "off"}}, revision)
+        self.assertEqual(len(self.library.items), 64)
+        preset = next(i for i in self.library.items.values() if i["kind"] == "preset")
+        with self.assertRaises(ValueError):
+            await self.library.async_update_scene("alice", self.allowed, preset["id"], "Test", preset["states"], self.library._revision(preset))
+
+    async def test_update_rejects_unsupported_and_malformed_targets(self):
+        item, revision = await self.editable()
+        self.states["light.c"] = light(mode="onoff")
+        for states in ({}, {"lock.front": {"state": "off"}}, {"light.a": {"state": "off", "brightness": 100}}, {"light.c": {"state": "on", "brightness": 100}}):
+            with self.assertRaises(ValueError):
+                await self.library.async_update_scene("alice", self.allowed, item["id"], "Test", states, revision)
+        self.assertEqual(self.library.items[item["id"]]["states"], item["states"])

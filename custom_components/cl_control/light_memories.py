@@ -9,6 +9,8 @@ import asyncio
 from copy import deepcopy
 from datetime import datetime, timezone
 import math
+import hashlib
+import json
 import re
 from uuid import uuid4
 
@@ -191,6 +193,11 @@ class LightMemoryLibrary:
             raise ValueError("Scenario o preferito non trovato")
         return item
 
+    @staticmethod
+    def _revision(item):
+        content = {key: item[key] for key in ("name", "states")}
+        return hashlib.sha256(json.dumps(content, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
     async def _save(self, items):
         # Commit memory only after HA Store has persisted successfully.
         await self.store.async_save({"schema_version": 1, "items": deepcopy(items)})
@@ -207,6 +214,8 @@ class LightMemoryLibrary:
                 if not all(allowed(e, "read") for e in item["states"]):
                     continue
                 public = {k: deepcopy(v) for k, v in item.items() if k != "owner"}
+                if item["kind"] == "scene":
+                    public["revision"] = self._revision(item)
                 public["available"] = all(
                     (s := self.get_state(e)) is not None and s.state in {"on", "off"}
                     for e in item["states"]
@@ -273,3 +282,26 @@ class LightMemoryLibrary:
                 validate_scene_target(saved, self.get_state(entity_id))
             await apply(deepcopy(item["states"]))
             return {"dispatched": True, "count": len(item["states"])}
+
+    async def async_update_scene(self, owner, allowed, item_id, name, states, expected_revision):
+        """Replace one owned scene atomically, without recreating or activating it."""
+        if not isinstance(name, str) or not 1 <= len(name.strip()) <= 64:
+            raise ValueError("Il nome deve contenere da 1 a 64 caratteri")
+        self._validate_states(states, "scene")
+        states = deepcopy(states)
+        async with self.lock:
+            old = self._owned(owner, item_id)
+            if old["kind"] != "scene":
+                raise ValueError("La modifica è disponibile solo per gli scenari")
+            if expected_revision != self._revision(old):
+                raise ValueError("Lo scenario è stato modificato altrove. La bozza è conservata: annulla e riapri lo scenario aggiornato.")
+            # Removed targets need read permission; retained/new targets also need control.
+            self._authorize(old["states"], allowed)
+            self._authorize(states, allowed, control=True, available=True)
+            for entity_id, snapshot in states.items():
+                validate_scene_target(snapshot, self.get_state(entity_id))
+            item = {**old, "name": name.strip(), "states": states,
+                    "updated_at": datetime.now(timezone.utc).isoformat()}
+            await self._save({**self.items, item_id: item})
+            return {**{k: deepcopy(v) for k, v in item.items() if k != "owner"},
+                    "revision": self._revision(item)}
