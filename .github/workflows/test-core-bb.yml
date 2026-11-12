@@ -10,6 +10,7 @@ on:
       - beta/3.5.3-beta.12
       - beta/3.5.3-beta.13
       - beta/3.5.3-beta.14
+      - beta/3.5.3-beta.15
   pull_request:
     paths:
       - "custom_components/cl_control/**"
@@ -45,3 +46,10 @@ jobs:
           node tests/test_home_glass.cjs
           node tests/test_light_memories_ui.cjs
           node tests/test_scenes_guided.cjs
+      - name: Verify energy statistics and missing-data handling
+        run: |
+          node tests/test_energy_power_series.cjs
+          node tests/test_energy_curves.cjs
+          node tests/test_energy_visual_parity.cjs
+          node tests/test_energy_missing_data.cjs
+          node --test tests/test_energy_recorder_failures.cjs

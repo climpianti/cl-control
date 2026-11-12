@@ -1,6 +1,6 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.14**: scenari guidati e riepiloghi Home senza conteggi di indisponibilità. Include Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
+> Prerelease **3.5.3-beta.15**: corregge totali di potenza incompleti ed errori Recorder nascosti. Include scenari guidati, riepiloghi Home essenziali, Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
@@ -15,6 +15,8 @@ La beta.11 nasconde la barra delle tre schede rapide Home/Energia/Scenari: **Ene
 **Beta.14: potenza vs energia.** I grafici **12/24 ore** visualizzano la potenza media a campioni di 5 minuti in **kW**, usando Recorder `mean` dei sensori di potenza W (FV, Casa, rete firmata; prelievo positivo/immissione negativa). Solo se una media non e disponibile viene usato il cambiamento `kWh` del medesimo intervallo per stimare la potenza media equivalente (`kWh * 12`); i dati assenti non diventano zeri. I grafici **7/30 giorni** e i riepiloghi giorno/mese/anno restano in **kWh**. Nessuna modifica ai sensori o ai controlli; stesse curve e lo stesso stile Blue Tech Glass. Il grafico 12/24h e uno storico della potenza, non una misura live ad alta frequenza.
 
 Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaudo](docs/BETA_TESTING.md).
+
+**Beta.15: letture Recorder affidabili.** Nei grafici 12/24 ore un totale di potenza richiede un campione valido da ogni sensore configurato: se ne manca uno, viene usato il fallback energetico quando disponibile oppure rimane un intervallo senza dati. Se tutte le richieste statistiche falliscono, viene mostrato un errore senza memorizzare il risultato come una lettura vuota riuscita. Uno zero misurato resta zero. Nessuna migrazione dati; sensori, comandi e stile Glass conservati.
 
 ### Scenari luci e preferiti nella beta
 

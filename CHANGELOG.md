@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.5.3-beta.15 — Dati Recorder incompleti ed errori di lettura
+
+- I totali di potenza con più sensori restano mancanti quando un campione è incompleto, anziché mostrare il solo subtotale disponibile; il fallback energetico rimane utilizzabile.
+- Se tutte le richieste Recorder del grafico 12/24 h falliscono, viene segnalato l'errore senza memorizzare il risultato come una lettura vuota riuscita.
+- Regressioni dedicate per dati parziali, zero reale, errore e ripristino delle letture; incluse nella pipeline generale e nella pubblicazione della prerelease.
+- Revisione frontend `3.5.3-beta.15-r1`. Rollback: beta.14.
+
 ## 3.5.3-beta.14 — Distinzione fra potenza in kW e storico energia in kWh
 
 - I grafici 12 h e 24 h mostrano potenza media ogni 5 minuti in **kW**, con tooltip e asse corretti e titolo "Andamento potenza".

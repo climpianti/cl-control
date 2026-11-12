@@ -1467,14 +1467,26 @@ class CLEnergyCard extends HTMLElement {
     const power={};
     for (const key of keys) {
       const map=new Map();
-      for (const id of this._sourceIds(key)) {
+      const coverage=new Map();
+      const ids=[...new Set(this._sourceIds(key))];
+      for (const id of ids) {
+        const readings=new Map();
         for (const row of (Array.isArray(powerResult?.[id])?powerResult[id]:[])) {
           const t=number(row.start),watts=number(row.mean);
-          if (t!==null&&watts!==null)map.set(t,(map.get(t)||0)+watts);
+          if (t!==null)readings.set(t,watts);
+        }
+        for (const [t,watts] of readings) {
+          if (!map.has(t))map.set(t,0);
+          if (watts!==null) {
+            map.set(t,map.get(t)+watts);
+            coverage.set(t,(coverage.get(t)||0)+1);
+          }
         }
       }
+      // A subtotal must not masquerade as the full system measurement.
+      for (const t of map.keys())if (coverage.get(t)!==ids.length)map.set(t,null);
       if (this._source(key)?.metadata?.invert)
-        for(const [t,w] of map)map.set(t,-w);
+        for(const [t,w] of map)if(w!==null)map.set(t,-w);
       power[key]=map;
     }
     const fallback={
@@ -1488,7 +1500,7 @@ class CLEnergyCard extends HTMLElement {
     const times=new Set();
     Object.values(power).forEach(map=>map.forEach((_value,t)=>times.add(t)));
     Object.values(fallback).forEach(map=>map.forEach((_value,t)=>times.add(t)));
-    const p=(key,t)=>power[key].has(t)?power[key].get(t)/1000:null;
+    const p=(key,t)=>number(power[key].get(t))===null?null:power[key].get(t)/1000;
     // Recorder 5minute changes: energy (kWh) divided by 5/60 h gives kW.
     const e=(key,t)=>fallback[key].has(t)?Math.max(0,fallback[key].get(t))*12:null;
     const points=[...times].sort((a,b)=>a-b).map(t=>{
@@ -1602,10 +1614,18 @@ class CLEnergyCard extends HTMLElement {
       if(isPower) {
         const energyIds=this._globalStatisticIds();
         const powerIds=this._globalPowerStatisticIds();
-        const [powerResult,energyResult]=await Promise.all([
-          powerIds.length?this._fetchPowerStatistics(start,now,powerIds).catch(()=>({})):Promise.resolve({}),
-          energyIds.length?this._fetchStatistics(start,now,cfg.period,energyIds).catch(()=>({})):Promise.resolve({}),
-        ]);
+        const requests=[];
+        if(powerIds.length)requests.push(['power',this._fetchPowerStatistics(start,now,powerIds)]);
+        if(energyIds.length)requests.push(['energy',this._fetchStatistics(start,now,cfg.period,energyIds)]);
+        const results=await Promise.allSettled(requests.map(([_kind,request])=>request));
+        if(results.length&&results.every(result=>result.status==='rejected'))
+          throw new Error('Recorder statistics unavailable');
+        let powerResult={},energyResult={};
+        results.forEach((result,index)=>{
+          if(result.status!=='fulfilled')return;
+          if(requests[index][0]==='power')powerResult=result.value;
+          else energyResult=result.value;
+        });
         stats=this._powerSeriesFromResult(powerResult,energyResult);
       } else {
         stats=this._seriesFromResult(await this._fetchStatistics(start,now,cfg.period,this._globalStatisticIds()));

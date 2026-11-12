@@ -1,4 +1,4 @@
-# Collaudo CL Control 3.5.3-beta.14
+# Collaudo CL Control 3.5.3-beta.15
 
 Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un aggiornamento stabile. Richiede Home Assistant >= 2026.9.0; il collaudo reale precedente alla confezione della release è stato eseguito su 2026.10.4. Non certifica ogni dispositivo o versione di HA.
 
@@ -6,10 +6,10 @@ Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un agg
 
 1. Crea un backup completo Home Assistant e annota la versione CL Control precedente.
 2. Usa preferibilmente un'istanza di test. L'integrazione genera una dashboard dalle entità esistenti: i suoi pulsanti possono comandare dispositivi reali.
-3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.14**. Se già installata, scegli questa versione nella procedura di riscaricamento. Su HA 2026.11 usa Marketplace nelle Impostazioni; l'eventuale avviso iniziale deve essere letto e accettato dall'utente.
-4. In alternativa scarica `cl-control-3.5.3-beta.14.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
+3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.15**. Se già installata, scegli questa versione nella procedura di riscaricamento. Su HA 2026.11 usa Marketplace nelle Impostazioni; l'eventuale avviso iniziale deve essere letto e accettato dall'utente.
+4. In alternativa scarica `cl-control-3.5.3-beta.15.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
 5. Riavvia Home Assistant. Alla prima installazione aggiungi **CL Control** da Impostazioni → Dispositivi e servizi. Apri la dashboard generata dalla barra laterale.
-6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.14** e revisione degli asset **3.5.3-beta.14-r1**. Non servono risorse Lovelace manuali.
+6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.15** e revisione degli asset **3.5.3-beta.15-r1**. Non servono risorse Lovelace manuali.
 
 L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenziali, entità o screenshot della demo. Non richiede di eliminare dispositivi. Nessun merge sul ramo stabile è necessario per provare questa prerelease.
 
@@ -22,6 +22,9 @@ L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenzial
 - Il pannello B&B verifica sempre i permessi lato server, indipendentemente dalla visibilità del collegamento.
 
 ## Controlli consigliati
+
+- **Recorder beta.15 (entità simulate):** con due sensori di potenza configurati, omettere un campione oppure inviare `mean: null`: non deve apparire il subtotale come misura complessiva. Un secondo sensore con `mean: 0` è invece un campione valido. Verificare il fallback energetico quando la potenza è incompleta.
+- **Errore e ripristino beta.15:** simulare il fallimento di tutte le richieste statistiche 12/24 h. Deve comparire l'errore senza memorizzare una lettura vuota riuscita. Ripristinare Recorder e ripetere la lettura; non deve essere necessario attendere la scadenza della cache. Se la potenza fallisce ma l'energia risponde, il fallback resta utilizzabile.
 
 - **Potenza vs Energia beta.14:** su Cohes 12/24 h devono essere **kW** ("Andamento potenza"), con medie Recorder a 5 minuti, asse kW e tooltip kW. Verificare 0 W -> 0,00 kW e 540 W -> 0,54 kW, senza cambiare l'origine dei dati. Prelievo e immissione devono usare la potenza di rete firmata.
 - **Fallback corretto:** senza una statistica di potenza, 0,05 kWh in 5 minuti corrispondono a 0,60 kW; se mancano entrambe le statistiche non disegnare zero. Un vero zero resta zero.
@@ -62,6 +65,9 @@ node tests/test_media_glass.cjs
 node tests/test_cover_glass.cjs
 node tests/test_energy_schematic.cjs
 node tests/test_energy_curves.cjs
+node tests/test_energy_visual_parity.cjs
+node tests/test_energy_power_series.cjs
+node --test tests/test_energy_recorder_failures.cjs
 node tests/test_security_climate_glass.cjs
 node tests/test_home_glass.cjs
 node tests/test_glass_coverage.cjs
@@ -77,7 +83,7 @@ Il test DOM opzionale `test_light_memories_dom.cjs` richiede anche jsdom; è dis
 
 ### Verifiche eseguite per questa release
 
-- La beta.10 ha superato 97 test Python offline. La beta.11 aggiunge il test di regressione sulle sottoviste e richiede di verificare l'esito GitHub Actions prima dell'installazione.
+- 98 test Python offline, incluse navigazione, scenari e autorizzazioni B&B: superati.
 - Suite browser in Chrome tramite Playwright 1.62.1 con API simulate, incluso il nuovo percorso scenari a sei larghezze: scelta, nome, riepilogo, annullamento, conferma, errore di salvataggio, limite di 32 luci e focus/cursore durante gli aggiornamenti.
 - Regressione Node sui dati energia assenti/zero: superata.
 - Sintassi di tutti i moduli frontend e test browser: verificata. Archivio ZIP: integrità, versioni, asset richiesti e impronta SHA256 verificati.
