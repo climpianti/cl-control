@@ -1,12 +1,13 @@
 # Changelog
 
-## In sviluppo — Editor scenari con regolazioni nella bozza
+## 3.5.3-beta.16 — Editor scenari con regolazioni nella bozza
 
 - Creazione in tre passaggi: luci per ambiente, acceso/spento e regolazioni supportate, nome e riepilogo.
 - Luminosità, RGB/RGBW/RGBWW con canali bianchi, temperatura Kelvin, HS/XY ed effetti disponibili; nessun comando ai dispositivi durante composizione e salvataggio.
 - Bozza indipendente dal realtime, copia esplicita dello stato attuale, validazione delle capacità e conservazione in caso di errore.
 - Ritorno all'elenco dopo il salvataggio con indicazione del pulsante Avvia; conferma prima dell'attivazione.
 - Nuovo comando autenticato `light_memories/create`, con permessi per tutte le luci e validazione lato server. Archivio versione 1 e API precedenti conservati.
+- Revisione frontend `3.5.3-beta.16-r1`. Rollback: beta.15.
 
 ## 3.5.3-beta.15 — Dati Recorder incompleti ed errori di lettura
 

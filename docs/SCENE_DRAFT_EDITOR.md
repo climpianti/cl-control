@@ -1,7 +1,7 @@
-# Editor scenari — sviluppo dopo beta.15
+# Editor scenari — beta.16
 
-Branch: `feat/scenes-draft-editor`. Revisione frontend: `3.5.3-beta.15-scenes-editor-r1`.
-Questa modifica non è ancora pubblicata o installata sulla demo.
+Branch: `beta/3.5.3-beta.16`. Revisione frontend: `3.5.3-beta.16-r1`.
+L'installazione richiede il riavvio di Home Assistant per registrare il nuovo comando di salvataggio e il ricaricamento del browser per i nuovi controlli.
 
 ## Percorso cliente
 

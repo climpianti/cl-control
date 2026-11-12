@@ -1,6 +1,6 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.15**: corregge totali di potenza incompleti ed errori Recorder nascosti. Include scenari guidati, riepiloghi Home essenziali, Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
+> Prerelease **3.5.3-beta.16**: editor scenari con acceso/spento, luminosità e colore nella bozza, senza azionare le luci durante il salvataggio. Include le correzioni Recorder, Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
 > Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
 > Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
 > ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
@@ -20,7 +20,7 @@ Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaud
 
 ### Scenari luci e preferiti
 
-L'editor descritto qui è in sviluppo nel branch `feat/scenes-draft-editor`; non è ancora incluso nella beta.15 pubblicata.
+L'editor con regolazioni della bozza è incluso dalla beta.16; gli scenari e i preferiti già salvati restano compatibili.
 
 **Sistemi → Scenari luci** mostra prima gli scenari personali salvati.
 **Crea scenario** apre tre passaggi: selezione delle singole luci per ambiente,

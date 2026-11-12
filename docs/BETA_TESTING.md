@@ -1,4 +1,4 @@
-# Collaudo CL Control 3.5.3-beta.15
+# Collaudo CL Control 3.5.3-beta.16
 
 Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un aggiornamento stabile. Richiede Home Assistant >= 2026.9.0; il collaudo reale precedente alla confezione della release è stato eseguito su 2026.10.4. Non certifica ogni dispositivo o versione di HA.
 
@@ -6,10 +6,10 @@ Prerelease per provare l'interfaccia Glass su altre installazioni. Non è un agg
 
 1. Crea un backup completo Home Assistant e annota la versione CL Control precedente.
 2. Usa preferibilmente un'istanza di test. L'integrazione genera una dashboard dalle entità esistenti: i suoi pulsanti possono comandare dispositivi reali.
-3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.15**. Se già installata, scegli questa versione nella procedura di riscaricamento. Su HA 2026.11 usa Marketplace nelle Impostazioni; l'eventuale avviso iniziale deve essere letto e accettato dall'utente.
-4. In alternativa scarica `cl-control-3.5.3-beta.15.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
+3. Con HACS aggiungi `https://github.com/climpianti/cl-control` come repository personalizzato di tipo Integration. Abilita la visualizzazione delle prerelease e scegli **3.5.3-beta.16**. Se già installata, scegli questa versione nella procedura di riscaricamento. Su HA 2026.11 usa Marketplace nelle Impostazioni; l'eventuale avviso iniziale deve essere letto e accettato dall'utente.
+4. In alternativa scarica `cl-control-3.5.3-beta.16.zip` dalla release. Controlla l'impronta nel file `SHA256SUMS.txt`. Estrai nella directory di configurazione HA: il file deve risultare in `custom_components/cl_control/manifest.json`. Sostituisci la cartella dell'integrazione, senza sovrapporre versioni diverse e senza modificare `.storage`.
 5. Riavvia Home Assistant. Alla prima installazione aggiungi **CL Control** da Impostazioni → Dispositivi e servizi. Apri la dashboard generata dalla barra laterale.
-6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.15** e revisione degli asset **3.5.3-beta.15-r1**. Non servono risorse Lovelace manuali.
+6. Ricarica completamente il browser. Verifica versione **3.5.3-beta.16** e revisione degli asset **3.5.3-beta.16-r1**. Non servono risorse Lovelace manuali.
 
 L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenziali, entità o screenshot della demo. Non richiede di eliminare dispositivi. Nessun merge sul ramo stabile è necessario per provare questa prerelease.
 
@@ -39,7 +39,7 @@ L'archivio contiene soltanto l'integrazione, senza configurazione HA, credenzial
 
 - **Navigazione beta.11:** nella barra superiore di CL Control devono scomparire le icone Home, Energia e Scenari luci. La Home deve mantenere i collegamenti delle card Energia e Scenari luci; aprirli e usare Indietro per tornare a Home. Ripetere con Energia non configurata: né vista né collegamento devono essere presenti.
 
-- Scenari luci: elenco iniziale, creazione per ambiente, nome e riepilogo; annullare non salva. Verifica il caso di sole luci spente, che deve essere esplicitato prima del salvataggio.
+- Scenari beta.16: scegliere le luci per ambiente, impostare acceso/spento e percentuale nel secondo passaggio, quindi nome e riepilogo. Le regolazioni non devono azionare dispositivi. Usa stato attuale copia solo nella bozza. Verificare colore/temperatura/canali bianchi secondo le capacità e il caso di sole luci spente. Dopo Salva scenario, tornare a I tuoi scenari con Avvia e conferma. Per i test di salvataggio e attivazione usare entità simulate.
 - Scenari realtime: una luce selezionata che perde connessione deve bloccare Salva e poter essere rimossa; Avvia deve adeguarsi senza aggiornare manualmente l'elenco. Per questi test usare entità simulate.
 - Home: nessun conteggio di dispositivi non disponibili nei riepiloghi. Senza stati noti il sottotitolo resta vuoto, senza dichiarare falsamente spento o disinserito.
 - Home e aree: intestazioni, meteo, Assistenza, nomi lunghi, card native e collegamenti Installatore visibili solo agli utenti autorizzati.
@@ -83,7 +83,7 @@ Il test DOM opzionale `test_light_memories_dom.cjs` richiede anche jsdom; è dis
 
 ### Verifiche eseguite per questa release
 
-- 98 test Python offline, incluse navigazione, scenari e autorizzazioni B&B: superati.
+- 110 test Python offline, incluse bozze scenari, compatibilità, permessi, quote, navigazione e autorizzazioni B&B: superati.
 - Suite browser in Chrome tramite Playwright 1.62.1 con API simulate, incluso il nuovo percorso scenari a sei larghezze: scelta, nome, riepilogo, annullamento, conferma, errore di salvataggio, limite di 32 luci e focus/cursore durante gli aggiornamenti.
 - Regressione Node sui dati energia assenti/zero: superata.
 - Sintassi di tutti i moduli frontend e test browser: verificata. Archivio ZIP: integrità, versioni, asset richiesti e impronta SHA256 verificati.
