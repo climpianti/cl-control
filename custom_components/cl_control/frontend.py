@@ -24,13 +24,14 @@ REQUIRED_ASSETS = (
     "cl-control-dashboard-strategy.mjs",
     "cl-control-security-card.mjs",
     "cl-control-header-card.mjs",
+    "cl-control-entity-search-card.mjs",
     "cl-control-installer-card.mjs",
     "cl-control-assistance-card.mjs",
     "cl-control-branding.mjs",
     "logo.png",
 )
 LEGACY_ASSET_ROOT = "/local/cl_control/"
-ASSET_REVISION = "3.5.1-inim-partition-cards-v2"
+ASSET_REVISION = "3.5.1-system-search-v1"
 
 
 def static_url(version: str) -> str:

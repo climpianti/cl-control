@@ -1502,6 +1502,40 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                     }
                 )
             module_sections.extend(_security_camera_sections(model))
+        elif module == "lights":
+            assigned = set()
+            search_groups = []
+            for area in model["areas"]:
+                items = area["entities"]["lights"]
+                if not items:
+                    continue
+                assigned.update(item["entity_id"] for item in items)
+                search_groups.append({
+                    "name": area["name"],
+                    "icon": "mdi:lightbulb-group",
+                    "heading_card": _light_heading(area, area["name"]),
+                    "entities": [_entity_card(item) for item in items],
+                })
+            unassigned = [item for item in data["entities"] if item["entity_id"] not in assigned]
+            if unassigned:
+                search_groups.append({
+                    "name": "Altri dispositivi",
+                    "icon": "mdi:lightbulb-group",
+                    "entities": [_entity_card(item) for item in unassigned],
+                })
+            module_sections = [
+                _branding_section(model, data["label"], column_span=3),
+                {
+                    "type": "grid",
+                    "column_span": 3,
+                    "cards": [{
+                        "type": "custom:cl-control-entity-search-card",
+                        "placeholder": "Cerca una luce...",
+                        "groups": search_groups,
+                        "grid_options": {"columns": "full"},
+                    }],
+                },
+            ]
         else:
             module_sections = [
                 _branding_section(model, data["label"], column_span=3),
