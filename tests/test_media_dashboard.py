@@ -7,6 +7,12 @@ from custom_components.cl_control.dashboard_native import (
 from custom_components.cl_control.summary import format_summary, is_active_state
 
 
+def system_cards(view):
+    return [child for section in view["sections"] for card in section["cards"]
+            for child in ([card] + [entity for group in card.get("groups", [])
+                                       for entity in group.get("entities", [])])]
+
+
 class MultimediaDashboardTests(unittest.TestCase):
     def model(self, entities=None, runtime=None):
         return build_dashboard_model(
@@ -25,7 +31,7 @@ class MultimediaDashboardTests(unittest.TestCase):
         config = build_native_lovelace(model)
         views = {view["path"]: view for view in config["views"]}
         for path in ("area-living", "media"):
-            cards = [c for s in views[path]["sections"] for c in s["cards"]]
+            cards = system_cards(views[path])
             self.assertTrue(any(c.get("type") == "custom:cl-control-media-card" and c["entity"] == "media_player.tv" for c in cards))
 
     def test_no_empty_media_view_without_players(self):
@@ -37,7 +43,7 @@ class MultimediaDashboardTests(unittest.TestCase):
         self.assertEqual(model["areas"], [])
         config = build_native_lovelace(model)
         media = next(v for v in config["views"] if v["path"] == "media")
-        self.assertTrue(any(c.get("entity") == "media_player.speaker" for s in media["sections"] for c in s["cards"]))
+        self.assertTrue(any(c.get("entity") == "media_player.speaker" for c in system_cards(media)))
 
     def test_visibility_and_order_are_respected(self):
         players = [{"entity_id": "media_player." + suffix, "area_id": "living"} for suffix in ("a", "b", "hidden", "disabled")]

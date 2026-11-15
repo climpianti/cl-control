@@ -37,7 +37,7 @@ def fixture_model(energy=True):
 
 
 def cards(view):
-    return [card for section in view["sections"] for card in section["cards"]]
+    return [child for section in view["sections"] for card in section["cards"] for child in ([card] + [entity for group in card.get("groups", []) for entity in group.get("entities", [])])]
 
 
 class MigrationFoundationTests(unittest.TestCase):
