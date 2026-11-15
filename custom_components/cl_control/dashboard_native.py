@@ -1639,6 +1639,48 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                     }
                 )
             module_sections.extend(_security_camera_sections(model))
+        elif module in ("lights", "covers", "climate", "media"):
+            assigned = set()
+            search_groups = []
+            for area in model["areas"]:
+                items = area["entities"].get(module, [])
+                if not items:
+                    continue
+                assigned.update(item["entity_id"] for item in items)
+                search_groups.append({
+                    "name": area["name"],
+                    "icon": data["icon"],
+                    "heading_card": (
+                        _light_heading(area, area["name"])
+                        if module == "lights" else None
+                    ),
+                    "entities": [_entity_card(item) for item in items],
+                })
+            unassigned = [item for item in data["entities"] if item["entity_id"] not in assigned]
+            if unassigned:
+                search_groups.append({
+                    "name": "Altri dispositivi",
+                    "icon": data["icon"],
+                    "entities": [_entity_card(item) for item in unassigned],
+                })
+            module_sections = [
+                _branding_section(model, data["label"], column_span=3),
+                {
+                    "type": "grid",
+                    "column_span": 3,
+                    "cards": [{
+                        "type": "custom:cl-control-entity-search-card",
+                        "placeholder": {
+                            "lights": "Cerca una luce...",
+                            "covers": "Cerca un'apertura...",
+                            "climate": "Cerca un climatizzatore...",
+                            "media": "Cerca un dispositivo multimediale...",
+                        }[module],
+                        "groups": search_groups,
+                        "grid_options": {"columns": "full", "rows": "auto"},
+                    }],
+                },
+            ]
         else:
             module_sections = [
                 _branding_section(model, data["label"], column_span=3),

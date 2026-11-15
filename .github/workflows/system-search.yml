@@ -1,0 +1,40 @@
+name: CL Control system search checks
+on:
+  push:
+    branches: [feature/system-search-beta17]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate Python
+        run: python -m compileall -q custom_components/cl_control
+      - name: Validate frontend JavaScript
+        run: |
+          for f in custom_components/cl_control/frontend/*.mjs; do node --check "$f"; done
+      - name: Verify search integration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          root=Path('custom_components/cl_control')
+          s=(root/'dashboard_native.py').read_text()
+          tree=ast.parse(s)
+          assert 'custom:cl-control-entity-search-card' in s
+          assert 'heading_card' in s
+          assert 'Cerca una luce...' in s
+          strategy=(root/'frontend/cl-control-dashboard-strategy.mjs').read_text()
+          assert "import './cl-control-entity-search-card.mjs';" in strategy
+          frontend=(root/'frontend.py').read_text()
+          assert '"cl-control-entity-search-card.mjs"' in frontend
+          assert (root/'frontend/cl-control-entity-search-card.mjs').exists()
+          print('Search integration checks passed')
+          PY

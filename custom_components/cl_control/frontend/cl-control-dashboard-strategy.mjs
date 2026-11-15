@@ -1,5 +1,6 @@
 import './cl-control-security-card.mjs';
 import './cl-control-header-card.mjs';
+import './cl-control-entity-search-card.mjs';
 import './cl-control-installer-card.mjs';
 import './cl-control-discovery-card.mjs';
 import './cl-control-modbus-card.mjs';
