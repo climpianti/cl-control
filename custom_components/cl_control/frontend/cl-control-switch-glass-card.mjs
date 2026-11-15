@@ -16,14 +16,15 @@ class CLSwitchGlassCard extends HTMLElement {
         border:1px solid rgba(155,190,255,.28);border-radius:24px;box-shadow:0 12px 28px rgba(0,0,0,.22);overflow:hidden}
       ha-card:before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(40,120,229,.09),transparent 65%);pointer-events:none}
       .device,.identity,.power{position:relative;z-index:1}
-      .device{width:57px;min-width:57px;height:57px;border:0;border-radius:18px;background:rgba(112,175,225,.12);color:#95c7f0;display:grid;place-items:center;cursor:pointer}
+      .device{width:57px;min-width:57px;height:57px;border:0;border-radius:18px;background:rgba(112,175,225,.12);color:#9daab8;display:grid;place-items:center;cursor:pointer}
       .device ha-icon{--mdc-icon-size:32px}
+      ha-card:has(.power[aria-checked=true]) .device{color:#ffd16e;background:rgba(232,170,54,.13)}
       .identity{flex:1;min-width:0}
       strong{display:block;font-size:18px;font-weight:700;line-height:1.3;letter-spacing:-.3px;overflow-wrap:anywhere;color:#fff}
       small{display:block;margin-top:7px;font-size:13px;color:#bac6dc}
       .power{width:58px;height:58px;min-width:58px;display:grid;place-items:center;border:1px solid rgba(142,178,211,.42);border-radius:50%;
-        background:linear-gradient(145deg,#283d51,#1b2a3c);color:#d7ebff;cursor:pointer;box-shadow:inset 0 1px 1px #ffffff24,0 3px 10px #0004;transition:background .18s,box-shadow .18s}
-      .power[aria-checked=true]{color:#fff;background:linear-gradient(140deg,#168ee4,#2567b3);border-color:#8dcaff;box-shadow:0 0 18px #289ce866,inset 0 1px 2px #ffffff55}
+        background:linear-gradient(145deg,#303a49,#202936);color:#9ca8b8;cursor:pointer;box-shadow:inset 0 1px 1px #ffffff24,0 3px 10px #0004;transition:background .18s,box-shadow .18s}
+      .power[aria-checked=true]{color:#422d0d;background:linear-gradient(140deg,#ffe09a,#e9aa34);border-color:#ffe5ab;box-shadow:0 0 18px #f3bd4b77,inset 0 1px 2px #ffffff88}
       .power ha-icon{--mdc-icon-size:28px}
       button:focus-visible{outline:2px solid #8ed1ff;outline-offset:3px}
       button:disabled{opacity:.45;cursor:default}
