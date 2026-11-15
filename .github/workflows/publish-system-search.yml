@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/publish-system-search.yml"
       - "custom_components/cl_control/manifest.json"
+      - "tests/**"
   workflow_dispatch:
 permissions:
   contents: write
