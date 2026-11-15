@@ -60,7 +60,7 @@ class MultimediaDashboardTests(unittest.TestCase):
         model = self.model()
         media = next(v for v in build_native_lovelace(model)["views"] if v["path"] == "media")
         # This checks the generator contract, not the custom card's execution.
-        card = next(c for s in media["sections"] for c in s["cards"] if c.get("type") == "custom:cl-control-media-card")
+        card = next(c for c in system_cards(media) if c.get("type") == "custom:cl-control-media-card")
         self.assertEqual(set(card), {"type", "entity", "name"})
 
     def test_lg_remote_only_for_registered_webostv_platform(self):
