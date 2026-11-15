@@ -1,0 +1,57 @@
+name: CL Control Core B&B regression
+on:
+  push:
+    branches:
+      - feature/beta7-bb-manager-systems-link
+      - beta/3.5.3-beta.8
+      - beta/3.5.3-beta.9
+      - beta/3.5.3-beta.10
+      - beta/3.5.3-beta.11
+      - beta/3.5.3-beta.12
+      - beta/3.5.3-beta.13
+      - beta/3.5.3-beta.14
+      - beta/3.5.3-beta.15
+      - beta/3.5.3-beta.16
+      - beta/3.5.3-beta.17
+  pull_request:
+    paths:
+      - "custom_components/cl_control/**"
+      - "tests/**"
+      - ".github/workflows/test-core-bb.yml"
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Verify Python syntax
+        run: python -m compileall -q custom_components/cl_control tests
+      - name: Run offline regression suite
+        run: python tests/run_offline.py
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install browser test runtime
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Verify Home, lights and guided scenes with simulated APIs
+        run: |
+          node tests/test_home_glass.cjs
+          node tests/test_light_memories_ui.cjs
+          node tests/test_scenes_guided.cjs
+      - name: Verify energy statistics and missing-data handling
+        run: |
+          node tests/test_energy_power_series.cjs
+          node tests/test_energy_curves.cjs
+          node tests/test_energy_visual_parity.cjs
+          node tests/test_energy_missing_data.cjs
+          node --test tests/test_energy_recorder_failures.cjs

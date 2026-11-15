@@ -15,7 +15,7 @@ DEFAULT_CONFIG = {
     "assets": {
         "logo": "frontend:logo.png",
         "logo_compact": "frontend:logo.png",
-        "favicon": "",
+        "favicon": "frontend:favicon.png",
     },
     "colors": {
         "primary": "#19BAFF",

@@ -1,5 +1,57 @@
 # CL Control
 
+> Prerelease **3.5.3-beta.17**: modifica degli scenari salvati e nuova priorità grafica per Avvia. Include l'editor con regolazioni nella bozza, le correzioni Recorder, Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
+> Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
+> Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
+> ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
+> Test offline: `python tests/run_offline.py` (non emula il runtime HA).
+
+La beta.11 nasconde la barra delle tre schede rapide Home/Energia/Scenari: **Energia** e **Scenari luci** rimangono raggiungibili esclusivamente dalle rispettive card nella Home CL Control. Il pulsante Indietro torna a Home; il menu laterale HA resta disponibile.
+
+**Energia Blue Tech beta.12:** curve SVG monotone sui campioni storici a 12/24 ore (senza sovraoscillazione o picchi fittizi), riempimenti sfumati, tooltip Glass con serie colorate, legenda e selezione periodi migliorate. I grafici a barre di 7/30 giorni restano invariati nella logica. I carichi mostrano una barra di confronto relativo rispetto al massimo tra quelli visualizzati, non una percentuale di carico nominale. Il grafico del dettaglio giornaliero dei carichi è altrettanto smussato. Dati, statistica, comandi, nomi entità e API non cambiano. Le interruzioni dei dati non vengono trasformate in zeri.
+
+**Energia Glass beta.13:** cornice sfumata blu/viola, iconografia SVG di FV/Casa/Prelievo/Immissione, selettori periodo e tooltip con puntatore, nuovo layout orizzontale dei carichi con freccia di dettaglio. Solo il **tracciato visualizzato** 12/24h usa un filtro triangolare di circa ±20 minuti per ridurre seghettature: i dati al tocco sono sempre originali. I periodi mancanti restano disconnessi e i campioni a zero non vengono trasformati in produzione. I grafici settimanali e mensili rimangono a barre. Nessuna modifica a dati persistenti, statistiche, calcoli, entità, API o comandi. L'anteprima è illustrativa, non coincide necessariamente con i profili di consumo reali.
+
+**Beta.14: potenza vs energia.** I grafici **12/24 ore** visualizzano la potenza media a campioni di 5 minuti in **kW**, usando Recorder `mean` dei sensori di potenza W (FV, Casa, rete firmata; prelievo positivo/immissione negativa). Solo se una media non e disponibile viene usato il cambiamento `kWh` del medesimo intervallo per stimare la potenza media equivalente (`kWh * 12`); i dati assenti non diventano zeri. I grafici **7/30 giorni** e i riepiloghi giorno/mese/anno restano in **kWh**. Nessuna modifica ai sensori o ai controlli; stesse curve e lo stesso stile Blue Tech Glass. Il grafico 12/24h e uno storico della potenza, non una misura live ad alta frequenza.
+
+Per installazione, aggiornamento e verifiche della beta vedere [Guida al collaudo](docs/BETA_TESTING.md).
+
+**Beta.15: letture Recorder affidabili.** Nei grafici 12/24 ore un totale di potenza richiede un campione valido da ogni sensore configurato: se ne manca uno, viene usato il fallback energetico quando disponibile oppure rimane un intervallo senza dati. Se tutte le richieste statistiche falliscono, viene mostrato un errore senza memorizzare il risultato come una lettura vuota riuscita. Uno zero misurato resta zero. Nessuna migrazione dati; sensori, comandi e stile Glass conservati.
+
+### Scenari luci e preferiti
+
+L'editor con regolazioni della bozza è incluso dalla beta.16; gli scenari e i preferiti già salvati restano compatibili.
+
+Dalla beta.17, il menu **⋮ → Modifica** riapre le impostazioni salvate e permette di aggiungere/rimuovere luci, cambiare regolazioni e nome. **Salva modifiche** aggiorna lo stesso scenario senza attivarlo. **Avvia** è l'azione principale blu/viola; Modifica ed Elimina restano nel menu secondario.
+
+**Sistemi → Scenari luci** mostra prima gli scenari personali salvati.
+**Crea scenario** apre tre passaggi: selezione delle singole luci per ambiente,
+regolazioni, nome e riepilogo. Nel secondo passaggio scegli acceso/spento e luminosità,
+colore, bianchi o temperatura secondo le capacità della singola luce. **Usa stato attuale**
+copia le impostazioni nella bozza. **Salva scenario** memorizza la bozza senza azionare le luci;
+il riepilogo evidenzia anche gli scenari che spegneranno tutte le luci selezionate.
+**Avvia** richiede conferma e riproduce gli stati
+tramite Home Assistant. Il comando può avere effetti parziali se un dispositivo
+si scollega durante l'esecuzione: controlla sempre il risultato.
+
+Le impostazioni della bozza non vengono sovrascritte dagli aggiornamenti realtime.
+Il salvataggio riporta a **I tuoi scenari**, con il pulsante **Avvia** per applicare le impostazioni salvate.
+La selezione e i comandi seguono la disponibilità realtime. Una luce selezionata
+che perde la connessione può essere rimossa; il salvataggio resta bloccato finché
+la selezione non è valida. Nome e cursore restano stabili durante gli aggiornamenti.
+Il percorso guidato è incluso dalla prerelease beta.9.
+
+Le schede luce compatte riflettono colore e luminosità; il pulsante dettagli apre le regolazioni. La scheda clima Glass mostra temperatura ambiente/target e apre i controlli nativi HA per modalità HVAC, preset, ventola, oscillazione e umidità, secondo le capacità reali dell'entità. La precedente `cl-control-climate-card` rimane disponibile per le configurazioni manuali.
+Il canale **Bianco W** appare solo per RGBW; la temperatura solo se supportata.
+La lampadina apre i controlli completi HA. La **stella** apre i preferiti:
+**Salva preferito** memorizza la luce accesa, luminosità e colore.
+Le luci solo ON/OFF mostrano soltanto intestazione e interruttore.
+Scenari e preferiti sono personali, persistenti dopo il riavvio e cancellabili.
+La prima beta gestisce luci individuali, fino a 32 per scenario e 64 salvataggi
+per utente. Serrature, antifurto, clima e gruppi aggregati sono esclusi.
+I salvataggi sono ricette CL Control e non creano entità `scene.*`.
+
+
 **CL Control 3.5.1** è una custom integration per Home Assistant progettata per generare una dashboard nativa, ordinata e configurabile a partire dalle aree e dalle entità già presenti nell'impianto.
 
 La versione 3.5.1 aggiorna la baseline pubblica stabile della nuova architettura CL Control con installazione frontend e dashboard automatica.
@@ -33,8 +85,8 @@ La versione 3.5.1 aggiorna la baseline pubblica stabile della nuova architettura
 
 ## Requisiti
 
-- Home Assistant con supporto alle API frontend/registry utilizzate dalla versione corrente.
-- È consigliata una versione Home Assistant recente sul ramo 2026.9/2026.10 utilizzato durante lo sviluppo.
+- Home Assistant **2026.9.0 o successivo** per questa beta.
+- Collaudo reale eseguito su Home Assistant **2026.10.4**; altre versioni e integrazioni richiedono verifica.
 - Browser moderno per le card frontend incluse.
 
 > La compatibilità con versioni Home Assistant precedenti non è garantita finché non viene esplicitamente testata.
@@ -143,6 +195,6 @@ Per bug e richieste di miglioramento usa la sezione **Issues** del repository Gi
 
 ## Versione
 
-**3.5.1 — Stable**
+**3.5.3-beta.10 — Prerelease**. La precedente baseline stabile rimane 3.5.1.
 
 Vedi [CHANGELOG.md](CHANGELOG.md) per le modifiche principali.

@@ -24,13 +24,31 @@ REQUIRED_ASSETS = (
     "cl-control-dashboard-strategy.mjs",
     "cl-control-security-card.mjs",
     "cl-control-header-card.mjs",
+    "cl-control-entity-search-card.mjs",
     "cl-control-installer-card.mjs",
+    "cl-control-discovery-card.mjs",
+    "cl-control-modbus-card.mjs",
     "cl-control-assistance-card.mjs",
+    "cl-control-welcome-card.mjs",
+    "cl-control-home-card.mjs",
+    "cl-control-energy-card.mjs",
+    "cl-control-light-memories-card.mjs",
+    "cl-control-media-card.mjs",
+    "cl-control-cover-card.mjs",
+    "cl-control-climate-card.mjs",
+    "cl-control-climate-glass-card.mjs",
     "cl-control-branding.mjs",
     "logo.png",
+    "favicon.png",
+    "favicon.ico",
+    "favicon-32.png",
+    "favicon-192.png",
+    "favicon-512.png",
+    "favicon-maskable-512.png",
+    "apple-touch-icon.png",
 )
 LEGACY_ASSET_ROOT = "/local/cl_control/"
-ASSET_REVISION = "3.5.1-inim-partition-cards-v2"
+ASSET_REVISION = "3.5.3-beta.18-system-search"
 
 
 def static_url(version: str) -> str:
@@ -67,14 +85,19 @@ def configure_internal_frontend(settings: dict[str, Any], version: str) -> dict[
     configured["frontend"]["cache_version"] = version
 
     assets = configured["branding"].setdefault("assets", {})
-    for key in ("logo", "logo_compact"):
+    defaults = {
+        "logo": "logo.png",
+        "logo_compact": "logo.png",
+        "favicon": "favicon-512.png",
+    }
+    for key, default_name in defaults.items():
         value = str(assets.get(key) or "")
         if value.startswith("frontend:"):
             assets[key] = f"{asset_base}/{value.removeprefix('frontend:')}"
         elif value.startswith(LEGACY_ASSET_ROOT):
             assets[key] = f"{asset_base}/{Path(value).name}"
         elif not value:
-            assets[key] = f"{asset_base}/logo.png"
+            assets[key] = f"{asset_base}/{default_name}"
     return configured
 
 

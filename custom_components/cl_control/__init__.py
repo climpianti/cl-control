@@ -35,6 +35,7 @@ from .const import (
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
     DATA_SUMMARY_MANAGER,
+    DATA_LIGHT_MEMORIES,
     DATA_STORE,
     DATA_UPDATE_MANAGER,
     DATA_WEBSOCKET_REGISTERED,
@@ -62,6 +63,7 @@ from .modules.assistance_gateway import AssistanceGateway
 from .modules.installer import InstallerSessions, PinRateLimiter
 from .storage import RuntimeStore
 from .summary import SummaryManager
+from .light_memories import LightMemoryLibrary
 from .websocket import async_register_commands
 
 _LOGGER = logging.getLogger(__name__)
@@ -79,6 +81,7 @@ _RUNTIME_KEYS = (
     DATA_SECURITY_LIMITER,
     DATA_SETTINGS,
     DATA_SUMMARY_MANAGER,
+    DATA_LIGHT_MEMORIES,
     DATA_STORE,
     DATA_UPDATE_MANAGER,
 )
@@ -172,6 +175,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     settings = configure_internal_frontend(settings_from_entry(options), VERSION)
     store = RuntimeStore(hass)
     runtime = await store.async_load(settings["site"])
+    light_memories = LightMemoryLibrary.from_hass(hass, installation_id)
+    await light_memories.async_load()
     configured_level = options[CONF_EXPERIENCE_LEVEL]
     if runtime["customer_ui"].get("experience_level") != configured_level:
         runtime["customer_ui"]["experience_level"] = configured_level
@@ -203,6 +208,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             DATA_BRANDING_MANAGER: branding_manager,
             DATA_RUNTIME: runtime,
             DATA_STORE: store,
+            DATA_LIGHT_MEMORIES: light_memories,
             DATA_CONFIG_ENTRY: entry,
             DATA_CREDENTIAL_STORE: credential_store,
             DATA_CREDENTIALS: credentials,

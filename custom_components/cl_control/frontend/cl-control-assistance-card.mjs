@@ -28,9 +28,8 @@ class CLControlAssistanceCard extends HTMLElement {
   getGridOptions() {
     return {
       columns: 'full',
-      rows: 1,
+      rows: 'auto',
       min_rows: 1,
-      max_rows: 1,
     };
   }
 
@@ -44,6 +43,9 @@ class CLControlAssistanceCard extends HTMLElement {
         display: block;
         width: 100%;
         min-width: 0;
+        --primary-text-color: #f5f7fc;
+        --secondary-text-color: #bdcadd;
+        --primary-color: #78c5ff;
       }
       a {
         box-sizing: border-box;
@@ -55,10 +57,10 @@ class CLControlAssistanceCard extends HTMLElement {
         padding: 14px 18px;
         text-decoration: none;
         color: var(--primary-text-color);
-        background: var(--ha-card-background, var(--card-background-color, #fff));
-        border: var(--ha-card-border-width, 1px) solid var(--ha-card-border-color, var(--divider-color));
-        border-radius: var(--ha-card-border-radius, 12px);
-        box-shadow: var(--ha-card-box-shadow, none);
+        background: radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);
+        border: 1px solid #b2daff55;
+        border-radius: 25px;
+        box-shadow: 0 9px 25px #0004,inset 0 1px 2px #e7f7ff33;
         cursor: pointer;
         -webkit-tap-highlight-color: transparent;
       }
@@ -74,6 +76,9 @@ class CLControlAssistanceCard extends HTMLElement {
         justify-content: center;
         flex: 0 0 auto;
         color: var(--primary-color);
+        border: 1px solid #b2daff55;
+        border-radius: 14px;
+        background: linear-gradient(145deg,#478ccc44,#70439933);
       }
       ha-icon {
         --mdc-icon-size: 32px;
@@ -88,15 +93,16 @@ class CLControlAssistanceCard extends HTMLElement {
         font-size: 16px;
         line-height: 1.25;
         font-weight: 600;
+        overflow-wrap: anywhere;
       }
       .subtitle {
         font-size: 13px;
         line-height: 1.3;
         color: var(--secondary-text-color);
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
+        overflow-wrap: anywhere;
+        white-space: normal;
       }
+      @media(max-width:520px){a{gap:12px;padding:13px 15px}.icon{width:40px;height:40px}.title{font-size:15px}.subtitle{font-size:12px}}
     `;
 
     const link = document.createElement('a');

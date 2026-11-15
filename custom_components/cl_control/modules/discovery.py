@@ -12,6 +12,7 @@ DEFAULT_CONFIG = {
         "sensor",
         "binary_sensor",
         "camera",
+        "media_player",
         "alarm_control_panel",
         "select",
     ],
@@ -25,7 +26,7 @@ DEFAULT_CONFIG = {
             "cover",
             "alarm_control_panel",
         ],
-        "standard_domains": ["climate", "camera"],
+        "standard_domains": ["climate", "camera", "media_player"],
         "pro_domains": ["sensor", "binary_sensor", "select"],
         "installer_patterns": [
             "^update\\.",

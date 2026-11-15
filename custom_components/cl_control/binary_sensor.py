@@ -18,6 +18,7 @@ LABELS = {
     "covers": ("Aperture", "mdi:window-shutter"),
     "climate": ("Clima", "mdi:thermostat"),
     "cameras": ("Telecamere", "mdi:cctv"),
+    "media": ("Multimedia", "mdi:television-speaker"),
 }
 
 

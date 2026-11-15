@@ -52,3 +52,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Local test output and release artifacts
+test-artifacts/
+dist/
