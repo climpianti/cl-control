@@ -69,7 +69,7 @@ class MultimediaDashboardTests(unittest.TestCase):
                 "entity_id": "media_player.tv", "platform": platform,
             }]))
             media = next(v for v in config["views"] if v["path"] == "media")
-            card = next(c for s in media["sections"] for c in s["cards"] if c.get("entity") == "media_player.tv")
+            card = next(c for c in system_cards(media) if c.get("entity") == "media_player.tv")
             self.assertEqual(card.get("remote_type"), "webostv" if platform == "webostv" else None)
 
     def test_playing_and_availability_summary(self):
