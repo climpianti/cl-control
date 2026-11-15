@@ -48,13 +48,10 @@ class ClimateDashboardTests(unittest.TestCase):
             self.model(runtime={"favorites": ["climate.living"]})
         )
         home_cards = self._cards(config["views"][0])
-        self.assertTrue(
-            any(
-                card.get("type") == "custom:cl-control-climate-glass-card"
-                and card.get("entity") == "climate.living"
-                for card in home_cards
-            )
-        )
+        self.assertTrue(any(card.get("type") == "custom:cl-control-home-favorites-card"
+                            for card in home_cards))
+        self.assertIn("climate.living", [item["entity_id"]
+                                         for item in self.model(runtime={"favorites": ["climate.living"]})["favorites"]])
 
     def test_no_climate_view_without_climate_entities(self):
         config = build_native_lovelace(self.model(entities=[]))
