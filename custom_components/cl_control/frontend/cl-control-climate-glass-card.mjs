@@ -4,7 +4,7 @@ const finite=value=>typeof value==='number'&&Number.isFinite(value)?value:null;
 // options, limits, units, unavailable handling and service calls.
 function climateFeatures(attributes={}){
   const features=[],supported=attributes.supported_features||0;
-  if(Array.isArray(attributes.hvac_modes)&&attributes.hvac_modes.length)features.push({type:'climate-hvac-modes',style:'dropdown'});
+  if(Array.isArray(attributes.hvac_modes)&&attributes.hvac_modes.length)features.push({type:'climate-hvac-modes',style:'icons'});
   for(const [flag,attribute,type] of [[8,'fan_modes','climate-fan-modes'],[16,'preset_modes','climate-preset-modes'],[32,'swing_modes','climate-swing-modes'],[512,'swing_horizontal_modes','climate-swing-horizontal-modes']]){
     if((supported&flag)&&Array.isArray(attributes[attribute])&&attributes[attribute].length)features.push({type,style:'dropdown'});
   }
@@ -20,6 +20,8 @@ export class CLControlClimateCard extends HTMLElement {
   _render(){
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;min-width:0;color:#f5f7fc;--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--card-background-color:#18222b;--ha-card-background:#18222b;--primary-color:#9b83ff;--divider-color:#ffffff20}
+      /* Keep native thermostat and its HVAC feature controls readable in the dark Glass surface. */
+      #native{color:#f5f7fc;--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--mdc-theme-on-surface:#f5f7fc;--mdc-theme-surface:#18222b;--mdc-theme-text-primary-on-background:#f5f7fc;--mdc-menu-surface-color:#18222b;--mdc-list-list-item-label-text-color:#f5f7fc;--ha-card-background:#18222b}
       *{box-sizing:border-box}ha-card{display:block;padding:16px;border-radius:25px;border:1px solid var(--climate-border,#b2daff66);background:radial-gradient(ellipse at 10% 0%,var(--climate-glow,#253e5d88),transparent 75%),radial-gradient(ellipse at 96% 80%,var(--climate-glow-secondary,#38465833),transparent 65%),linear-gradient(115deg,#18222b,#121721 60%,#19202b);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff55;color:inherit}
       button{font:inherit;cursor:pointer;min-height:44px;border:1px solid #ffffff18;border-radius:12px;background:#ffffff08;color:inherit;padding:10px}button:focus-visible{outline:2px solid #67c5ff;outline-offset:3px}.head{display:flex;align-items:center;gap:14px;width:100%;border:0;background:transparent;padding:0;text-align:left}.copy{flex:1;min-width:0}.copy strong{display:block;font-size:16px;overflow-wrap:anywhere}.state,.target{display:block;font-size:13px;color:#bdcadd;line-height:1.5;margin-top:5px}
       .thermometer{width:50px;height:60px;flex:none;color:var(--climate-accent,#b1b9dc)}svg{width:100%;height:100%}.reading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:14px}.temperature{font-size:30px;letter-spacing:-1px}.caption{color:#bdcadd;font-size:12px}.details{margin-top:14px;padding-top:14px;border-top:1px solid #ffffff18}#native{min-width:0}.error{font-size:13px;color:#ffd0d8}.more{width:100%;margin-top:10px}[hidden]{display:none!important}
