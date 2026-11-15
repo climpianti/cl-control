@@ -7,6 +7,7 @@ import './cl-control-modbus-card.mjs';
 import './cl-control-assistance-card.mjs';
 import './cl-control-welcome-card.mjs';
 import './cl-control-home-card.mjs';
+import './cl-control-home-favorites-card.mjs';
 import './cl-control-energy-card.mjs';
 import './cl-control-light-memories-card.mjs';
 import './cl-control-media-card.mjs';

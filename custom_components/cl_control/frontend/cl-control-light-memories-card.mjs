@@ -35,6 +35,8 @@ export class CLLightMemoriesCard extends HTMLElement {
     this._name=''; this._busy=false; this._loading=true; this._error=''; this._notice='';
     this._sequence=0; this._native=null; this._nativeKey=''; this._connected=false;
     this._expanded=false; this._detailsExpanded=false; this._controlBusy=false; this._controlKey='';
+    this._homeFavorite=false; this._favoriteBusy=false;
+    this._refreshHomeFavorites=()=>this._loadHomeFavorite();
     this._sceneStep=0; this._sceneRenderedStep=-1; this._sceneDrafts={}; this._editingScene=null;
     this._refresh=()=>this._load();
     this._outsideSceneMenu=event=>{if(!event.composedPath().includes(this))this._closeSceneMenus();};
@@ -43,12 +45,14 @@ export class CLLightMemoriesCard extends HTMLElement {
   connectedCallback() {
     this._connected=true;
     window.addEventListener(CHANGED,this._refresh);
+    window.addEventListener('cl-control-home-favorites-changed',this._refreshHomeFavorites);
     window.addEventListener('pointerdown',this._outsideSceneMenu);
-    if(this._hass)this._load();
+    if(this._hass){this._load();if(this._isPreset())this._loadHomeFavorite();}
   }
   disconnectedCallback() {
     this._connected=false; ++this._sequence;
     window.removeEventListener(CHANGED,this._refresh);
+    window.removeEventListener('cl-control-home-favorites-changed',this._refreshHomeFavorites);
     window.removeEventListener('pointerdown',this._outsideSceneMenu);
   }
   set hass(hass) {
@@ -58,7 +62,7 @@ export class CLLightMemoriesCard extends HTMLElement {
     if(changedUser){this._items=[];this._name='';this._selected.clear();this._sceneDrafts={};this._editingScene=null;this._sceneStep=0;this._sceneRenderedStep=-1;if(!this._isPreset())this._render();}
     if(this._native)this._native.hass=hass;
     this._syncState();
-    if((first||changedUser)&&this._connected)this._load();
+    if((first||changedUser)&&this._connected){this._load();if(this._isPreset())this._loadHomeFavorite();}
   }
   getCardSize(){return this._config.entity?2:8;}
   getGridOptions(){return {columns:12,rows:'auto',min_columns:6};}
@@ -66,6 +70,27 @@ export class CLLightMemoriesCard extends HTMLElement {
   _canSavePreset(){
     const s=this._hass?.states?.[this._config.entity];
     return s?.state==='on'&&(s.attributes?.supported_color_modes||[]).some(m=>DIM.has(m));
+  }
+  async _loadHomeFavorite(){
+    if(!this._hass||!this._isPreset())return;
+    try{
+      const config=await this._hass.callWS({type:'cl_control/config/get'});
+      this._homeFavorite=(config?.favorites||[]).includes(this._config.entity);
+      const button=this.shadowRoot.querySelector('#homeFavorite');
+      if(button){button.textContent=this._homeFavorite?'★':'☆';button.classList.toggle('saved',this._homeFavorite);
+        button.setAttribute('aria-pressed',String(this._homeFavorite));}
+    }catch(e){console.warn('Cannot read Home favorites',e);}
+  }
+  async _toggleHomeFavorite(){
+    if(this._favoriteBusy||!this._hass)return;
+    this._favoriteBusy=true;
+    try{
+      const result=await this._hass.callWS({type:'cl_control/favorites/toggle',entity_id:this._config.entity});
+      this._homeFavorite=Boolean(result.selected);
+      window.dispatchEvent(new Event('cl-control-home-favorites-changed'));
+      this._render();
+    }catch(e){this._error=e?.message||'Impossibile aggiornare i preferiti Home.';this._render();}
+    finally{this._favoriteBusy=false;}
   }
   async _load(){
     if(!this._hass||!this._connected)return;
@@ -130,7 +155,7 @@ export class CLLightMemoriesCard extends HTMLElement {
   _controlsHTML(){
     const m=this._lightModel();
     const slider=(kind,label,min,max,cls)=>`<label class="rail ${cls}"><span>${label}<output data-value="${kind}"></output></span><input type="range" data-control="${kind}" aria-label="${label}" min="${min}" max="${max}" step="1"></label>`;
-    return `<div class="light-head"><button class="bulb" id="moreInfo" aria-label="Dettagli luce"><svg viewBox="0 0 32 42" aria-hidden="true"><path class="glass" d="M16 2C8 2 3 8 3 15c0 5 3 8 6 12v4h14v-4c3-4 6-7 6-12C29 8 24 2 16 2Z"/><path class="base" d="M9 32h14v3H9zm1 5h12l-3 4h-6z"/></svg></button><div class="identity"><strong>${esc(this._config.name||m.a.friendly_name||this._config.entity)}</strong><small id="lightState"></small></div>${m.dim?`<button class="star ${this._items.length?'saved':''}" id="favorites" aria-label="Preferiti luce" aria-expanded="${this._expanded}" aria-controls="presetPanel" title="Preferiti luce">${this._items.length?'★':'☆'}</button>`:''}<button id="power" class="power" role="switch" aria-label="Accensione luce"><span></span></button></div><button id="adjust" class="adjust" aria-expanded="${this._detailsExpanded}" aria-controls="lightAdjustments" ${!m.dim&&!m.rgb&&!m.temp&&!m.white?'hidden':''}>${this._detailsExpanded?'Chiudi regolazioni':'Regola'}</button><div id="lightAdjustments" class="rails" ${!this._detailsExpanded?'hidden':''}>${m.dim?slider('brightness','Luminosità',0,100,'brightness'):''}${m.rgb?slider('hue','RGB',0,360,'hue'):''}${m.temp?slider('temp','Bianco · temperatura',m.a.min_color_temp_kelvin||2000,m.a.max_color_temp_kelvin||6500,'temperature'):''}${m.white?slider('white','Bianco W',0,100,'white'):''}</div>`;
+    return `<div class="light-head"><button class="bulb" id="moreInfo" aria-label="Dettagli luce"><svg viewBox="0 0 32 42" aria-hidden="true"><path class="glass" d="M16 2C8 2 3 8 3 15c0 5 3 8 6 12v4h14v-4c3-4 6-7 6-12C29 8 24 2 16 2Z"/><path class="base" d="M9 32h14v3H9zm1 5h12l-3 4h-6z"/></svg></button><div class="identity"><strong>${esc(this._config.name||m.a.friendly_name||this._config.entity)}</strong><small id="lightState"></small></div><button class="star ${this._homeFavorite?'saved':''}" id="homeFavorite" aria-label="Preferito Home" aria-pressed="${this._homeFavorite}" title="Aggiungi o rimuovi dai preferiti Home">${this._homeFavorite?'★':'☆'}</button>${m.dim?`<button class="palette" id="favorites" aria-label="Preset luce" aria-expanded="${this._expanded}" aria-controls="presetPanel" title="Preset luminosità e colore"><ha-icon icon="mdi:palette-outline"></ha-icon></button>`:''}<button id="power" class="power" role="switch" aria-label="Accensione luce"><span></span></button></div><button id="adjust" class="adjust" aria-expanded="${this._detailsExpanded}" aria-controls="lightAdjustments" ${!m.dim&&!m.rgb&&!m.temp&&!m.white?'hidden':''}>${this._detailsExpanded?'Chiudi regolazioni':'Regola'}</button><div id="lightAdjustments" class="rails" ${!this._detailsExpanded?'hidden':''}>${m.dim?slider('brightness','Luminosità',0,100,'brightness'):''}${m.rgb?slider('hue','RGB',0,360,'hue'):''}${m.temp?slider('temp','Bianco · temperatura',m.a.min_color_temp_kelvin||2000,m.a.max_color_temp_kelvin||6500,'temperature'):''}${m.white?slider('white','Bianco W',0,100,'white'):''}</div>`;
   }
   _syncControls(){
     if(!this._isPreset())return;
@@ -440,6 +465,9 @@ export class CLLightMemoriesCard extends HTMLElement {
       .bulb svg{width:36px;height:44px}
       .lit .glass{filter:drop-shadow(0 0 12px var(--glow))}
       .light-card .star{color:#bdc6d8;font-size:29px}
+      .light-card .palette{border:0;background:transparent;min-width:36px;padding:4px;color:#9fb9d9}
+      .light-card .palette ha-icon{--mdc-icon-size:25px}
+      .light-card .palette[aria-expanded=true]{color:#ffcb48}
       .light-card .star.saved,.light-card .star[aria-expanded=true]{color:#ffcb48;text-shadow:0 0 10px #ffcb4866}
       .light-card .power{width:54px;min-width:54px;height:31px;min-height:31px;background:#515868}
       .power span{width:25px;height:25px}
@@ -502,6 +530,7 @@ export class CLLightMemoriesCard extends HTMLElement {
       const item=this._items.find(i=>i.id===el.dataset.delete);
       if(item&&window.confirm(`Eliminare “${item.name}”?`))this._action('delete',{item_id:item.id});
     });
+    this.shadowRoot.querySelector('#homeFavorite')?.addEventListener('click',()=>this._toggleHomeFavorite());
     this.shadowRoot.querySelector('#favorites')?.addEventListener('click',()=>{this._expanded=!this._expanded;this._render();this.shadowRoot.querySelector('#favorites')?.focus();});
     this.shadowRoot.querySelector('#adjust')?.addEventListener('click',()=>{this._detailsExpanded=!this._detailsExpanded;this._render();this.shadowRoot.querySelector('#adjust')?.focus();});
     this.shadowRoot.querySelector('#power')?.addEventListener('click',()=>this._control(this._lightModel().on?'turn_off':'turn_on'));

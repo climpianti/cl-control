@@ -1342,16 +1342,12 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
     if welcome_section is not None:
         sections.append(welcome_section)
 
-    if model["favorites"]:
-        sections.append(
-            {
-                "type": "grid",
-                "cards": [
-                    _heading(str(model.get("favorites_label") or "Preferiti"), "mdi:star"),
-                    *[_entity_card(item) for item in model["favorites"]],
-                ],
-            }
-        )
+    # Always mount live favorites; changes become visible without regenerating Lovelace.
+    sections.append({
+        "type": "grid",
+        "cards": [{"type": "custom:cl-control-home-favorites-card",
+                   "grid_options": {"columns": "full", "rows": "auto"}}],
+    })
 
     # Main Home content groups are deliberately kept separate from the fixed
     # header/status/welcome/favorites blocks above.  The installer can choose

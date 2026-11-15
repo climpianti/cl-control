@@ -235,6 +235,41 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
 
     @websocket_api.websocket_command(
         {
+            vol.Required("type"): "cl_control/favorites/toggle",
+            vol.Required("entity_id"): str,
+        }
+    )
+    @websocket_api.async_response
+    async def ws_toggle_favorite(hass, connection, msg):
+        """Toggle a Home favorite without replacing unrelated favorites."""
+        entity_id = msg["entity_id"].strip()
+        if not entity_id.startswith(("light.", "switch.", "cover.", "climate.", "media_player.")):
+            connection.send_error(msg["id"], "invalid_entity", "Tipo di entità non supportato")
+            return
+        if entity_id not in hass.states.async_entity_ids():
+            connection.send_error(msg["id"], "unknown_entity", "Entità non trovata")
+            return
+        data = _data(hass)
+        runtime = migrate_runtime_config(data[DATA_RUNTIME])
+        favorites = list(dict.fromkeys(runtime["customer_ui"].get("favorites", [])))[:500]
+        if entity_id in favorites:
+            favorites.remove(entity_id)
+            selected = False
+        else:
+            if len(favorites) >= 500:
+                connection.send_error(msg["id"], "favorites_full", "Limite preferiti raggiunto")
+                return
+            favorites.append(entity_id)
+            selected = True
+        runtime["customer_ui"]["favorites"] = favorites
+        data[DATA_RUNTIME] = runtime
+        await data[DATA_STORE].async_save(runtime)
+        if data.get(DATA_NATIVE_DASHBOARD) is not None:
+            data[DATA_NATIVE_DASHBOARD].invalidate()
+        connection.send_result(msg["id"], {"entity_id": entity_id, "selected": selected, "favorites": favorites})
+
+    @websocket_api.websocket_command(
+        {
             vol.Required("type"): "cl_control/installer/unlock",
             vol.Required("pin"): str,
         }
@@ -816,6 +851,7 @@ def async_register_commands(hass: HomeAssistant, version: str) -> None:
         ws_set_layout,
         ws_reset_layout,
         ws_set_favorites,
+        ws_toggle_favorite,
         ws_unlock_installer,
         ws_lock_installer,
         ws_installer_status,
