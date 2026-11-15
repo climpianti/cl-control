@@ -902,6 +902,8 @@ def _camera_card(entity: dict[str, Any]) -> dict[str, Any]:
 
 
 def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
+    if entity.get("domain") == "switch" and entity.get("module") == "switches":
+        return {"type": "custom:cl-control-switch-glass-card", "entity": entity["entity_id"], "name": entity["name"], **({"icon": entity["icon"]} if entity.get("icon") else {})}
     if entity.get("domain") == "climate":
         return {"type": "custom:cl-control-climate-glass-card", "entity": entity["entity_id"], "name": entity["name"]}
     if entity.get("domain") == "cover":
@@ -1747,6 +1749,13 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                     "type": "custom:cl-control-light-memories-card",
                     "entities": [{"entity_id": e["entity_id"], "name": e["name"],
                                   "area_name": scene_area_names.get(e.get("area_id"), "Altre luci")}
+                                 for e in model["modules"]["lights"]["entities"]
+                                 if e["domain"] == "light"],
+                    "grid_options": {"columns": "full", "rows": "auto"},
+                }]},
+                {"type": "grid", "column_span": 2, "cards": [{
+                    "type": "custom:cl-control-preset-manager-card",
+                    "entities": [{"entity_id": e["entity_id"], "name": e["name"]}
                                  for e in model["modules"]["lights"]["entities"]
                                  if e["domain"] == "light"],
                     "grid_options": {"columns": "full", "rows": "auto"},

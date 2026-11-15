@@ -1,7 +1,7 @@
-name: Publish CL Control 3.5.3-beta.20
+name: Publish CL Control 3.5.3-beta.21
 on:
   push:
-    branches: [feature/light-home-favorites-beta20]
+    branches: [feature/switch-glass-scenes-beta21]
     paths:
       - ".github/workflows/publish-system-search.yml"
       - "custom_components/cl_control/manifest.json"
@@ -28,14 +28,14 @@ jobs:
           python - <<'PY'
           import json
           with open('custom_components/cl_control/manifest.json') as f:
-              assert json.load(f)['version'] == '3.5.3-beta.20'
+              assert json.load(f)['version'] == '3.5.3-beta.21'
           PY
       - name: Build HACS package
         run: |
-          zip -q -r cl-control-3.5.3-beta.20.zip custom_components/cl_control -x '*/__pycache__/*' '*.pyc'
-          sha256sum cl-control-3.5.3-beta.20.zip > cl-control-3.5.3-beta.20.zip.sha256
+          zip -q -r cl-control-3.5.3-beta.21.zip custom_components/cl_control -x '*/__pycache__/*' '*.pyc'
+          sha256sum cl-control-3.5.3-beta.21.zip > cl-control-3.5.3-beta.21.zip.sha256
       - name: Publish prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v3.5.3-beta.20 cl-control-3.5.3-beta.20.zip cl-control-3.5.3-beta.20.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "CL Control 3.5.3-beta.20 — preferiti Home e preset separati" --notes "Beta di collaudo basata su v3.5.3-beta.17: stella per preferiti Home, tavolozza per preset e aggiornamento dinamico dei preferiti. Mantiene le card CL Control e i comandi esistenti. Consigliato backup e verifica UI dopo aggiornamento."
+          gh release create v3.5.3-beta.21 cl-control-3.5.3-beta.21.zip cl-control-3.5.3-beta.21.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "CL Control 3.5.3-beta.21 — card interruttori Glass e preset negli Scenari" --notes "Beta di collaudo basata su v3.5.3-beta.17: card switch con pulsante Power circolare, rimozione tavolozza dalle luci e preset gestiti in Scenari. Mantiene le card CL Control e i comandi esistenti. Consigliato backup e verifica UI dopo aggiornamento."
