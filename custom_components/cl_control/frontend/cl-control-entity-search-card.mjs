@@ -48,14 +48,16 @@ class CLControlEntitySearchCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host{display:block;min-width:0}
-        .search{display:flex;align-items:center;gap:11px;padding:12px 15px;border:1px solid rgba(115,175,236,.33);border-radius:20px;
-          background:linear-gradient(110deg,rgba(28,49,69,.96),rgba(35,30,54,.96));box-shadow:0 3px 22px rgba(21,100,185,.12),inset 0 1px 0 rgba(220,242,255,.13);
-          color:var(--primary-text-color,#fff)}
-        .search:focus-within{border-color:rgba(83,174,255,.85);box-shadow:0 0 0 2px rgba(38,138,248,.16)}
+        .search{display:flex;align-items:center;gap:11px;padding:12px 15px;border:1px solid rgba(125,151,179,.43);border-radius:28px;
+          background:linear-gradient(115deg,#17242e 0%,#151e2b 53%,#221b30 100%);box-shadow:0 2px 8px rgba(0,0,0,.2),inset 0 1px 0 rgba(235,245,255,.12);
+          color:#fff}
+        .search:focus-within{border-color:rgba(151,181,210,.65);box-shadow:0 0 0 1px rgba(151,181,210,.15)}
         .search ha-icon{color:#70bfff;--mdc-icon-size:23px}
-        input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:inherit;font:inherit;font-size:16px}
-        input::placeholder{color:var(--secondary-text-color,#aeb7c7)}
-        button{border:0;background:rgba(150,185,220,.15);color:inherit;border-radius:50%;width:29px;height:29px;cursor:pointer;display:none;align-items:center;justify-content:center}
+        input{flex:1;min-width:0;border:0;outline:0;background:transparent!important;color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff;font:inherit;font-size:16px;appearance:none;-webkit-appearance:none;border-radius:0}
+        input::-webkit-search-cancel-button,input::-webkit-search-decoration{display:none;-webkit-appearance:none;appearance:none}
+        input::selection{background:#426b9a;color:#fff}
+        input::placeholder{color:#b9c4d1!important;-webkit-text-fill-color:#b9c4d1!important;opacity:1}
+        button{border:0;background:rgba(150,185,220,.15);color:#fff;border-radius:50%;width:29px;height:29px;cursor:pointer;display:none;align-items:center;justify-content:center}
         button[aria-hidden="false"]{display:flex}
         button ha-icon{--mdc-icon-size:17px;color:inherit}
         .meta{padding:10px 5px 3px;color:var(--secondary-text-color,#b3bfcd);font-size:12px}

@@ -1,7 +1,7 @@
-name: Publish CL Control 3.5.3-beta.18
+name: Publish CL Control 3.5.3-beta.19
 on:
   push:
-    branches: [feature/system-search-beta17]
+    branches: [fix/search-glass-contrast-beta19]
     paths:
       - ".github/workflows/publish-system-search.yml"
       - "custom_components/cl_control/manifest.json"
@@ -28,14 +28,14 @@ jobs:
           python - <<'PY'
           import json
           with open('custom_components/cl_control/manifest.json') as f:
-              assert json.load(f)['version'] == '3.5.3-beta.18'
+              assert json.load(f)['version'] == '3.5.3-beta.19'
           PY
       - name: Build HACS package
         run: |
-          zip -q -r cl-control-3.5.3-beta.18.zip custom_components/cl_control -x '*/__pycache__/*' '*.pyc'
-          sha256sum cl-control-3.5.3-beta.18.zip > cl-control-3.5.3-beta.18.zip.sha256
+          zip -q -r cl-control-3.5.3-beta.19.zip custom_components/cl_control -x '*/__pycache__/*' '*.pyc'
+          sha256sum cl-control-3.5.3-beta.19.zip > cl-control-3.5.3-beta.19.zip.sha256
       - name: Publish prerelease
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create v3.5.3-beta.18 cl-control-3.5.3-beta.18.zip cl-control-3.5.3-beta.18.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "CL Control 3.5.3-beta.18 — ricerca Blue Tech Glass" --notes "Beta di collaudo basata su v3.5.3-beta.17: ricerca istantanea per Luci, Aperture, Clima e Multimedia. Mantiene le card CL Control e i comandi esistenti. Consigliato backup e verifica UI dopo aggiornamento."
+          gh release create v3.5.3-beta.19 cl-control-3.5.3-beta.19.zip cl-control-3.5.3-beta.19.zip.sha256 --target "$GITHUB_SHA" --prerelease --title "CL Control 3.5.3-beta.19 — contrasto ricerca Blue Tech Glass" --notes "Beta di collaudo basata su v3.5.3-beta.17: correzione contrasto testo, sfondo Glass e pulsante di cancellazione unico. Mantiene le card CL Control e i comandi esistenti. Consigliato backup e verifica UI dopo aggiornamento."
