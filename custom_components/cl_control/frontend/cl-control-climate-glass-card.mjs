@@ -5,9 +5,8 @@ const finite=value=>typeof value==='number'&&Number.isFinite(value)?value:null;
 function climateFeatures(attributes={}){
   const features=[],supported=attributes.supported_features||0;
   if(Array.isArray(attributes.hvac_modes)&&attributes.hvac_modes.length)features.push({type:'climate-hvac-modes',style:'icons'});
-  for(const [flag,attribute,type] of [[8,'fan_modes','climate-fan-modes'],[16,'preset_modes','climate-preset-modes'],[32,'swing_modes','climate-swing-modes'],[512,'swing_horizontal_modes','climate-swing-horizontal-modes']]){
-    if((supported&flag)&&Array.isArray(attributes[attribute])&&attributes[attribute].length)features.push({type,style:'dropdown'});
-  }
+  // Drop-down feature menus use HA internal popups that ignore host text colors.
+  // Render these modes as explicit high-contrast controls below the thermostat.
   if(supported&4)features.push({type:'target-humidity'});
   return features;
 }
@@ -24,8 +23,8 @@ export class CLControlClimateCard extends HTMLElement {
       #native{color:#f5f7fc;--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--mdc-theme-on-surface:#f5f7fc;--mdc-theme-surface:#18222b;--mdc-theme-text-primary-on-background:#f5f7fc;--mdc-menu-surface-color:#18222b;--mdc-list-list-item-label-text-color:#f5f7fc;--ha-card-background:#18222b}
       *{box-sizing:border-box}ha-card{display:block;padding:16px;border-radius:25px;border:1px solid var(--climate-border,#b2daff66);background:radial-gradient(ellipse at 10% 0%,var(--climate-glow,#253e5d88),transparent 75%),radial-gradient(ellipse at 96% 80%,var(--climate-glow-secondary,#38465833),transparent 65%),linear-gradient(115deg,#18222b,#121721 60%,#19202b);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff55;color:inherit}
       button{font:inherit;cursor:pointer;min-height:44px;border:1px solid #ffffff18;border-radius:12px;background:#ffffff08;color:inherit;padding:10px}button:focus-visible{outline:2px solid #67c5ff;outline-offset:3px}.head{display:flex;align-items:center;gap:14px;width:100%;border:0;background:transparent;padding:0;text-align:left}.copy{flex:1;min-width:0}.copy strong{display:block;font-size:16px;overflow-wrap:anywhere}.state,.target{display:block;font-size:13px;color:#bdcadd;line-height:1.5;margin-top:5px}
-      .thermometer{width:50px;height:60px;flex:none;color:var(--climate-accent,#b1b9dc)}svg{width:100%;height:100%}.reading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:14px}.temperature{font-size:30px;letter-spacing:-1px}.caption{color:#bdcadd;font-size:12px}.details{margin-top:14px;padding-top:14px;border-top:1px solid #ffffff18}#native{min-width:0}.error{font-size:13px;color:#ffd0d8}.more{width:100%;margin-top:10px}[hidden]{display:none!important}
-    </style><ha-card><button class="head" id="expand" aria-expanded="false" aria-controls="details" aria-label="Regolazioni clima"><span class="thermometer" aria-hidden="true"><svg viewBox="0 0 50 60"><rect x="5" y="3" width="40" height="54" rx="13" fill="#ffffff08" stroke="#b2daff55"/><path d="M20 32V15a5 5 0 0 1 10 0v17a10 10 0 1 1-10 0" fill="#ffffff08" stroke="currentColor" stroke-width="2"/><path d="M25 19v20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="25" cy="41" r="5" fill="currentColor"/></svg></span><span class="copy"><strong></strong><span class="state"></span></span><span id="chevron" aria-hidden="true">▾</span></button><div class="reading"><span><span class="caption">Temperatura attuale</span><br><span class="temperature">—</span></span><span class="target"></span></div><div id="details" class="details" hidden><div id="native"></div><p class="error" role="status" hidden></p><button class="more">Dettagli dispositivo</button></div></ha-card>`;
+      .thermometer{width:50px;height:60px;flex:none;color:var(--climate-accent,#b1b9dc)}svg{width:100%;height:100%}.reading{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:14px}.temperature{font-size:30px;letter-spacing:-1px}.caption{color:#bdcadd;font-size:12px}.details{margin-top:14px;padding-top:14px;border-top:1px solid #ffffff18}#native{min-width:0}.error{font-size:13px;color:#ffd0d8} .more{width:100%;margin-top:10px}.mode-field{margin-top:12px}.mode-label{font-size:13px;color:#c7d3e4;margin-bottom:6px}.mode-select{display:block;width:100%;min-height:46px;padding:9px 12px;border-radius:12px;background:#263442!important;color:#fff!important;-webkit-text-fill-color:#fff!important;border:1px solid #8da6bf;font-size:15px;appearance:auto;color-scheme:dark}.mode-select option{background:#263442!important;color:#fff!important;-webkit-text-fill-color:#fff!important}.mode-select:focus-visible{outline:2px solid #8fc8ff;outline-offset:2px}.mode-select:disabled{opacity:.55}[hidden]{display:none!important}
+    </style><ha-card><button class="head" id="expand" aria-expanded="false" aria-controls="details" aria-label="Regolazioni clima"><span class="thermometer" aria-hidden="true"><svg viewBox="0 0 50 60"><rect x="5" y="3" width="40" height="54" rx="13" fill="#ffffff08" stroke="#b2daff55"/><path d="M20 32V15a5 5 0 0 1 10 0v17a10 10 0 1 1-10 0" fill="#ffffff08" stroke="currentColor" stroke-width="2"/><path d="M25 19v20" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><circle cx="25" cy="41" r="5" fill="currentColor"/></svg></span><span class="copy"><strong></strong><span class="state"></span></span><span id="chevron" aria-hidden="true">▾</span></button><div class="reading"><span><span class="caption">Temperatura attuale</span><br><span class="temperature">—</span></span><span class="target"></span></div><div id="details" class="details" hidden><div id="native"></div><div id="mode-controls"></div><p class="error" role="status" hidden></p><button class="more">Dettagli dispositivo</button></div></ha-card>`;
     this.shadowRoot.querySelector('#expand').onclick=()=>{this._expanded=!this._expanded;this._sync();if(this._expanded)this._mountNative();};
     this.shadowRoot.querySelector('.more').onclick=()=>this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:this._config.entity},bubbles:true,composed:true}));
     const humidity=document.createElement('div');humidity.className='humidity caption';humidity.hidden=true;this.shadowRoot.querySelector('.reading').after(humidity);
@@ -54,7 +53,38 @@ export class CLControlClimateCard extends HTMLElement {
     const palette=heating?['#ffd08a','#cf681c77','#b3422e44','#ffc07988']:cooling?['#77d1ff','#197abb88','#20aebc44','#77d1ff88']:['#b8c1ce','#3d4a5b44','#38465822','#abbad044'];
     const surface=q('ha-card');surface.dataset.activity=activity;
     ['--climate-accent','--climate-glow','--climate-glow-secondary','--climate-border'].forEach((key,index)=>surface.style.setProperty(key,palette[index]));
+    if(this._expanded)this._syncModeControls(a,available);
     q('#details').hidden=!this._expanded;q('#expand').setAttribute('aria-expanded',String(this._expanded));q('#chevron').textContent=this._expanded?'▴':'▾';
+  }
+  _syncModeControls(attributes,available){
+    const host=this.shadowRoot.querySelector('#mode-controls');
+    if(!host)return;
+    const defs=[
+      ['preset_modes','preset_mode','set_preset_mode','preset_mode','Preset'],
+      ['fan_modes','fan_mode','set_fan_mode','fan_mode','Ventola'],
+      ['swing_modes','swing_mode','set_swing_mode','swing_mode','Oscillazione'],
+      ['swing_horizontal_modes','swing_horizontal_mode','set_swing_horizontal_mode','swing_horizontal_mode','Oscillazione orizzontale']
+    ];
+    const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const active=defs.filter(([list])=>Array.isArray(attributes[list])&&attributes[list].length);
+    const signature=JSON.stringify(active.map(([list])=>[list,attributes[list]]));
+    if(signature!==this._modeSignature){
+      this._modeSignature=signature;
+      host.innerHTML=active.map(([list,current,service,key,label])=>
+        `<div class="mode-field"><div class="mode-label">${esc(label)}</div><select class="mode-select" data-service="${service}" data-key="${key}" data-current="${current}" aria-label="${esc(label)}">${attributes[list].map(value=>`<option value="${esc(value)}">${esc(value.replaceAll('_',' '))}</option>`).join('')}</select></div>`).join('');
+      host.querySelectorAll('select').forEach(select=>select.addEventListener('change',async()=>{
+        const value=select.value,service=select.dataset.service,key=select.dataset.key;
+        select.disabled=true;
+        try{await this._hass.callService('climate',service,{entity_id:this._config.entity,[key]:value});}
+        catch(e){console.warn('CL Control climate mode update failed',e);select.value=select.dataset.previous||'';}
+        finally{select.disabled=false;}
+      }));
+    }
+    host.querySelectorAll('select').forEach(select=>{
+      const current=attributes[select.dataset.current];
+      if(document.activeElement!==select&&this.shadowRoot.activeElement!==select&&current!==undefined){select.value=current;select.dataset.previous=current;}
+      select.disabled=!available;
+    });
   }
   _nativeConfig(){return {type:'thermostat',entity:this._config.entity,name:this._config.name,features:climateFeatures(this._hass?.states?.[this._config.entity]?.attributes)};}
   _syncNativeConfig(){
