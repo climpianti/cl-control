@@ -113,7 +113,7 @@ class MigrationFoundationTests(unittest.TestCase):
                 self.assertNotIn(card["type"], {"tile", "area", "button", "shortcut", "picture-entity"})
         area = next(view for view in build_native_lovelace(model)["views"] if view["path"] == "area-test-room")
         switches = [card["card"] for card in cards(area) if card["type"] == "custom:cl-control-home-surface" and card["card"].get("entity") == "switch.test_oven"]
-        self.assertEqual(switches, [{"type": "tile", "entity": "switch.test_oven", "name": "Forno di prova"}])
+        self.assertEqual(switches, [{"type": "custom:cl-control-switch-glass-card", "entity": "switch.test_oven", "name": "Forno di prova"}])
 
     def test_shared_header_and_support_on_all_generated_views(self):
         model = fixture_model()

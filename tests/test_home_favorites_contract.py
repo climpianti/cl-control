@@ -13,11 +13,14 @@ class HomeFavoritesContractTests(unittest.TestCase):
         self.assertIn('await data[DATA_STORE].async_save(runtime)',source)
         self.assertIn('data[DATA_NATIVE_DASHBOARD].invalidate()',source)
 
-    def test_light_has_distinct_home_star_and_preset_palette(self):
+    def test_home_star_and_scene_only_preset_manager(self):
         source=(ROOT/"frontend/cl-control-light-memories-card.mjs").read_text()
         self.assertIn('id="homeFavorite"',source)
-        self.assertIn('id="favorites"',source)
-        self.assertIn('mdi:palette-outline',source)
+        self.assertNotIn('id="favorites"',source)
+        self.assertNotIn('id="favorites"',source)
+        self.assertIn('preset_manager',source)
+        scene=(ROOT/"frontend/cl-control-preset-manager-card.mjs").read_text()
+        self.assertIn('cl-control-light-memories-card',scene)
         self.assertIn('cl_control/favorites/toggle',source)
         self.assertIn('cl-control-home-favorites-changed',source)
 
