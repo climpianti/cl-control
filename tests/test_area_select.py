@@ -11,7 +11,7 @@ class AreaSelectTests(unittest.TestCase):
             registry_entities=entities,
             areas=[{"id": "sala_ced", "name": "Sala CED"}],
             runtime=runtime or {},
-            site={}, branding={}, version="3.5.3-beta.25", revision=1,
+            site={}, branding={}, version="3.5.3-beta.26", revision=1,
         )
 
     def cards(self, view):
@@ -26,7 +26,8 @@ class AreaSelectTests(unittest.TestCase):
         cards = self.cards(area)
         self.assertTrue(any(c.get("type") == "heading" and c.get("heading") == "Modalità" for c in cards))
         card = next(c for c in cards if c.get("entity") == entity_id)
-        self.assertEqual(card["features"], [{"type": "select-options"}])
+        self.assertEqual(card["type"], "custom:cl-control-mode-glass-card")
+        self.assertEqual(card["grid_options"]["columns"], "full")
 
     def test_select_favorite_uses_native_select_feature(self):
         entity_id = "select.water_heater_mode"

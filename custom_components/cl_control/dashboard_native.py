@@ -911,6 +911,11 @@ def _camera_card(entity: dict[str, Any]) -> dict[str, Any]:
 
 
 def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
+    if entity.get("domain") in {"select", "input_select"} and entity.get("module") == "modes":
+        return {"type": "custom:cl-control-mode-glass-card",
+                "entity": entity["entity_id"], "name": entity["name"],
+                "grid_options": {"columns": "full", "rows": "auto"},
+                **({"icon": entity["icon"]} if entity.get("icon") else {})}
     if entity.get("domain") == "switch" and entity.get("module") == "switches":
         return {"type": "custom:cl-control-switch-glass-card", "entity": entity["entity_id"], "name": entity["name"], **({"icon": entity["icon"]} if entity.get("icon") else {})}
     if entity.get("domain") == "climate":

@@ -11,6 +11,7 @@ import './cl-control-home-favorites-card.mjs';
 import './cl-control-energy-card.mjs';
 import './cl-control-light-memories-card.mjs';
 import './cl-control-switch-glass-card.mjs';
+import './cl-control-mode-glass-card.mjs';
 import './cl-control-preset-manager-card.mjs';
 import './cl-control-media-card.mjs';
 import './cl-control-cover-card.mjs';
