@@ -21,7 +21,8 @@ class AreaSelectTests(unittest.TestCase):
         )
 
     def cards(self, view):
-        return [card for section in view.get("sections", []) for card in section.get("cards", [])]
+        # Beta 17 wraps standard HA cards in a CL glass surface.
+        return [card.get("card", card) for section in view.get("sections", []) for card in section.get("cards", [])]
 
     def test_input_select_is_available_and_usable_in_area(self):
         entity_id = "input_select.pdc_modalita_estate_inverno"
