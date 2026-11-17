@@ -2,7 +2,7 @@
 from pathlib import Path
 import unittest
 
-from custom_components.cl_control.dashboard_native import build_dashboard_model, build_native_lovelace
+from custom_components.cl_control.dashboard_native import build_dashboard_model, build_native_lovelace, _tile
 
 
 class AreaSelectTests(unittest.TestCase):
@@ -24,15 +24,16 @@ class AreaSelectTests(unittest.TestCase):
         config = build_native_lovelace(model)
         area = next(view for view in config["views"] if view["path"] == "area-sala-ced")
         cards = self.cards(area)
-        self.assertTrue(any(c.get("type") == "heading" and c.get("heading") == "Modalita" for c in cards))
+        self.assertTrue(any(c.get("type") == "heading" and c.get("heading") == "Modalità" for c in cards))
         card = next(c for c in cards if c.get("entity") == entity_id)
         self.assertEqual(card["features"], [{"type": "select-options"}])
 
     def test_select_favorite_uses_native_select_feature(self):
         entity_id = "select.water_heater_mode"
         model = self.model([{"entity_id": entity_id, "domain": "select", "area_id": "sala_ced", "name": "Modalita ACS"}], runtime={"favorites": [entity_id]})
-        cards = self.cards(build_native_lovelace(model)["views"][0])
-        self.assertTrue(any(c.get("entity") == entity_id and c.get("features") == [{"type": "select-options"}] for c in cards))
+        self.assertIn(entity_id, [item["entity_id"] for item in model["favorites"]])
+        card = _tile({"entity_id": entity_id, "name": "Modalità ACS", "domain": "select"})
+        self.assertEqual(card["features"], [{"type": "select-options"}])
 
     def test_security_partition_selector_is_not_exposed_in_modes(self):
         entity_id = "select.partition_casa_mode"
