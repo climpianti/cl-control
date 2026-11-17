@@ -22,6 +22,8 @@ DOMAIN_MODULE = {
     "media_player": "media",
     "select": "modes",
     "input_select": "modes",
+    "input_button": "commands",
+    "button": "commands",
     # Home Assistant "Mostra come" / Switch as X exposes converted switches
     # using the target domain. Keep those entities in the matching Area section.
     "fan": "fans",
@@ -45,6 +47,7 @@ MODULE_LABELS = {
 AREA_ONLY_MODULES = {
     "switches": ("Interruttori", "mdi:toggle-switch"),
     "modes": ("Modalità", "mdi:tune-variant"),
+    "commands": ("Comandi", "mdi:gesture-tap-button"),
     "outlets": ("Prese", "mdi:power-socket-eu"),
     "fans": ("Ventilatori", "mdi:fan"),
     "locks": ("Serrature", "mdi:lock"),
@@ -916,6 +919,8 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
                 "entity": entity["entity_id"], "name": entity["name"],
                 "grid_options": {"columns": "full", "rows": "auto"},
                 **({"icon": entity["icon"]} if entity.get("icon") else {})}
+    if entity.get("domain") in {"input_button", "button"} and entity.get("module") == "commands":
+        return {"type": "custom:cl-control-command-glass-card", "entity": entity["entity_id"], "name": entity["name"], "grid_options": {"columns": "full", "rows": "auto"}, **({"icon": entity["icon"]} if entity.get("icon") else {})}
     if entity.get("domain") == "switch" and entity.get("module") == "switches":
         return {"type": "custom:cl-control-switch-glass-card", "entity": entity["entity_id"], "name": entity["name"], **({"icon": entity["icon"]} if entity.get("icon") else {})}
     if entity.get("domain") == "climate":
@@ -1575,6 +1580,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             "outlets",
             "switches",
             "modes",
+            "commands",
             "covers",
             "fans",
             "locks",
