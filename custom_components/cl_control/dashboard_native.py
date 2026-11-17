@@ -561,6 +561,11 @@ def build_dashboard_model(
         module = str(module_overrides.get(entity_id) or native_module)
         if module not in AREA_MODULE_LABELS:
             continue
+        # Partition selectors must stay inside CL Security, with its PIN gate.
+        # Never expose them as generic controls or allow a module override
+        # to bypass the security command path.
+        if PARTITION_RE.fullmatch(entity_id):
+            continue
         # Security bypass switches belong exclusively to the Security view.
         # Do not duplicate them among normal room switches/outlets.
         if domain == "switch" and (
