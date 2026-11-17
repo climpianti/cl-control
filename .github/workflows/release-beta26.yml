@@ -3,7 +3,7 @@ name: Publish CL Control 3.5.3-beta.26 - Area mode Glass
 on:
   push:
     branches:
-      - fix/area-mode-glass-glass-beta26
+      - fix/area-modes-glass-beta26
 
 permissions:
   contents: write
