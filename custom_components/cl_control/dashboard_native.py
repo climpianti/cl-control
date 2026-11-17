@@ -20,6 +20,8 @@ DOMAIN_MODULE = {
     "alarm_control_panel": "security",
     "camera": "cameras",
     "media_player": "media",
+    "select": "modes",
+    "input_select": "modes",
     # Home Assistant "Mostra come" / Switch as X exposes converted switches
     # using the target domain. Keep those entities in the matching Area section.
     "fan": "fans",
@@ -42,6 +44,7 @@ MODULE_LABELS = {
 # customer-facing plugs and switches assigned to rooms such as Tavernetta.
 AREA_ONLY_MODULES = {
     "switches": ("Interruttori", "mdi:toggle-switch"),
+    "modes": ("Modalità", "mdi:tune-variant"),
     "outlets": ("Prese", "mdi:power-socket-eu"),
     "fans": ("Ventilatori", "mdi:fan"),
     "locks": ("Serrature", "mdi:lock"),
@@ -59,7 +62,7 @@ AREA_TELEMETRY_CLASSES = (*AREA_SENSOR_CLASSES, *AREA_ALERT_CLASSES, "power")
 # uses native HA cards for these entities.
 FAVORITE_DOMAINS = {
     "alarm_control_panel", "button", "camera", "climate", "cover", "fan",
-    "humidifier", "input_boolean", "input_button", "lawn_mower", "light",
+    "humidifier", "input_boolean", "input_button", "input_select", "lawn_mower", "light",
     "lock", "media_player", "scene", "script", "select", "siren", "switch",
     "valve", "vacuum",
 }
@@ -558,6 +561,11 @@ def build_dashboard_model(
         module = str(module_overrides.get(entity_id) or native_module)
         if module not in AREA_MODULE_LABELS:
             continue
+        # Partition selectors must stay inside CL Security, with its PIN gate.
+        # Never expose them as generic controls or allow a module override
+        # to bypass the security command path.
+        if PARTITION_RE.fullmatch(entity_id):
+            continue
         # Security bypass switches belong exclusively to the Security view.
         # Do not duplicate them among normal room switches/outlets.
         if domain == "switch" and (
@@ -883,6 +891,11 @@ def _tile(entity: dict[str, Any]) -> dict[str, Any]:
     }
     if entity.get("icon"):
         card["icon"] = entity["icon"]
+    if entity.get("domain") in {"select", "input_select"}:
+        # Let the customer choose modes inline. HA provides the options and
+        # handles the action; no separate command or state cache is needed.
+        card["features"] = [{"type": "select-options"}]
+        card["tap_action"] = {"action": "more-info"}
     return card
 
 
@@ -1562,6 +1575,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             "lights",
             "outlets",
             "switches",
+            "modes",
             "covers",
             "fans",
             "locks",
