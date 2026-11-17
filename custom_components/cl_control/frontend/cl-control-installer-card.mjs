@@ -519,7 +519,7 @@ class CLControlInstallerCard extends HTMLElement {
       areaPictureVisibility[area.id] !== false,
     )).join('');
 
-    const moduleLabels = { lights: 'Luci', outlets: 'Prese', switches: 'Interruttori', covers: 'Aperture', fans: 'Ventilatori', locks: 'Serrature', sirens: 'Sirene', valves: 'Valvole', climate: 'Clima', cameras: 'Telecamere' };
+    const moduleLabels = { lights: 'Luci', outlets: 'Prese', switches: 'Interruttori', modes: 'Modalità', covers: 'Aperture', fans: 'Ventilatori', locks: 'Serrature', sirens: 'Sirene', valves: 'Valvole', climate: 'Clima', cameras: 'Telecamere' };
     const savedEntityOrder = this._resetOrders.has('entities') ? [] : (r.entity_order || []);
     const entityOrderBlocks = orderedAreas.map(area => {
       const groups = Object.entries(moduleLabels).map(([module, label]) => {
