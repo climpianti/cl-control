@@ -18,6 +18,9 @@ DOMAIN_MODULE = {
     "climate": "climate",
     "alarm_control_panel": "security",
     "camera": "cameras",
+    # Selection helpers must be treated as interactive area controls.
+    "select": "modes",
+    "input_select": "modes",
     # Home Assistant "Mostra come" / Switch as X exposes converted switches
     # using the target domain. Keep those entities in the matching Area section.
     "fan": "fans",
@@ -39,6 +42,7 @@ MODULE_LABELS = {
 # customer-facing plugs and switches assigned to rooms such as Tavernetta.
 AREA_ONLY_MODULES = {
     "switches": ("Interruttori", "mdi:toggle-switch"),
+    "modes": ("Modalità", "mdi:tune-variant"),
     "outlets": ("Prese", "mdi:power-socket-eu"),
     "fans": ("Ventilatori", "mdi:fan"),
     "locks": ("Serrature", "mdi:lock"),
@@ -833,6 +837,11 @@ def _tile(entity: dict[str, Any]) -> dict[str, Any]:
     }
     if entity.get("icon"):
         card["icon"] = entity["icon"]
+    if entity.get("domain") in {"select", "input_select"}:
+        # A plain tile only displays a select state; the native feature
+        # lets the customer change the option without opening a dialog.
+        card["features"] = [{"type": "select-options"}]
+        card["tap_action"] = {"action": "more-info"}
     return card
 
 
@@ -1426,6 +1435,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             "lights",
             "outlets",
             "switches",
+            "modes",
             "covers",
             "fans",
             "locks",
