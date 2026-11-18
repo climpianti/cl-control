@@ -66,12 +66,15 @@ export class CLControlClimateCard extends HTMLElement {
       ['swing_horizontal_modes','swing_horizontal_mode','set_swing_horizontal_mode','swing_horizontal_mode','Oscillazione orizzontale']
     ];
     const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    // Display-only translations: original HA option values are never changed.
+    const presetLabels={auto:'Automatico',automatic:'Automatico',comfort:'Comfort',standby:'In attesa',economy:'Risparmio energetico',eco:'Risparmio energetico','building protection':'Protezione edificio','building_protection':'Protezione edificio',away:'Assente',home:'Casa',sleep:'Notte',boost:'Boost'};
+    const displayMode=(list,value)=>list==='preset_modes'?(presetLabels[String(value).toLowerCase()]||String(value).replaceAll('_',' ')):String(value).replaceAll('_',' ');
     const active=defs.filter(([list])=>Array.isArray(attributes[list])&&attributes[list].length);
     const signature=JSON.stringify(active.map(([list])=>[list,attributes[list]]));
     if(signature!==this._modeSignature){
       this._modeSignature=signature;
       host.innerHTML=active.map(([list,current,service,key,label])=>
-        `<div class="mode-field"><div class="mode-label">${esc(label)}</div><select class="mode-select" data-service="${service}" data-key="${key}" data-current="${current}" aria-label="${esc(label)}">${attributes[list].map(value=>`<option value="${esc(value)}">${esc(value.replaceAll('_',' '))}</option>`).join('')}</select></div>`).join('');
+        `<div class="mode-field"><div class="mode-label">${esc(label)}</div><select class="mode-select" data-service="${service}" data-key="${key}" data-current="${current}" aria-label="${esc(label)}">${attributes[list].map(value=>`<option value="${esc(value)}">${esc(displayMode(list,value))}</option>`).join('')}</select></div>`).join('');
       host.querySelectorAll('select').forEach(select=>select.addEventListener('change',async()=>{
         const value=select.value,service=select.dataset.service,key=select.dataset.key;
         select.disabled=true;
