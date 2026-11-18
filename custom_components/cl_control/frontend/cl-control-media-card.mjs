@@ -132,7 +132,7 @@ export class CLControlMediaCard extends HTMLElement {
     }
     q('select').hidden=!sources.length||!(f&2048);q('select').disabled=!this._online;if(this.shadowRoot.activeElement!==q('select'))q('select').value=a.source||'';
     q('.sources').disabled=!this._online;
-    const remoteAvailable=!!this._config.remote_path || (this._config.remote_type==='webostv' && !!this._hass.services?.webostv?.button);
+    const remoteAvailable=!!this._config.remote_path || (this._config.remote_type==='webostv' && !!this._hass.services?.webostv?.button) || (typeof this._config.remote_entity==='string' && this._config.remote_entity.startsWith('remote.') && !!this._hass.services?.remote?.send_command);
     q('.remote').title=remoteAvailable?'Telecomando completo':'Dettagli dispositivo'; q('.remote').setAttribute('aria-label',q('.remote').title);
     q('.remote ha-icon').setAttribute('icon',remoteAvailable?'mdi:remote-tv':'mdi:information-outline');
     const picture=typeof a.entity_picture==='string'&&a.entity_picture.startsWith('/')&&!a.entity_picture.startsWith('//')?a.entity_picture:'';
@@ -142,6 +142,7 @@ export class CLControlMediaCard extends HTMLElement {
   _more(){this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:this._config.entity},bubbles:true,composed:true}));}
   _navigate(){
     if(!this._config.remote_path && this._config.remote_type==='webostv' && this._hass.services?.webostv?.button)return this._showRemote();
+    if(!this._config.remote_path && typeof this._config.remote_entity==='string' && this._config.remote_entity.startsWith('remote.') && this._hass.services?.remote?.send_command)return this._showRemote();
     const path=this._config.remote_path;
     // Optional explicit local dashboard route; never infer a device remote.
     if(typeof path==='string' && /^\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_/-]+$/.test(path)){
@@ -151,20 +152,21 @@ export class CLControlMediaCard extends HTMLElement {
   _showRemote(){
     if(this.shadowRoot.querySelector('dialog'))return;
     const dialog=document.createElement('dialog');
-    dialog.setAttribute('aria-label','Telecomando LG');
+    const isLG=this._config.remote_type==='webostv' && !!this._hass.services?.webostv?.button;
+    dialog.setAttribute('aria-label',isLG?'Telecomando LG':'Telecomando TV');
     dialog.style.cssText='border:1px solid #9b83ff;border-radius:25px;background:#18222b;color:#f5f7fc;padding:20px;width:min(340px,calc(100vw - 24px));max-height:85vh;overflow:auto';
-    const heading=document.createElement('h2');heading.textContent='Telecomando LG';dialog.append(heading);
+    const heading=document.createElement('h2');heading.textContent=isLG?'Telecomando LG':'Telecomando TV';dialog.append(heading);
     const state=document.createElement('p');state.textContent=this._online?'Navigazione TV':'TV spenta o non disponibile';dialog.append(state);
     const close=document.createElement('button');close.textContent='Chiudi';close.style.cssText='min-height:44px;width:100%;border-radius:12px;margin-bottom:12px';close.onclick=()=>dialog.close();dialog.append(close);
     const keys=[['HOME','Home'],['UP','Su'],['MENU','Menu'],['LEFT','Sinistra'],['ENTER','OK'],['RIGHT','Destra'],['BACK','Indietro'],['DOWN','Giù'],['EXIT','Esci'],['VOLUMEDOWN','Volume −'],['MUTE','Muto'],['VOLUMEUP','Volume +'],['CHANNELDOWN','Canale −'],['GUIDE','Guida TV'],['CHANNELUP','Canale +']];
-    const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(3,1fr);gap:10px';dialog.append(grid);
+    const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px;border:1px solid #83bfff44;border-radius:22px;background:linear-gradient(140deg,#274b6655,#312b5155);box-shadow:inset 0 1px 1px #ffffff22';dialog.append(grid);
     const error=document.createElement('p');error.setAttribute('role','status');
     for(const [key,label] of keys){
-      const button=document.createElement('button');button.textContent=label;button.style.cssText='min-height:48px;border-radius:12px;padding:6px';button.disabled=!this._online;
+      const button=document.createElement('button');button.textContent=label;button.style.cssText='min-height:52px;border:1px solid #9bcfff33;border-radius:14px;padding:6px;background:linear-gradient(140deg,#3d587644,#262d4a99);color:#f5f7fc;font-weight:600;box-shadow:inset 0 1px 1px #ffffff24';button.disabled=!this._online;
       button.onclick=async()=>{
-        if(!this._online || this._busy || !this._hass.services?.webostv?.button)return;
+        if(!this._online || this._busy || !(isLG?this._hass.services?.webostv?.button:this._hass.services?.remote?.send_command))return;
         this._busy=true;grid.querySelectorAll('button').forEach(b=>b.disabled=true);error.textContent='';
-        try{await this._hass.callService('webostv','button',{entity_id:this._config.entity,button:key});}
+        try{if(isLG)await this._hass.callService('webostv','button',{entity_id:this._config.entity,button:key});else await this._hass.callService('remote','send_command',{entity_id:this._config.remote_entity,command:(this._config.remote_commands&&this._config.remote_commands[key])||key});}
         catch(e){error.textContent='Comando non riuscito. Verifica la connessione della TV.';}
         finally{this._busy=false;grid.querySelectorAll('button').forEach(b=>b.disabled=!this._online);}
       };grid.append(button);
