@@ -47,6 +47,14 @@ async function mount(page,source){
   const call=calls.at(-1);if(call[0]!=='webostv'||call[1]!=='button'||call[2].button!=='ENTER')throw Error('Wrong remote payload');
   hass.states['media_player.salotto'].state='unavailable';card.hass=hass;if([...dialog.querySelectorAll('div button')].some(b=>!b.disabled))throw Error('Offline remote enabled');
   dialog.close();
+  hass.states['media_player.salotto'].state='playing';hass.services={remote:{send_command:{}}};
+  card.setConfig({entity:'media_player.salotto',remote_entity:'remote.living',remote_commands:{ENTER:'KEY_OK'}});card.hass=hass;
+  if(card.shadowRoot.querySelector('.remote').getAttribute('aria-label')!=='Telecomando completo')throw Error('Remote entity not detected');
+  card.shadowRoot.querySelector('.remote').click();const universal=card.shadowRoot.querySelector('dialog');
+  if(!universal?.open)throw Error('Universal remote did not open');
+  [...universal.querySelectorAll('button')].find(b=>b.textContent==='OK').click();await Promise.resolve();
+  const mapped=calls.at(-1);if(mapped[0]!=='remote'||mapped[1]!=='send_command'||mapped[2].entity_id!=='remote.living'||mapped[2].command!=='KEY_OK')throw Error('Incorrect remote command mapping');
+  universal.close();
  });
  assert.deepEqual(errors,[]);await browser.close();console.log('Glass media OK: realtime focus/drafts, mocked service payloads, unavailable, power visibility, six widths, no page errors.');
 })().catch(e=>{console.error(e);process.exit(1)});
