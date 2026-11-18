@@ -300,6 +300,17 @@ export class CLLightMemoriesCard extends HTMLElement {
     const focus=this.shadowRoot.querySelector(step===3?'#name':step?'#sceneStepTitle':'#createScene');
     focus?.focus();
   }
+  _captureSelectedCurrentState(){
+    if(this._busy||!this._selected.size)return;
+    for(const id of this._selected){
+      if(!this._sceneLightAvailable(id))continue;
+      this._sceneDrafts[id]=this._sceneDraftFromState(id);
+    }
+    this._sceneRenderedStep=-1;
+    this._renderScenes();
+    this._notice='Stato attuale acquisito nella bozza. Nessuna luce è stata comandata.';
+    this._render();
+  }
   _cancelScene(){this._name='';this._selected.clear();this._sceneDrafts={};this._editingScene=null;this._sceneStepTo(0);}
   _editScene(item){
     if(this._busy||this._sceneStep)return;
@@ -365,7 +376,7 @@ export class CLLightMemoriesCard extends HTMLElement {
         const groups=new Map();for(const entity of entities){const group=entity.area_name||'Luci';if(!groups.has(group))groups.set(group,[]);groups.get(group).push(entity);}
         const selector=[...groups].map(([area,entities])=>`<div class="area-name">${esc(area)}</div>${entities.map(e=>`<label><input type="checkbox" data-target="${esc(e.entity_id)}" ${this._selected.has(e.entity_id)?'checked':''}><span>${esc(e.name||e.entity_id)}<small></small></span></label>`).join('')}`).join('');
         const review=[...this._selected].map(id=>`<div class="review-row"><span>${esc(names[id]||id)}</span><small data-review="${esc(id)}"></small></div>`).join('');
-        editor.innerHTML=`<p class="steps">Passaggio ${step} di 3</p><h4 id="sceneStepTitle" tabindex="-1">${titles[step]}</h4><p class="intro">${step===1?'Scegli fino a 32 luci, anche in ambienti diversi.':step===2?'Scegli come dovrà essere ogni luce quando avvierai lo scenario. Queste regolazioni modificano soltanto la bozza.':'Controlla le impostazioni e scegli un nome. Salva scenario non aziona le luci.'}</p>${step===1?`<div class="targets" role="group" aria-label="Luci dello scenario">${selector}</div>`:step===2?`<div class="draft-lights">${this._sceneAdjustmentsHTML(names)}</div>`:`<label class="name-label" for="name">Nome scenario</label><input id="name" maxlength="64" placeholder="Es. Relax tavernetta" value="${esc(this._name)}">${review}`}<p id="selectionSummary" class="summary" role="status"></p><p id="selectionHint" class="intro"></p><div class="editor-actions"><button id="cancelScene" class="quiet">Annulla</button>${step>1?'<button id="previousScene">Indietro</button>':''}${step<3?'<button id="nextScene" class="primary">Continua</button>':'<button id="capture" class="primary"><ha-icon icon="mdi:content-save-outline"></ha-icon>Salva scenario</button>'}</div>`;
+        editor.innerHTML=`<p class="steps">Passaggio ${step} di 3</p><h4 id="sceneStepTitle" tabindex="-1">${titles[step]}</h4><p class="intro">${step===1?'Scegli fino a 32 luci, anche in ambienti diversi.':step===2?'Scegli come dovrà essere ogni luce quando avvierai lo scenario. Queste regolazioni modificano soltanto la bozza.':'Controlla le impostazioni e scegli un nome. Salva scenario non aziona le luci.'}</p>${step===1?`<div class="targets" role="group" aria-label="Luci dello scenario">${selector}</div>`:step===2?`<button id="captureCurrent" class="quiet" type="button"><ha-icon icon="mdi:camera-outline"></ha-icon>Fotografa stato attuale delle luci selezionate</button><p class="intro">Aggiorna la bozza con lo stato reale delle luci. Non invia comandi.</p><div class="draft-lights">${this._sceneAdjustmentsHTML(names)}</div>`:`<label class="name-label" for="name">Nome scenario</label><input id="name" maxlength="64" placeholder="Es. Relax tavernetta" value="${esc(this._name)}">${review}`}<p id="selectionSummary" class="summary" role="status"></p><p id="selectionHint" class="intro"></p><div class="editor-actions"><button id="cancelScene" class="quiet">Annulla</button>${step>1?'<button id="previousScene">Indietro</button>':''}${step<3?'<button id="nextScene" class="primary">Continua</button>':'<button id="capture" class="primary"><ha-icon icon="mdi:content-save-outline"></ha-icon>Salva scenario</button>'}</div>`;
         editor.querySelector('#cancelScene').onclick=()=>this._cancelScene();
         editor.querySelector('#previousScene')?.addEventListener('click',()=>this._sceneStepTo(step-1));
         editor.querySelector('#nextScene')?.addEventListener('click',()=>this._sceneStepTo(step+1));
@@ -377,7 +388,7 @@ export class CLLightMemoriesCard extends HTMLElement {
           else{this._selected.delete(id);delete this._sceneDrafts[id];}
           this._syncState();
         });
-        if(step===2)this._bindSceneAdjustments(editor);
+        if(step===2){this._bindSceneAdjustments(editor);editor.querySelector('#captureCurrent')?.addEventListener('click',()=>this._captureSelectedCurrentState());}
       }
     }
     this._syncSceneState();this._syncSavedAvailability();
