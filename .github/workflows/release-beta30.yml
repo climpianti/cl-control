@@ -1,4 +1,4 @@
-name: Publish CL Control 3.5.3-beta.30 - Area input buttons Glass
+name: Publish CL Control 3.5.3-beta.30 - Scenari Blue Tech Glass
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
           v = "3.5.3-beta.30"
           assert json.loads(Path("custom_components/cl_control/manifest.json").read_text())["version"] == v
           assert f'VERSION = "{v}"' in Path("custom_components/cl_control/const.py").read_text()
-          assert f'ASSET_REVISION = "{v}-scene-snapshot"' in Path("custom_components/cl_control/frontend.py").read_text()
+          assert f'ASSET_REVISION = "{v}-scene-ux"' in Path("custom_components/cl_control/frontend.py").read_text()
           PY
       - name: Run Python offline regressions
         run: python tests/run_offline.py
