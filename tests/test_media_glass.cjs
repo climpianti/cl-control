@@ -108,11 +108,11 @@ async function mount(page,source){
      if(!dialog?.open)throw Error('Dialog not open for responsive test');
      const rect=dialog.getBoundingClientRect();
      const overflow=rect.left<0||rect.right>innerWidth||document.documentElement.scrollWidth>innerWidth;
-     dialog.close();
      return {overflow,width:rect.width};
    });
    if(state.overflow)throw Error('Remote overflows at '+width);
    await p.screenshot({path:path.join(out,'remote-'+width+'.png'),fullPage:true});
+   await p.evaluate(()=>card.shadowRoot.querySelector('dialog.cl-remote-modal')?.close());
  }
  assert.deepEqual(errors,[]);await browser.close();console.log('Glass media OK: realtime focus/drafts, mocked service payloads, unavailable, power visibility, six widths, no page errors.');
 })().catch(e=>{console.error(e);process.exit(1)});
