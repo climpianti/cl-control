@@ -62,7 +62,9 @@ if(require.main===module)(async()=>{
      assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
      if(process.env.SCREENSHOT_DIR){fs.mkdirSync(process.env.SCREENSHOT_DIR,{recursive:true});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,`details-light-${width}.png`)});}
    }
-   await root.locator('#favorites').click();
+   // Saved light presets are edited in the dedicated preset-manager view, not from the compact card.
+   await page.evaluate(()=>{card.setConfig({entity:'light.fixture',name:'Luce prova',preset_manager:true});card.hass=hass;});
+   assert.equal(await root.locator('#presetPanel').isVisible(),true);
    await root.locator('#name').fill('Lettura <img src=x onerror=alert(1)>');
    await root.locator('#capture').click();
    await root.locator('[data-apply]').waitFor();
@@ -75,6 +77,7 @@ if(require.main===module)(async()=>{
    await page.evaluate(()=>{hass.states['light.fixture'].state='off';card.hass={...hass};});
    await root.locator('#name').fill('Nuovo');
    assert.equal(await root.locator('#capture').isDisabled(),true);
+   await page.evaluate(()=>{card.setConfig({entity:'light.fixture',name:'Luce prova'});card.hass=hass;});
    // RGBW channel preservation, focused draft during realtime, offline gating.
    await page.evaluate(()=>{hass.states['light.fixture']={state:'on',attributes:{supported_color_modes:['rgbw'],brightness:128,rgbw_color:[32,64,128,80]}};card.hass={...hass};});
    await root.locator('[data-control="hue"]').fill('120');
@@ -96,7 +99,7 @@ if(require.main===module)(async()=>{
    assert.ok(Math.abs(parseFloat(await root.locator('ha-card').evaluate(e=>e.style.getPropertyValue('--light-level')))-64/255*100)<.01);
    await root.locator('#adjust').click();
    assert.equal(await root.locator('#lightAdjustments').isVisible(),false);
-   if(await root.locator('#presetPanel').isVisible())await root.locator('#favorites').click();
+   assert.equal(await root.locator('#presetPanel').isVisible(),false);
    if(process.env.SCREENSHOT_DIR){await page.setViewportSize({width:390,height:900});await page.screenshot({path:path.join(process.env.SCREENSHOT_DIR,'summary-red-25.png')});}
    await page.evaluate(()=>{hass.states['light.fixture'].attributes.brightness=255;hass.states['light.fixture'].attributes.rgbw_color=[0,255,0,0];card.hass={...hass};});
    assert.equal(await root.locator('ha-card').evaluate(e=>e.style.getPropertyValue('--light-rgb')),'0,255,0');

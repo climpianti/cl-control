@@ -103,7 +103,9 @@ export class CLControlMediaCard extends HTMLElement {
     const q=s=>this.shadowRoot.querySelector(s),s=this._hass.states[this._config.entity];
     this._state=s;this._features=Number(s?.attributes.supported_features||0);
     this._online=!!s && !['off','unavailable','unknown'].includes(s.state);
-    this.shadowRoot.querySelectorAll('dialog div button').forEach(b=>b.disabled=!this._online||!!this._busy);
+    const mappedKeys=this._remoteCommands();
+    const lgKeys=!this._config.remote_entity&&this._config.remote_type==='webostv';
+    this.shadowRoot.querySelectorAll('dialog div button').forEach((b,i)=>{const keys=['HOME','UP','MENU','LEFT','ENTER','RIGHT','BACK','DOWN','EXIT','VOLUMEDOWN','MUTE','VOLUMEUP','CHANNELDOWN','GUIDE','CHANNELUP'];b.disabled=!this._online||!!this._busy||(!lgKeys&&!mappedKeys[keys[i]]);});
     const a=s?.attributes||{},f=this._features;
     q('.name').textContent=this._config.name||a.friendly_name||this._config.entity; q('.name').title=q('.name').textContent;
     q('.device').setAttribute('icon',this._config.icon||'mdi:speaker');
@@ -141,18 +143,30 @@ export class CLControlMediaCard extends HTMLElement {
   _paintVolume(value){const pct=Math.max(0,Math.min(100,value));const input=this.shadowRoot.querySelector('input');input.style.background=`linear-gradient(90deg,#39adff 0%,#9b83ff ${pct/2}%,#bd65f3 ${pct}%,#ffffff28 ${pct}%,#ffffff28 100%)`;input.setAttribute('aria-valuetext',`${pct}%`);}
   _more(){this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:this._config.entity},bubbles:true,composed:true}));}
   _navigate(){
-    if(!this._config.remote_path && this._config.remote_type==='webostv' && this._hass.services?.webostv?.button)return this._showRemote();
     if(!this._config.remote_path && typeof this._config.remote_entity==='string' && this._config.remote_entity.startsWith('remote.') && this._hass.services?.remote?.send_command)return this._showRemote();
+    if(!this._config.remote_path && this._config.remote_type==='webostv' && this._hass.services?.webostv?.button)return this._showRemote();
     const path=this._config.remote_path;
     // Optional explicit local dashboard route; never infer a device remote.
     if(typeof path==='string' && /^\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_/-]+$/.test(path)){
       history.pushState(null,'',path);window.dispatchEvent(new Event('location-changed'));
     }else this._more();
   }
+  _remoteCommands(){
+    // A paired HA device does not imply that its remote accepts universal key names.
+    // Override per key with installer mappings; unsupported keys stay disabled.
+    const profiles={
+      samsungtv:{HOME:'KEY_HOME',UP:'KEY_UP',MENU:'KEY_MENU',LEFT:'KEY_LEFT',ENTER:'KEY_ENTER',RIGHT:'KEY_RIGHT',BACK:'KEY_RETURN',DOWN:'KEY_DOWN',EXIT:'KEY_EXIT',VOLUMEDOWN:'KEY_VOLDOWN',MUTE:'KEY_MUTE',VOLUMEUP:'KEY_VOLUP',CHANNELDOWN:'KEY_CHDOWN',GUIDE:'KEY_GUIDE',CHANNELUP:'KEY_CHUP'},
+      androidtv:{HOME:'HOME',UP:'UP',MENU:'MENU',LEFT:'LEFT',ENTER:'CENTER',RIGHT:'RIGHT',BACK:'BACK',DOWN:'DOWN',EXIT:'ESCAPE',VOLUMEDOWN:'VOLUME_DOWN',MUTE:'MUTE',VOLUMEUP:'VOLUME_UP'},
+      androidtv_remote:{HOME:'HOME',UP:'DPAD_UP',MENU:'MENU',LEFT:'DPAD_LEFT',ENTER:'DPAD_CENTER',RIGHT:'DPAD_RIGHT',BACK:'BACK',DOWN:'DPAD_DOWN',VOLUMEDOWN:'VOLUME_DOWN',MUTE:'MUTE',VOLUMEUP:'VOLUME_UP',CHANNELDOWN:'CHANNEL_DOWN',GUIDE:'GUIDE',CHANNELUP:'CHANNEL_UP'},
+    };
+    const platform=String(this._config.remote_platform||'').toLowerCase();
+    return {...(profiles[platform]||{}),...(this._config.remote_commands||{})};
+  }
   _showRemote(){
     if(this.shadowRoot.querySelector('dialog'))return;
     const dialog=document.createElement('dialog');
-    const isLG=this._config.remote_type==='webostv' && !!this._hass.services?.webostv?.button;
+    const isLG=!this._config.remote_entity && this._config.remote_type==='webostv' && !!this._hass.services?.webostv?.button;
+    const mapped=this._remoteCommands();
     dialog.setAttribute('aria-label',isLG?'Telecomando LG':'Telecomando TV');
     dialog.style.cssText='border:1px solid #9b83ff;border-radius:25px;background:#18222b;color:#f5f7fc;padding:20px;width:min(340px,calc(100vw - 24px));max-height:85vh;overflow:auto';
     const heading=document.createElement('h2');heading.textContent=isLG?'Telecomando LG':'Telecomando TV';dialog.append(heading);
@@ -162,13 +176,13 @@ export class CLControlMediaCard extends HTMLElement {
     const grid=document.createElement('div');grid.style.cssText='display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;padding:12px;border:1px solid #83bfff44;border-radius:22px;background:linear-gradient(140deg,#274b6655,#312b5155);box-shadow:inset 0 1px 1px #ffffff22';dialog.append(grid);
     const error=document.createElement('p');error.setAttribute('role','status');
     for(const [key,label] of keys){
-      const button=document.createElement('button');button.textContent=label;button.style.cssText='min-height:52px;border:1px solid #9bcfff33;border-radius:14px;padding:6px;background:linear-gradient(140deg,#3d587644,#262d4a99);color:#f5f7fc;font-weight:600;box-shadow:inset 0 1px 1px #ffffff24';button.disabled=!this._online;
+      const button=document.createElement('button');button.textContent=label;button.style.cssText='min-height:52px;border:1px solid #9bcfff33;border-radius:14px;padding:6px;background:linear-gradient(140deg,#3d587644,#262d4a99);color:#f5f7fc;font-weight:600;box-shadow:inset 0 1px 1px #ffffff24';button.disabled=!this._online||(!isLG&&!mapped[key]);button.title=(!isLG&&!mapped[key])?'Tasto non configurato':'';
       button.onclick=async()=>{
-        if(!this._online || this._busy || !(isLG?this._hass.services?.webostv?.button:this._hass.services?.remote?.send_command))return;
+        if(!this._online || this._busy || (!isLG&&!mapped[key]) || !(isLG?this._hass.services?.webostv?.button:this._hass.services?.remote?.send_command))return;
         this._busy=true;grid.querySelectorAll('button').forEach(b=>b.disabled=true);error.textContent='';
-        try{if(isLG)await this._hass.callService('webostv','button',{entity_id:this._config.entity,button:key});else await this._hass.callService('remote','send_command',{entity_id:this._config.remote_entity,command:(this._config.remote_commands&&this._config.remote_commands[key])||key});}
+        try{if(isLG)await this._hass.callService('webostv','button',{entity_id:this._config.entity,button:key});else await this._hass.callService('remote','send_command',{entity_id:this._config.remote_entity,command:mapped[key]});}
         catch(e){error.textContent='Comando non riuscito. Verifica la connessione della TV.';}
-        finally{this._busy=false;grid.querySelectorAll('button').forEach(b=>b.disabled=!this._online);}
+        finally{this._busy=false;grid.querySelectorAll('button').forEach((b,i)=>{b.disabled=!this._online||(!isLG&&!mapped[keys[i][0]]);});}
       };grid.append(button);
     }
     dialog.append(error);dialog.addEventListener('close',()=>{dialog.remove();this.shadowRoot.querySelector('.remote')?.focus();},{once:true});

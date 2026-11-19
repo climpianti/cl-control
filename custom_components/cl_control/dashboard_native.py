@@ -547,11 +547,14 @@ def build_dashboard_model(
     visible_entities: list[dict[str, Any]] = []
     # Pair only HA registry entities belonging to the same physical device.
     remotes_by_device: dict[str, list[str]] = {}
+    remote_platforms: dict[str, str] = {}
     for entry in registry_entities:
         eid = str(entry.get('entity_id') or '')
         device = str(entry.get('device_id') or '')
-        if eid.startswith('remote.') and device and not entry.get('disabled'):
-            remotes_by_device.setdefault(device, []).append(eid)
+        if eid.startswith('remote.') and not entry.get('disabled'):
+            remote_platforms[eid] = str(entry.get('platform') or '').lower()
+            if device:
+                remotes_by_device.setdefault(device, []).append(eid)
 
     for raw in registry_entities:
         entity_id = str(raw.get("entity_id") or "")
@@ -622,14 +625,16 @@ def build_dashboard_model(
             "icon": str(raw.get("icon") or ""),
         }
         if domain == 'media_player':
-            matches = remotes_by_device.get(item['device_id'], []) if platform in {'samsungtv', 'androidtv'} else []
+            matches = remotes_by_device.get(item['device_id'], []) if platform in {'samsungtv', 'androidtv', 'androidtv_remote'} else []
             if len(matches) == 1:
                 item['remote_entity'] = matches[0]
+                item['remote_platform'] = remote_platforms.get(matches[0], '')
             media_cfg = (ui.get('media_remotes') or {}).get(entity_id) or {}
             if isinstance(media_cfg, dict):
                 remote = str(media_cfg.get('remote_entity') or '')
                 if remote.startswith('remote.') and len(remote) <= 255:
                     item['remote_entity'] = remote
+                    item['remote_platform'] = remote_platforms.get(remote, '')
                     commands = media_cfg.get('remote_commands') or {}
                     if isinstance(commands, dict):
                         item['remote_commands'] = {str(k):str(v) for k,v in commands.items() if isinstance(k,str) and isinstance(v,str) and k in {'HOME','UP','MENU','LEFT','ENTER','RIGHT','BACK','DOWN','EXIT','VOLUMEDOWN','MUTE','VOLUMEUP','CHANNELDOWN','GUIDE','CHANNELUP'} and 0 < len(v) <= 128}
@@ -961,7 +966,7 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
             "type": "custom:cl-control-media-card",
             "entity": entity["entity_id"],
             "name": entity["name"],
-            **({"remote_entity": entity["remote_entity"], "remote_commands": entity.get("remote_commands", {})} if entity.get("remote_entity") else {}),
+            **({"remote_entity": entity["remote_entity"], "remote_platform": entity.get("remote_platform", ""), "remote_commands": entity.get("remote_commands", {})} if entity.get("remote_entity") else {}),
             **({"remote_type": "webostv", "icon": "mdi:television"}
                if entity.get("platform") == "webostv" else {}),
         }

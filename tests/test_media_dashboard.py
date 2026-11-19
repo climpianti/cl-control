@@ -90,6 +90,36 @@ class MultimediaDashboardTests(unittest.TestCase):
         ])
         card = next(c for c in system_cards(next(v for v in build_native_lovelace(model)['views'] if v['path']=='media')) if c.get('entity')=='media_player.tv')
         self.assertEqual(card['remote_entity'],'remote.tv')
+        self.assertEqual(card['remote_platform'],'')
+
+    def test_remote_profile_matches_registry_platform_and_manual_override(self):
+        entities = [
+            {'entity_id':'media_player.tv','platform':'androidtv','device_id':'device-1','area_id':'living'},
+            {'entity_id':'remote.tv','platform':'androidtv','device_id':'device-1'},
+            {'entity_id':'remote.other','platform':'samsungtv','device_id':'device-2'},
+        ]
+        model = self.model(entities=entities)
+        media = next(v for v in build_native_lovelace(model)['views'] if v['path']=='media')
+        card = next(c for c in system_cards(media) if c.get('entity')=='media_player.tv')
+        self.assertEqual(card['remote_entity'], 'remote.tv')
+        self.assertEqual(card['remote_platform'], 'androidtv')
+        override = self.model(entities=entities, runtime={'media_remotes': {
+            'media_player.tv': {'remote_entity':'remote.other', 'remote_commands': {'ENTER':'CUSTOM_OK'}}
+        }})
+        media = next(v for v in build_native_lovelace(override)['views'] if v['path']=='media')
+        card = next(c for c in system_cards(media) if c.get('entity')=='media_player.tv')
+        self.assertEqual(card['remote_entity'], 'remote.other')
+        self.assertEqual(card['remote_platform'], 'samsungtv')
+        self.assertEqual(card['remote_commands']['ENTER'], 'CUSTOM_OK')
+
+    def test_no_auto_pair_for_other_media_platform(self):
+        entities = [
+            {'entity_id':'media_player.tv','platform':'sonos','device_id':'device-1','area_id':'living'},
+            {'entity_id':'remote.tv','platform':'androidtv','device_id':'device-1'},
+        ]
+        media = next(v for v in build_native_lovelace(self.model(entities=entities))['views'] if v['path']=='media')
+        card = next(c for c in system_cards(media) if c.get('entity')=='media_player.tv')
+        self.assertNotIn('remote_entity', card)
 
     def test_ambiguous_remote_is_not_paired(self):
         model = self.model(entities=[
