@@ -74,6 +74,45 @@ async function mount(page,source){
     card.shadowRoot.querySelector('.remote').click();panel=card.shadowRoot.querySelector('dialog');
     if(![...panel.querySelectorAll('button')].find(b=>b.textContent==='OK').disabled)throw Error('Unknown profile sent guessed key');
     panel.close();
+    card.setConfig({entity:'media_player.salotto',name:'Samsung Salotto',remote_entity:'remote.living',remote_platform:'samsungtv'});
+    card.hass=hass;
+    card.shadowRoot.querySelector('.remote').click();
+    panel=card.shadowRoot.querySelector('dialog.cl-remote-modal');
+    if(!panel?.open)throw Error('Glass remote modal did not open');
+    if(!panel.querySelector('.cl-remote-dpad'))throw Error('Directional pad missing');
+    if(!panel.querySelector('.cl-remote-quick')||!panel.querySelector('.cl-remote-volume'))throw Error('Grouped controls missing');
+    if(!panel.querySelector('button[data-remote-key=ENTER]')?.getAttribute('aria-label'))throw Error('Accessible OK button missing');
+    if(panel.querySelectorAll('button[data-remote-key]').length!==15)throw Error('Some existing remote commands were lost');
+    if(panel.querySelector('button[data-remote-key=ENTER]').disabled)throw Error('Online OK key should be enabled');
+    if(panel.querySelector('h2')?.textContent!=='Samsung TV')throw Error('Device remote title missing');
+    if(panel.querySelector('.cl-remote-state')?.dataset.available!=='true')throw Error('Remote connection state missing');
+    const countBefore=calls.length;
+    panel.querySelector('button[data-remote-key=ENTER]').click();await Promise.resolve();
+    if(calls.length!==countBefore+1)throw Error('Remote did not send one command');
+    if(calls.at(-1)?.[2]?.command!=='KEY_ENTER')throw Error('Glass remote changed Samsung command mapping');
+    hass.states['media_player.salotto'].state='unavailable';card.hass={...hass};
+    if([...panel.querySelectorAll('button[data-remote-key]')].some(b=>!b.disabled))throw Error('Remote command not disabled offline');
+    if(panel.querySelector('.cl-remote-state')?.dataset.available!=='false')throw Error('Offline status not synchronized');
+    hass.states['media_player.salotto'].state='playing';card.hass={...hass};
+    if(panel.querySelector('button[data-remote-key=ENTER]').disabled)throw Error('Remote did not recover online');
+    panel.querySelector('.cl-remote-close').click();
+    if(card.shadowRoot.querySelector('dialog'))throw Error('Remote dialog not removed on close');
  });
+ for(const width of [320,390,768,1024]){
+   await p.setViewportSize({width,height:900});
+   await p.evaluate(()=>{
+     card.shadowRoot.querySelector('.remote').click();
+   });
+   const state=await p.evaluate(()=>{
+     const dialog=card.shadowRoot.querySelector('dialog.cl-remote-modal');
+     if(!dialog?.open)throw Error('Dialog not open for responsive test');
+     const rect=dialog.getBoundingClientRect();
+     const overflow=rect.left<0||rect.right>innerWidth||document.documentElement.scrollWidth>innerWidth;
+     dialog.close();
+     return {overflow,width:rect.width};
+   });
+   if(state.overflow)throw Error('Remote overflows at '+width);
+   await p.screenshot({path:path.join(out,'remote-'+width+'.png'),fullPage:true});
+ }
  assert.deepEqual(errors,[]);await browser.close();console.log('Glass media OK: realtime focus/drafts, mocked service payloads, unavailable, power visibility, six widths, no page errors.');
 })().catch(e=>{console.error(e);process.exit(1)});
