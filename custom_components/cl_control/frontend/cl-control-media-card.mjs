@@ -229,7 +229,8 @@ export class CLControlMediaCard extends HTMLElement {
     headingText.append(make('h2','',title),make('p','cl-remote-device',this._config.name||this._state?.attributes?.friendly_name||this._config.entity));
     const close=make('button','cl-remote-close','✕');
     close.type='button';close.setAttribute('aria-label','Chiudi telecomando');
-    close.onclick=()=>dialog.close();
+    const dismiss=()=>{if(dialog.open)dialog.close();dialog.remove();this.shadowRoot.querySelector('.remote')?.focus();};
+    close.onclick=dismiss;
     heading.append(headingText,close);
     const state=make('p','cl-remote-state','');
     const feedback=make('p','cl-remote-feedback','');
@@ -271,7 +272,7 @@ export class CLControlMediaCard extends HTMLElement {
     for(const [key,label,aria] of [['CHANNELDOWN','CH −','Canale meno'],['GUIDE','Guida','Guida TV'],['CHANNELUP','CH +','Canale più']])channels.append(keyButton(key,label,'',aria));
     shell.append(feedback,make('p','cl-remote-footer','I tasti non supportati dal dispositivo restano disabilitati.'));
     dialog.append(style,shell);
-    dialog.addEventListener('close',()=>{dialog.remove();this.shadowRoot.querySelector('.remote')?.focus();},{once:true});
+    dialog.addEventListener('close',dismiss,{once:true});
     this.shadowRoot.append(dialog);
     this._syncRemoteDialog();
     dialog.showModal();
