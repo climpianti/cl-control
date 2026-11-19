@@ -45,7 +45,7 @@ async function mount(page,source){
   const dialog=card.shadowRoot.querySelector('dialog');if(!dialog?.open||calls.length!==before)throw Error('Opening remote sent command');
   [...dialog.querySelectorAll('button')].find(b=>b.textContent==='OK').click();await Promise.resolve();
   const call=calls.at(-1);if(call[0]!=='webostv'||call[1]!=='button'||call[2].button!=='ENTER')throw Error('Wrong remote payload');
-  hass.states['media_player.salotto'].state='unavailable';card.hass=hass;if([...dialog.querySelectorAll('div button')].some(b=>!b.disabled))throw Error('Offline remote enabled');
+  hass.states['media_player.salotto'].state='unavailable';card.hass=hass;if([...dialog.querySelectorAll('button[data-remote-key]')].some(b=>!b.disabled))throw Error('Offline remote enabled');
   dialog.close();
   hass.states['media_player.salotto'].state='playing';hass.services={remote:{send_command:{}}};
   card.setConfig({entity:'media_player.salotto',remote_entity:'remote.living',remote_commands:{ENTER:'KEY_OK'}});card.hass=hass;
