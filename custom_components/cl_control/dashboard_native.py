@@ -614,6 +614,15 @@ def build_dashboard_model(
             "device_class": str(raw.get("device_class") or ""),
             "icon": str(raw.get("icon") or ""),
         }
+        if domain == 'media_player':
+            media_cfg = (ui.get('media_remotes') or {}).get(entity_id) or {}
+            if isinstance(media_cfg, dict):
+                remote = str(media_cfg.get('remote_entity') or '')
+                if remote.startswith('remote.') and len(remote) <= 255:
+                    item['remote_entity'] = remote
+                    commands = media_cfg.get('remote_commands') or {}
+                    if isinstance(commands, dict):
+                        item['remote_commands'] = {str(k):str(v) for k,v in commands.items() if isinstance(k,str) and isinstance(v,str) and k in {'HOME','UP','MENU','LEFT','ENTER','RIGHT','BACK','DOWN','EXIT','VOLUMEDOWN','MUTE','VOLUMEUP','CHANNELDOWN','GUIDE','CHANNELUP'} and 0 < len(v) <= 128}
         visible_entities.append(item)
         if area is not None:
             area["entities"][module].append(item)
@@ -942,6 +951,7 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
             "type": "custom:cl-control-media-card",
             "entity": entity["entity_id"],
             "name": entity["name"],
+            **({"remote_entity": entity["remote_entity"], "remote_commands": entity.get("remote_commands", {})} if entity.get("remote_entity") else {}),
             **({"remote_type": "webostv", "icon": "mdi:television"}
                if entity.get("platform") == "webostv" else {}),
         }

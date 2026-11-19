@@ -448,6 +448,26 @@ class CLControlInstallerCard extends HTMLElement {
       })).filter(item => item.id);
     }
 
+    if (this.shadowRoot.querySelector('[data-media-config]')) {
+      const media = { ...(current.media_remotes || {}) };
+      this.shadowRoot.querySelectorAll('[data-media-config]').forEach(row => {
+        const id = row.dataset.mediaConfig;
+        const remote = String(row.querySelector('[data-media-remote]')?.value || '');
+        const raw = String(row.querySelector('[data-media-commands]')?.value || '').trim();
+        const commands = {};
+        for (const line of raw.split(/\r?\n/)) {
+          if (!line.trim()) continue;
+          const at = line.indexOf('=');
+          if (at < 1) throw Error('Formato tasti: TASTO=COMANDO');
+          const key = line.slice(0,at).trim().toUpperCase(), value = line.slice(at+1).trim();
+          if (!/^[A-Z_]+$/.test(key) || !value || value.length > 128) throw Error('Mappatura telecomando non valida');
+          commands[key] = value;
+        }
+        if (remote) media[id] = {remote_entity:remote,remote_commands:commands};
+        else delete media[id];
+      });
+      current.media_remotes = media;
+    }
     const visibility = { ...(current.entity_visibility || {}) };
     const entityAreas = { ...(current.entity_areas || {}) };
     let visibilityTouched = false;
@@ -545,8 +565,8 @@ class CLControlInstallerCard extends HTMLElement {
         return;
       }
       this._render();
-    } catch (_err) {
-      this._toast('Errore durante il salvataggio della configurazione.', 'error');
+    } catch (err) {
+      this._toast(err?.message || 'Errore durante il salvataggio della configurazione.', 'error');
     }
   }
 
@@ -722,6 +742,7 @@ class CLControlInstallerCard extends HTMLElement {
         ['weather','mdi:weather-partly-cloudy','Meteo',weather.mode === 'off' ? 'Disattivato' : weather.mode === 'manual' ? `Manuale · ${weather.entity || 'nessuna entità'}` : 'Automatico'],
         ['energy','mdi:flash','Energia',`Data Contract v${energyContract.contract_version || 2} · realtime ${energyContract.realtime_provider || 'none'} · ${Array.isArray(r.energy?.monitored_loads) ? r.energy.monitored_loads.length : 0} utenze monitorate`],
         ['security','mdi:shield-home-outline','Sicurezza',`${visibleSecurityCount}/${securityEntities.length} entità visibili · ${this._securityPinConfigured ? 'codice attivo' : 'codice da configurare'}`],
+        ['multimedia','mdi:remote-tv','Multimedia',`Telecomandi configurati: ${Object.keys(r.media_remotes || {}).length}`],
         ['cameras','mdi:cctv','Telecamere',`${visibleCameraCount}/${cameras.length} visibili`],
         ['plant','mdi:home-cog-outline','Impianto',`${support.site_name || 'Casa'}${support.customer ? ` · ${support.customer}` : ''}`],
         ['assistance','mdi:headset','Assistenza',support.whatsapp ? `WhatsApp configurato${support.phone ? ' · telefono configurato' : ''}` : 'Da configurare'],
@@ -789,6 +810,11 @@ class CLControlInstallerCard extends HTMLElement {
       body = `${this._pageHead('Sicurezza','Gestisci impianti, partizioni e zone separatamente, organizzati per Piano e Area.')}
         <div class="section"><div class="sectionTitle"><div><h3>Codice Sicurezza</h3><p class="muted">${this._securityPinConfigured?'Codice attivo':'Da configurare'}</p></div><span class="badge">${this._securityPinConfigured?'ATTIVO':'DA CONFIGURARE'}</span></div><div class="grid" style="margin-top:10px"><div class="field"><label>Nuovo codice</label><input id="securityPin" type="password" inputmode="numeric" maxlength="12" placeholder="4–12 cifre"></div><div class="field"><label>Conferma</label><input id="securityPinConfirm" type="password" inputmode="numeric" maxlength="12" placeholder="Ripeti il codice"></div></div><div class="actions"><button id="saveSecurityPin">SALVA CODICE</button></div></div>
         <div class="section"><div class="sectionTitle"><div><h3>Entità visualizzate</h3><p class="muted">${visibleSecurityCount} di ${securityEntities.length} visibili.</p></div><div class="actions" style="margin-top:0"><button type="button" data-security-bulk="on">MOSTRA TUTTE</button><button type="button" data-security-bulk="off">NASCONDI TUTTE</button></div></div><div class="tabs"><button type="button" class="tab ${tab==='panels'?'active':''}" data-security-tab="panels">Impianti</button><button type="button" class="tab ${tab==='partitions'?'active':''}" data-security-tab="partitions">Partizioni</button><button type="button" class="tab ${tab==='zones'?'active':''}" data-security-tab="zones">Zone</button></div><div class="searchBox"><ha-icon icon="mdi:magnify"></ha-icon><input type="search" data-security-search placeholder="Cerca nome, area o entity_id…"></div><div id="securityEntityList">${this._securityGroupedRows(tabItems,visibility)}</div></div>${this._saveBar()}`;
+    } else if (this._page === 'multimedia') {
+      const players=Object.values(this._hass?.states||{}).filter(s=>s.entity_id?.startsWith('media_player.')).sort((a,b)=>this._name(a.entity_id).localeCompare(this._name(b.entity_id),'it'));
+      const remotes=Object.values(this._hass?.states||{}).filter(s=>s.entity_id?.startsWith('remote.')).sort((a,b)=>this._name(a.entity_id).localeCompare(this._name(b.entity_id),'it'));
+      body=`${this._pageHead('Multimedia','Associa un telecomando Home Assistant a ogni lettore TV. Configura soltanto i comandi realmente supportati.')}
+        ${players.map(player=>{const id=player.entity_id,cfg=r.media_remotes?.[id]||{};return `<div class="section" data-media-config="${esc(id)}"><h3>${esc(this._name(id))}</h3><p class="muted">${esc(id)}</p><div class="grid"><div class="field"><label>Telecomando associato</label><select data-media-remote><option value="">Nessuno (automatico LG se disponibile)</option>${remotes.map(remote=>`<option value="${esc(remote.entity_id)}" ${cfg.remote_entity===remote.entity_id?'selected':''}>${esc(this._name(remote.entity_id))} · ${esc(remote.entity_id)}</option>`).join('')}</select></div><div class="field full"><label>Mappatura tasti (uno per riga: HOME=KEY_HOME)</label><textarea data-media-commands rows="4" placeholder="ENTER=KEY_OK&#10;BACK=KEY_BACK">${esc(Object.entries(cfg.remote_commands||{}).map(([k,v])=>`${k}=${v}`).join('\n'))}</textarea></div></div></div>`;}).join('')||'<p class="muted">Nessun media player disponibile.</p>'}`;
     } else if (this._page === 'cameras') {
       const opts=areas.map(area=>`<option value="${esc(area.id)}">${esc(area.name)}</option>`).join('');
       const rows=cameras.map(state=>{const id=state.entity_id; const configured=cameraAreas[id]||''; const effective=configured||this._areaForEntity(id)||''; const area=areaNames.get(effective)||effective||'Nessuna area'; const available=!['unavailable','unknown',''].includes(String(state.state||'').toLowerCase()); return `<div class="cameraRow" data-camera-config="${esc(id)}" data-search-text="${esc(`${this._name(id)} ${id} ${area}`)}"><div class="cameraInfo"><b>${esc(this._name(id))}</b><small>${available?'Online':'Non disponibile'} · ${esc(area)} · ${esc(id)}</small></div><label class="cameraToggle"><input type="checkbox" data-camera-visible ${visibility[id]!==false?'checked':''}> Visibile</label><select data-camera-area><option value="">Area automatica</option>${areas.map(a=>`<option value="${esc(a.id)}" ${configured===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>`;}).join('');
@@ -858,7 +884,7 @@ class CLControlInstallerCard extends HTMLElement {
     }));
     const securitySearch=this.shadowRoot.querySelector('[data-security-search]');
     if(securitySearch) securitySearch.addEventListener('input',()=>{const q=securitySearch.value.trim().toLocaleLowerCase('it'); this.shadowRoot.querySelectorAll('#securityEntityList [data-search-text]').forEach(row=>{row.hidden=Boolean(q)&&!String(row.dataset.searchText||'').toLocaleLowerCase('it').includes(q);});});
-    this.shadowRoot.querySelectorAll('input,select').forEach((node,index)=>{ if(node.id==='installerPin'||node.id==='securityPin'||node.id==='securityPinConfirm') return; const mark=()=>this._markDirty(node.id||node.dataset?.cameraConfig||node.name||`field-${index}`); node.addEventListener('change',mark); if(node.tagName==='INPUT'&&['text','search'].includes(node.type)) node.addEventListener('input',mark); });
+    this.shadowRoot.querySelectorAll('input,select,textarea').forEach((node,index)=>{ if(node.id==='installerPin'||node.id==='securityPin'||node.id==='securityPinConfirm') return; const mark=()=>this._markDirty(node.id||node.dataset?.cameraConfig||node.name||`field-${index}`); node.addEventListener('change',mark); if((node.tagName==='INPUT'&&['text','search'].includes(node.type))||node.tagName==='TEXTAREA') node.addEventListener('input',mark); });
     this._wireSearchInputs();
     this._wireOrderLists();
     this._updateSaveBar();

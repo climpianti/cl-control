@@ -73,6 +73,15 @@ class MultimediaDashboardTests(unittest.TestCase):
             card = next(c for c in system_cards(media) if c.get("entity") == "media_player.tv")
             self.assertEqual(card.get("remote_type"), "webostv" if platform == "webostv" else None)
 
+    def test_configured_remote_propagates_to_area_and_system(self):
+        model = self.model(runtime={'media_remotes': {'media_player.tv': {'remote_entity': 'remote.living', 'remote_commands': {'ENTER': 'KEY_OK'}}}})
+        config = build_native_lovelace(model)
+        for path in ('area-living', 'media'):
+            view = next(v for v in config['views'] if v['path'] == path)
+            card = next(c for c in system_cards(view) if c.get('entity') == 'media_player.tv')
+            self.assertEqual(card['remote_entity'], 'remote.living')
+            self.assertEqual(card['remote_commands']['ENTER'], 'KEY_OK')
+
     def test_playing_and_availability_summary(self):
         for state in ("playing", "buffering"):
             self.assertTrue(is_active_state("media", state))
