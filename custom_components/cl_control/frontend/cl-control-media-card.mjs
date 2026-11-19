@@ -103,7 +103,9 @@ export class CLControlMediaCard extends HTMLElement {
     const q=s=>this.shadowRoot.querySelector(s),s=this._hass.states[this._config.entity];
     this._state=s;this._features=Number(s?.attributes.supported_features||0);
     this._online=!!s && !['off','unavailable','unknown'].includes(s.state);
-    this.shadowRoot.querySelectorAll('dialog div button').forEach(b=>b.disabled=!this._online||!!this._busy);
+    const mappedKeys=this._remoteCommands();
+    const lgKeys=!this._config.remote_entity&&this._config.remote_type==='webostv';
+    this.shadowRoot.querySelectorAll('dialog div button').forEach((b,i)=>{const keys=['HOME','UP','MENU','LEFT','ENTER','RIGHT','BACK','DOWN','EXIT','VOLUMEDOWN','MUTE','VOLUMEUP','CHANNELDOWN','GUIDE','CHANNELUP'];b.disabled=!this._online||!!this._busy||(!lgKeys&&!mappedKeys[keys[i]]);});
     const a=s?.attributes||{},f=this._features;
     q('.name').textContent=this._config.name||a.friendly_name||this._config.entity; q('.name').title=q('.name').textContent;
     q('.device').setAttribute('icon',this._config.icon||'mdi:speaker');
