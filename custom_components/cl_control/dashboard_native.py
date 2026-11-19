@@ -545,6 +545,13 @@ def build_dashboard_model(
 
     by_id, by_name = _area_lookup(areas)
     visible_entities: list[dict[str, Any]] = []
+    # Pair only HA registry entities belonging to the same physical device.
+    remotes_by_device: dict[str, list[str]] = {}
+    for entry in registry_entities:
+        eid = str(entry.get('entity_id') or '')
+        device = str(entry.get('device_id') or '')
+        if eid.startswith('remote.') and device and not entry.get('disabled'):
+            remotes_by_device.setdefault(device, []).append(eid)
 
     for raw in registry_entities:
         entity_id = str(raw.get("entity_id") or "")
@@ -615,6 +622,9 @@ def build_dashboard_model(
             "icon": str(raw.get("icon") or ""),
         }
         if domain == 'media_player':
+            matches = remotes_by_device.get(item['device_id'], []) if platform in {'samsungtv', 'androidtv'} else []
+            if len(matches) == 1:
+                item['remote_entity'] = matches[0]
             media_cfg = (ui.get('media_remotes') or {}).get(entity_id) or {}
             if isinstance(media_cfg, dict):
                 remote = str(media_cfg.get('remote_entity') or '')
