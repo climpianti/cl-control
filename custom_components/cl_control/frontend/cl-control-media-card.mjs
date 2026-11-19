@@ -180,7 +180,9 @@ export class CLControlMediaCard extends HTMLElement {
     });
   }
   _showRemote(){
-    if(this.shadowRoot.querySelector('dialog.cl-remote-modal'))return;
+    const existing=this.shadowRoot.querySelector('dialog.cl-remote-modal');
+    if(existing?.open)return;
+    existing?.remove();
     const isLG=!this._config.remote_entity&&this._config.remote_type==='webostv'&&!!this._hass?.services?.webostv?.button;
     const platform=String(this._config.remote_platform||'').toLowerCase();
     const platformNames={samsungtv:'Samsung TV',androidtv:'Android TV / Fire TV',androidtv_remote:'Android TV Remote'};
