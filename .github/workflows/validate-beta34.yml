@@ -1,0 +1,72 @@
+name: CL Control beta.34 targeted validation
+
+on:
+  push:
+    branches:
+      - beta/3.5.3-beta.34
+  pull_request:
+    branches:
+      - beta/3.5.3-beta.33
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend offline and packaging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Syntax and version
+        run: |
+          python -m compileall -q custom_components/cl_control tests
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          v = '3.5.3-beta.34'
+          assert json.loads(Path('custom_components/cl_control/manifest.json').read_text())['version'] == v
+          assert f'VERSION = "{v}"' in Path('custom_components/cl_control/const.py').read_text()
+          assert f'ASSET_REVISION = "{v}-media-autopair"' in Path('custom_components/cl_control/frontend.py').read_text()
+          PY
+      - name: Python regression suite
+        run: python tests/run_offline.py
+      - name: Build archive and checksum
+        run: python scripts/build_release.py
+      - name: Save dry-run archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: cl-control-beta34-dry-run
+          path: |
+            dist/cl-control-3.5.3-beta.34.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  media-browser:
+    name: Multimedia headless browser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate all module syntax
+        run: |
+          for path in custom_components/cl_control/frontend/*.mjs; do node --check "$path"; done
+          node --check tests/test_media_glass.cjs
+      - name: Install Playwright
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Multimedia UX, mapping and six viewport sizes
+        run: node tests/test_media_glass.cjs
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-beta34-debug
+          path: test-artifacts/
+          if-no-files-found: ignore
