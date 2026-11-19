@@ -32,7 +32,7 @@ jobs:
           v='3.5.3-beta.35'
           assert json.loads(Path('custom_components/cl_control/manifest.json').read_text())['version']==v
           assert f'VERSION = "{v}"' in Path('custom_components/cl_control/const.py').read_text()
-          assert f'ASSET_REVISION = "{v}-media-autopair"' in Path('custom_components/cl_control/frontend.py').read_text()
+          assert f'ASSET_REVISION = "{v}-media-glass"' in Path('custom_components/cl_control/frontend.py').read_text()
           PY
       - name: Python offline regression
         run: python tests/run_offline.py
