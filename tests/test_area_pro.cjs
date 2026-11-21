@@ -92,7 +92,33 @@ fs.mkdirSync(out,{recursive:true});
  assert.equal(await value('power'),undefined);
  assert.equal(await value('humidity'),undefined);
  assert.equal(await value('temperature'),'19,4 °C');
- assert.match(await page.evaluate(()=>card.shadowRoot.querySelector('.alerts').textContent),/Movimento rilevato/);
+ assert.match(await page.evaluate(()=>card.shadowRoot.querySelector('.card').getAttribute('aria-label')),/Movimento rilevato/);
+ const alertLayout=await page.evaluate(()=>{
+  const root=card.shadowRoot;
+  const photo=root.querySelector('.picture').getBoundingClientRect();
+  const alerts=root.querySelector('.alerts');
+  const badge=alerts.querySelector('.alert');
+  const box=badge.getBoundingClientRect();
+  return {
+   inCorner:box.top>=photo.top&&box.top<photo.top+12&&box.left>=photo.left&&box.left<photo.left+12&&box.bottom<photo.bottom,
+   position:getComputedStyle(alerts).position,
+   icon:badge.querySelector('ha-icon').getAttribute('icon'),
+   text:badge.textContent,
+  };
+ });
+ assert.deepEqual(alertLayout,{inCorner:true,position:'absolute',icon:'mdi:motion-sensor',text:''});
+ await page.evaluate(()=>{
+  const config={area:'empty',name:'Area senza foto',navigation_path:'area-empty',telemetry:{motion:['binary_sensor.motion']}};
+  empty.setConfig(config);
+  empty.hass=hass;
+ });
+ assert.deepEqual(await page.evaluate(()=>{
+  const root=empty.shadowRoot;
+  const alerts=root.querySelector('.top .alerts');
+  return {hidden:alerts.hidden,position:getComputedStyle(alerts).position};
+ }),{hidden:false,position:'static'});
+ await page.evaluate(()=>{hass.states['binary_sensor.motion'].state='off';card.hass=hass;empty.hass=hass;});
+ assert.equal(await page.evaluate(()=>card.shadowRoot.querySelector('.alerts').hidden&&empty.shadowRoot.querySelector('.alerts').hidden),true);
  await page.evaluate(()=>{hass.states['sensor.power']={state:'1.259',attributes:{unit_of_measurement:'kW'}};card.hass=hass});
  assert.equal(await value('power'),'1,26 kW');
  await page.evaluate(()=>{hass.states['sensor.power'].state='0';card.hass=hass});

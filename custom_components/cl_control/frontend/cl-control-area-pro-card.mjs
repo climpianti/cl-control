@@ -63,7 +63,7 @@ const STYLE=`
 [hidden]{display:none!important}
 button{font:inherit}
 .card{
- display:block;width:100%;min-width:0;padding:0;text-align:left;overflow:hidden;
+ position:relative;display:block;width:100%;min-width:0;padding:0;text-align:left;overflow:hidden;
  border:1px solid transparent;border-radius:20px;
  background:
   radial-gradient(ellipse at 12% 35%,#16426a 0%,transparent 64%) padding-box,
@@ -75,7 +75,7 @@ button{font:inherit}
 .card:focus-visible{outline:3px solid #7bd0ff;outline-offset:3px}
 .picture{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;max-height:220px;border:0;border-bottom:1px solid #9adcff45}
 .content{display:block;padding:12px 12px 13px}
-.card:not(.has-metrics):not(.has-alerts) .content{padding-block:9px}
+.card:not(.has-metrics) .content{padding-block:9px}
 .top{display:flex;align-items:center;gap:9px;min-width:0}
 .areaIcon{
  display:grid;place-items:center;flex:0 0 35px;height:34px;color:#80c8ff;
@@ -96,9 +96,14 @@ button{font:inherit}
 .metric .copy{display:grid;min-width:0;gap:2px}
 .metric .label{color:#d7e7f7;font-size:11px;line-height:1.16;overflow-wrap:anywhere}
 .metric .value{color:#f5f8ff;font-size:14px;font-weight:650;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.alerts{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
-.alert{display:flex;align-items:center;gap:4px;font-size:11px;color:#ffdb9a;background:#ffbb4a1b;border:1px solid #ffcf7c40;padding:5px 7px;border-radius:10px}
-.alert ha-icon{--mdc-icon-size:16px}
+.alerts{display:flex;flex:0 0 auto;gap:4px;align-items:center}
+.card:has(.picture:not([hidden])) .alerts{position:absolute;inset-block-start:7px;inset-inline-start:7px}
+.alert{
+ display:grid;place-items:center;width:25px;height:25px;border-radius:50%;
+ color:#ffdb9a;background:#0b1929e8;border:1px solid #ffcf7c80;
+ box-shadow:0 2px 6px #0005
+}
+.alert ha-icon{--mdc-icon-size:15px}
 @container (max-width:300px){
  .card{border-radius:17px}
  .content{padding:7px 7px 8px}
@@ -112,8 +117,10 @@ button{font:inherit}
  .metric .label{font-size:clamp(9px,5.2cqi,11px)}
  .metric .value{font-size:clamp(10px,6.2cqi,13px)}
  .metric ha-icon{--mdc-icon-size:12px}
- .alerts{margin-top:7px}
- .alert{font-size:10px;padding:4px 5px}
+ .card:has(.picture:not([hidden])) .alerts{inset-block-start:5px;inset-inline-start:5px}
+ .alerts{gap:3px}
+ .alert{width:21px;height:21px}
+ .alert ha-icon{--mdc-icon-size:13px}
 }
 @container (max-width:175px){
  .content{padding-inline:5px}
@@ -133,7 +140,7 @@ export class CLControlAreaProCard extends HTMLElement{
   constructor(){super();this.attachShadow({mode:'open'});this._config={};}
   setConfig(config){
     if(!config?.area||!config?.navigation_path)throw new Error('CL Control Pro Area: area and navigation_path required');
-    this._config={...config};this.shadowRoot.innerHTML=`<style>${STYLE}</style><button type="button" class="card" aria-label="Apri area"><img class="picture" alt="" hidden><span class="content"><span class="top"><span class="areaIcon"><ha-icon></ha-icon></span><span class="name"></span><span class="arrow" aria-hidden="true">›</span></span><span class="metrics" hidden></span><span class="alerts" hidden></span></span></button>`;
+    this._config={...config};this.shadowRoot.innerHTML=`<style>${STYLE}</style><button type="button" class="card" aria-label="Apri area"><img class="picture" alt="" hidden><span class="content"><span class="top"><span class="areaIcon"><ha-icon></ha-icon></span><span class="name"></span><span class="alerts" hidden></span><span class="arrow" aria-hidden="true">›</span></span><span class="metrics" hidden></span></span></button>`;
     this.shadowRoot.querySelector('button').addEventListener('click',()=>{
       const path=this._config.navigation_path;
       if(typeof path!=='string'||!path||path.startsWith('//'))return;
@@ -152,8 +159,8 @@ export class CLControlAreaProCard extends HTMLElement{
     const pic=this.shadowRoot.querySelector('.picture');
     const url=this._config.picture;
     if(typeof url==='string'&&url.trim()){
-      pic.src=url;pic.hidden=false;
       pic.onerror=()=>{pic.hidden=true;};
+      pic.src=url;pic.hidden=false;
     }
     this._sync();
   }
@@ -185,16 +192,24 @@ export class CLControlAreaProCard extends HTMLElement{
     metrics.hidden=!active.length;
     const alerts=areaAlerts(this._config.telemetry||{},this._hass);
     const target=root.querySelector('.alerts');
+    const alertLabels=[];
     target.replaceChildren(...alerts.map(({kind,label})=>{
-      const pill=document.createElement('span');pill.className='alert';
-      const i=document.createElement('ha-icon');i.setAttribute('icon',ALERTS.find(a=>a[0]===kind)[2]);
-      const caption=document.createElement('span');caption.textContent=label+(kind==='motion'?' rilevato':' rilevata');pill.append(i,caption);return pill;
+      const badge=document.createElement('span');
+      badge.className='alert';
+      badge.dataset.kind=kind;
+      badge.title=label+(kind==='motion'?' rilevato':' rilevata');
+      alertLabels.push(badge.title);
+      const icon=document.createElement('ha-icon');
+      icon.setAttribute('icon',ALERTS.find(alert=>alert[0]===kind)[2]);
+      icon.setAttribute('aria-hidden','true');
+      badge.append(icon);
+      return badge;
     }));
     target.hidden=!alerts.length;
     const button=root.querySelector('button');
     button.classList.toggle('has-metrics',active.length>0);
-    button.classList.toggle('has-alerts',alerts.length>0);
-    button.setAttribute('aria-label',`Apri area ${this._config.name||this._config.area}${active.length?', '+active.map(e=>e.querySelector('.label').textContent+' '+e.querySelector('.value').textContent).join(', '):''}`);
+    const details=active.map(metric=>metric.querySelector('.label').textContent+' '+metric.querySelector('.value').textContent);
+    button.setAttribute('aria-label',['Apri area '+(this._config.name||this._config.area),...details,...alertLabels].join(', '));
   }
 }
 if(!customElements.get('cl-control-area-pro-card'))customElements.define('cl-control-area-pro-card',CLControlAreaProCard);
