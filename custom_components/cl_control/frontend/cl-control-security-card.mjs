@@ -249,7 +249,8 @@ class CLSecurityCard extends HTMLElement {
         .zone{box-sizing:border-box;display:grid;grid-template-columns:31px minmax(0,1fr) minmax(0,max-content) 44px;align-items:center;gap:7px;min-height:54px;padding:4px 7px;border:1px solid #a8d4ff37;border-radius:12px;background:linear-gradient(110deg,#1b3550,#181f34)}
         .zoneCopy{min-width:0;overflow-wrap:anywhere}.zoneCopy b,.zoneCopy small{display:block}.zoneCopy small{color:#b6c9dd;font-size:11px}
         .zoneIcon{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;color:#8bcfff;background:#3978aa36}.zoneIcon ha-icon{--mdc-icon-size:17px}
-        .zoneBadge{display:inline-flex;align-items:center;gap:4px;max-width:105px;padding:4px 6px;border-radius:7px;font-size:11px;font-weight:650;line-height:1.2;color:#9bf1c4;background:#3b786c32;overflow-wrap:anywhere}
+        .zoneBadge{display:inline-flex;align-items:center;gap:4px;max-width:118px;padding:4px 6px;border-radius:7px;font-size:11px;font-weight:650;line-height:1.2;color:#9bf1c4;background:#3b786c32}
+        .zone:not(:has(.zoneAction)) .zoneBadge{grid-column:3/-1;justify-self:end}
         .zoneBadge.warn,.zoneBadge.excluded{color:#ffd075;background:#845c282f}
         .zoneBadge.danger{color:#ffa1ab;background:#91384d38}
         .zoneBadge.offline{color:#d2ddea;background:#62748835}
@@ -260,7 +261,7 @@ class CLSecurityCard extends HTMLElement {
         .zoneDisc{box-sizing:border-box;display:grid;place-items:center;width:30px;height:30px;border:1px solid transparent;border-radius:50%;background:#273241;color:#bfd9ed}
         .zoneDisc ha-icon{--mdc-icon-size:17px}
         .zoneAction[data-excluded="true"] .zoneDisc{color:#ffd075;border-color:currentColor;background:#3f3326;box-shadow:0 0 6px #ffc45c42}
-        @container(max-width:370px){.zone{grid-template-columns:25px minmax(0,1fr) minmax(0,max-content) 44px;gap:4px;padding-inline:5px}.zoneIcon{width:25px;height:28px}.zoneBadge{max-width:78px}.zoneBadge ha-icon{display:none}}
+        @container(max-width:370px){.zone{grid-template-columns:25px minmax(0,1fr) minmax(0,max-content) 44px;gap:4px;padding-inline:5px}.zoneIcon{width:25px;height:28px}.zoneBadge{max-width:105px}}
       </style>
       <ha-card><div id="overview"></div><div id="visibility"></div><div id="main"></div></ha-card>
       <div id="overlay" class="overlay" aria-hidden="true"></div>
@@ -438,7 +439,7 @@ class CLSecurityCard extends HTMLElement {
     const overview = this.shadowRoot.getElementById('overview');
     const editing = Boolean(this.shadowRoot.querySelector('#visibility form'));
     overview.innerHTML = `<div class="header"><div class="shield"><ha-icon icon="mdi:shield-home-outline"></ha-icon></div><div class="headerCopy"><h2>${esc(cfg.title)}</h2></div>${items.length ? `<button type="button" class="cmd" data-visibility aria-controls="visibility" aria-expanded="${editing}">Partizioni visibili</button>` : ''}</div>
-      <div class="summaryGrid"><div class="summary"><b>${inserted}</b><small>Inserite</small></div><div class="summary"><b>${disarmed}</b><small>Disinserite</small></div><div class="summary ${offline ? 'attention' : ''}"><b>${offline}</b><small>Non disponibili</small></div><div class="summary ${attention ? 'attention' : ''}"><b>${attention}</b><small>Zone da verificare</small></div></div>
+      ${items.length ? `<div class="summaryGrid"><div class="summary"><b>${inserted}</b><small>Inserite</small></div><div class="summary"><b>${disarmed}</b><small>Disinserite</small></div><div class="summary ${offline ? 'attention' : ''}"><b>${offline}</b><small>Non disponibili</small></div><div class="summary ${attention ? 'attention' : ''}"><b>${attention}</b><small>Zone da verificare</small></div></div>` : ''}
       ${this._modeNotice ? '<div class="notice" role="status">' + esc(this._modeNotice) + '</div>' : ''}
       ${states.includes('triggered') ? '<div class="notice" role="alert"><b>Allarme attivo</b></div>' : ''}
       ${items.length ? `<p class="visibleCount">${shown} di ${items.length} partizioni visibili</p>` : ''}
@@ -533,7 +534,7 @@ class CLSecurityCard extends HTMLElement {
     const busy = this._busy.has(zone.bypass_entity_id);
     const blocked = busy || status.unavailable || (zone.bypass_requires_pin && !this._config.pin_configured);
     const control = zone.bypass_entity_id && `<button type="button" class="zoneAction" data-bypass-zone="${esc(zone.entity_id)}" data-excluded="${status.excluded}" aria-label="${esc(action + ' ' + zone.name)}" title="${action} zona" ${blocked ? 'disabled' : ''}><span class="zoneDisc"><ha-icon icon="${status.excluded ? 'mdi:shield-check-outline' : 'mdi:shield-off-outline'}" aria-hidden="true"></ha-icon></span></button>`;
-    return `<div class="zone" data-zone-id="${esc(zone.entity_id)}"><span class="zoneIcon"><ha-icon icon="${zoneIcon(zone.device_class)}" aria-hidden="true"></ha-icon></span><span class="zoneCopy"><b>${esc(zone.name)}</b><small>${esc(zoneType(zone.device_class))}</small></span><span class="zoneBadge ${status.tone}"><ha-icon icon="${status.icon}" aria-hidden="true"></ha-icon><span>${busy ? 'In attesa' : esc(status.label)}</span></span>${control || ''}</div>`;
+    return `<div class="zone" data-zone-id="${esc(zone.entity_id)}"><span class="zoneIcon"><ha-icon icon="${zoneIcon(zone.device_class)}" aria-hidden="true"></ha-icon></span><span class="zoneCopy"><b>${esc(zone.name)}</b>${zone.name.toLocaleLowerCase('it') === zoneType(zone.device_class).toLocaleLowerCase('it') ? '' : `<small>${esc(zoneType(zone.device_class))}</small>`}</span><span class="zoneBadge ${status.tone}"><ha-icon icon="${status.icon}" aria-hidden="true"></ha-icon><span>${busy ? 'In attesa' : esc(status.label)}</span></span>${control || ''}</div>`;
   }
 
   _clearPending(id) {
