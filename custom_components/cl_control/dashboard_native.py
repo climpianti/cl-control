@@ -78,6 +78,7 @@ ALEXA_MEDIA_PLATFORMS = {"alexa_media", "alexa_devices", "alexa_media_player", "
 ALEXA_MEMBER_DOMAINS = {
     "switch", "select", "number", "button", "sensor", "binary_sensor",
     "text", "event", "time", "date", "datetime", "update", "remote",
+    "light", "fan", "cover", "climate", "humidifier",
 }
 SECURITY_PLATFORMS = {
     "risco",
