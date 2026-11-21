@@ -960,9 +960,8 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
             return {"type": "custom:cl-control-switch-glass-card", "entity": entity["entity_id"],
                     "name": entity["name"],
                     **({"power_entity": entity["power_entity"]} if entity.get("power_entity") else {}),
-                    "icon": entity.get("icon") or (
-                        "mdi:power-socket-eu" if entity.get("module") == "outlets"
-                        else "mdi:toggle-switch-outline"),
+                    **({"icon": entity["icon"]} if entity.get("icon") else
+                       ({"icon": "mdi:power-socket-eu"} if entity.get("module") == "outlets" else {})),
                     }
         return _tile(entity)
     if entity.get("domain") == "climate":
