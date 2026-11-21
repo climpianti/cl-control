@@ -96,7 +96,7 @@ button{font:inherit}
  .metric .label{font-size:10px}
  .metric .label .full{display:none}
  .metric .label .short{display:inline}
- .metric .value{font-size:12px}
+ .metric .value{font-size:12px;white-space:normal;overflow-wrap:normal;word-break:normal}
  .alerts{margin-top:7px}
  .alert{font-size:10px;padding:4px 5px}
 }
