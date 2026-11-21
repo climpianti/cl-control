@@ -1,9 +1,9 @@
 // Responsive Home area card for the Pro profile. Presentation only; no device commands.
 const KINDS=[
-  ['temperature','Temperatura','mdi:thermometer','°C'],
-  ['humidity','Umidità','mdi:water-percent','%'],
-  ['carbon_dioxide','CO₂','mdi:molecule-co2','ppm'],
-  ['power','Potenza','mdi:flash','W'],
+  ['temperature','Temperatura','mdi:thermometer','Temp.'],
+  ['humidity','Umidità','mdi:water-percent','Umid.'],
+  ['carbon_dioxide','CO₂','mdi:molecule-co2','CO₂'],
+  ['power','Potenza','mdi:flash','Pot.'],
 ];
 const ALERTS=[
   ['motion','Movimento','mdi:motion-sensor'],
@@ -58,36 +58,64 @@ export function areaAlerts(config,hass){
 }
 
 const STYLE=`
-:host{display:block;min-width:0;color:#f5f7fc}
-*{box-sizing:border-box}
+:host{display:block;min-width:0;color:#f5f7fc;container-type:inline-size}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
 button{font:inherit}
-.card{display:block;width:100%;min-width:0;padding:15px 17px;text-align:left;border:1px solid #94caff50;border-radius:26px;background:radial-gradient(ellipse at 0% 0%,#21456b8a,transparent 68%),linear-gradient(115deg,#182431,#121922 62%,#271e36);box-shadow:0 10px 28px #0003,inset 0 1px 2px #e7f7ff33;color:inherit;cursor:pointer}
+.card{display:block;width:100%;min-width:0;padding:0;text-align:left;overflow:hidden;border:1px solid #94caff60;border-radius:25px;background:radial-gradient(ellipse at 0% 0%,#21456b8a,transparent 70%),linear-gradient(115deg,#182431,#121922 62%,#271e36);box-shadow:0 10px 28px #0003,inset 0 1px 2px #e7f7ff33;color:inherit;cursor:pointer}
 .card:focus-visible{outline:3px solid #7bd0ff;outline-offset:3px}
-.top{display:flex;align-items:center;gap:11px;min-width:0}
-.areaIcon{display:grid;place-items:center;flex:0 0 40px;height:42px;color:#8dcaff;background:#80bbff16;border:1px solid #b2daff38;border-radius:14px}
-.areaIcon ha-icon{--mdc-icon-size:26px}
-.name{font-size:17px;line-height:1.35;font-weight:650;overflow-wrap:anywhere;min-width:0;flex:1}
+.picture{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;max-height:220px;border:0;border-bottom:1px solid #b2daff30}
+.content{display:block;padding:12px 12px 13px}
+.card:not(.has-metrics):not(.has-alerts) .content{padding-top:11px;padding-bottom:11px}
+.top{display:flex;align-items:center;gap:9px;min-width:0}
+.areaIcon{display:grid;place-items:center;flex:0 0 35px;height:36px;color:#8dcaff;background:#80bbff16;border:1px solid #b2daff38;border-radius:11px}
+.areaIcon ha-icon{--mdc-icon-size:24px}
+.name{font-size:16px;line-height:1.28;font-weight:650;overflow-wrap:anywhere;min-width:0;flex:1}
 .arrow{flex:0 0 auto;color:#aac5dc;font-size:24px}
-.picture{width:56px;height:48px;object-fit:cover;border-radius:10px;border:1px solid #b2daff35}
-.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 12px;margin-top:13px}
-.metric{display:flex;align-items:start;gap:7px;min-width:0;padding:9px;border-radius:13px;background:#ffffff0a;border:1px solid #b2daff14}
-.metric ha-icon{--mdc-icon-size:20px;flex:0 0 auto;color:#8dcaff;margin-top:3px}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:11px;min-width:0}
+.metric{display:flex;align-items:center;gap:7px;min-width:0;padding:8px;border-radius:13px;background:#ffffff0a;border:1px solid #b2daff28}
+.metric ha-icon{--mdc-icon-size:19px;flex:0 0 auto;color:#8dcaff}
 .metric[data-kind=power] ha-icon{color:#ffd075}
-.metric .copy{display:flex;flex-direction:column;min-width:0;gap:2px}
-.metric .label{color:#b6c9dc;font-size:12px;line-height:1.2}
-.metric .value{color:#f4f7ff;font-size:15px;font-weight:650;line-height:1.3;white-space:normal;overflow-wrap:normal;word-break:normal}
-.alerts{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
-.alert{display:flex;align-items:center;gap:4px;font-size:12px;color:#ffdb9a;background:#ffbb4a1b;border:1px solid #ffcf7c40;padding:5px 8px;border-radius:12px}
-.alert ha-icon{--mdc-icon-size:17px}
-.empty{color:#bdcadd;font-size:13px;margin:10px 0 0}
-@media(max-width:360px){.card{padding:13px}.metrics{gap:7px}.metric{padding:7px}.metric .value{font-size:14px}.name{font-size:15px}}
+.metric .copy{display:flex;flex-direction:column;min-width:0;gap:3px}
+.metric .label{color:#b6c9dc;font-size:11px;line-height:1.2;min-width:0}
+.metric .label .short{display:none}
+.metric .value{color:#f4f7ff;font-size:14px;font-weight:650;line-height:1.25;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:0}
+.alerts{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.alert{display:flex;align-items:center;gap:4px;font-size:11px;color:#ffdb9a;background:#ffbb4a1b;border:1px solid #ffcf7c40;padding:5px 7px;border-radius:10px}
+.alert ha-icon{--mdc-icon-size:16px}
+@container (max-width:300px){
+ .content{padding:10px 9px 11px}
+ .top{gap:7px}
+ .areaIcon{flex-basis:29px;height:30px;border-radius:9px}
+ .areaIcon ha-icon{--mdc-icon-size:21px}
+ .name{font-size:14px}
+ .arrow{font-size:19px}
+ .metrics{gap:5px;margin-top:8px}
+ .metric{flex-direction:column;align-items:flex-start;gap:2px;padding:7px 6px;border-radius:10px}
+ .metric ha-icon{display:none}
+ .metric .label{font-size:10px}
+ .metric .label .full{display:none}
+ .metric .label .short{display:inline}
+ .metric .value{font-size:12px}
+ .alerts{margin-top:7px}
+ .alert{font-size:10px;padding:4px 5px}
+}
+@container (max-width:180px){
+ .content{padding:9px 7px}
+ .top{gap:5px}
+ .areaIcon{flex-basis:27px;height:28px}
+ .name{font-size:13px}
+ .metrics{gap:4px}
+ .metric{padding:6px 4px}
+ .metric .value{font-size:11.5px}
+}
 @media(prefers-reduced-motion:reduce){.card{transition:none}}
 `;
 export class CLControlAreaProCard extends HTMLElement{
   constructor(){super();this.attachShadow({mode:'open'});this._config={};}
   setConfig(config){
     if(!config?.area||!config?.navigation_path)throw new Error('CL Control Pro Area: area and navigation_path required');
-    this._config={...config};this.shadowRoot.innerHTML=`<style>${STYLE}</style><button type="button" class="card" aria-label="Apri area"><span class="top"><span class="areaIcon"><ha-icon></ha-icon></span><span class="name"></span><img class="picture" alt="" hidden><span class="arrow" aria-hidden="true">›</span></span><span class="metrics"></span><span class="alerts" hidden></span><p class="empty" hidden>Nessuna misura disponibile</p></button>`;
+    this._config={...config};this.shadowRoot.innerHTML=`<style>${STYLE}</style><button type="button" class="card" aria-label="Apri area"><img class="picture" alt="" hidden><span class="content"><span class="top"><span class="areaIcon"><ha-icon></ha-icon></span><span class="name"></span><span class="arrow" aria-hidden="true">›</span></span><span class="metrics" hidden></span><span class="alerts" hidden></span></span></button>`;
     this.shadowRoot.querySelector('button').addEventListener('click',()=>{
       const path=this._config.navigation_path;
       if(typeof path!=='string'||!path||path.startsWith('//'))return;
@@ -113,13 +141,13 @@ export class CLControlAreaProCard extends HTMLElement{
   }
   set hass(hass){this._hass=hass;this._sync();}
   getCardSize(){return 2;}
-  getGridOptions(){return {columns:12,rows:'auto',min_columns:12};}
+  getGridOptions(){return {columns:6,rows:'auto',min_columns:6};}
   _sync(){
     const root=this.shadowRoot,metrics=root.querySelector('.metrics');
     if(!metrics)return;
     // Reuse existing nodes when only the live sensor values change.
     const active=[];
-    for(const [kind,label,icon] of KINDS){
+    for(const [kind,label,icon,short] of KINDS){
       const ids=this._config.telemetry?.[kind]||[];
       const metric=areaMetric(kind,ids,this._hass);
       let el=metrics.querySelector(`[data-kind="${kind}"]`);
@@ -128,7 +156,10 @@ export class CLControlAreaProCard extends HTMLElement{
         el=document.createElement('span');el.className='metric';el.dataset.kind=kind;
         const image=document.createElement('ha-icon');image.setAttribute('icon',icon);
         const copy=document.createElement('span');copy.className='copy';
-        const title=document.createElement('span');title.className='label';title.textContent=label;
+        const title=document.createElement('span');title.className='label';
+        const full=document.createElement('span');full.className='full';full.textContent=label;
+        const brief=document.createElement('span');brief.className='short';brief.textContent=short;
+        title.append(full,brief);
         const value=document.createElement('span');value.className='value';
         copy.append(title,value);el.append(image,copy);
       }
@@ -144,9 +175,10 @@ export class CLControlAreaProCard extends HTMLElement{
       const caption=document.createElement('span');caption.textContent=label+(kind==='motion'?' rilevato':' rilevata');pill.append(i,caption);return pill;
     }));
     target.hidden=!alerts.length;
-    root.querySelector('.empty').hidden=active.length>0||alerts.length>0;
     const button=root.querySelector('button');
-    button.setAttribute('aria-label',`Apri area ${this._config.name||this._config.area}${active.length?', '+active.map(e=>e.querySelector('.label').textContent+' '+e.querySelector('.value').textContent).join(', '):''}`);
+    button.classList.toggle('has-metrics',active.length>0);
+    button.classList.toggle('has-alerts',alerts.length>0);
+    button.setAttribute('aria-label',`Apri area ${this._config.name||this._config.area}${active.length?', '+active.map(e=>e.querySelector('.label .full').textContent+' '+e.querySelector('.value').textContent).join(', '):''}`);
   }
 }
 if(!customElements.get('cl-control-area-pro-card'))customElements.define('cl-control-area-pro-card',CLControlAreaProCard);
