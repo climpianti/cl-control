@@ -1,4 +1,4 @@
-// Browser regression for beta.40 two-column photo-first Area Pro; simulated states only.
+// Browser regression for beta.41 two-column photo-first Area Pro; simulated states only.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const out=path.resolve(process.env.CL_TEST_ARTIFACTS||'test-artifacts','area-pro-local');
