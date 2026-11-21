@@ -210,7 +210,7 @@ class CLSecurityCard extends HTMLElement {
         .dialog{background:linear-gradient(120deg,#18222b,#211a29);border:1px solid #b2daff66;color:#f5f7fc;border-radius:25px}.partitionTop,.panelTop{flex-wrap:wrap}.partitionCopy b,.panelName{overflow-wrap:anywhere}.toggle{min-height:44px}.partitionActions{grid-template-columns:repeat(auto-fit,minmax(min(100%,95px),1fr))}
 
         .header{align-items:center;flex-wrap:wrap}.headerCopy{flex:1}.header .cmd{width:auto}
-        .summaryGrid{grid-template-columns:repeat(auto-fit,minmax(106px,1fr))}
+        ha-card{container-type:inline-size}@container(max-width:470px){.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
         .partitionCard,.panel{padding:7px 9px;border-radius:13px;background:linear-gradient(116deg,#18324a,#151e32)}
         .panelGrid{grid-template-columns:1fr}
         .securityRow{display:flex;align-items:center;justify-content:space-between;gap:6px}
