@@ -1,4 +1,4 @@
-"""CL Control beta.39: Pro area card layout and telemetry contracts."""
+"""CL Control beta.40: Pro area card layout and telemetry contracts."""
 import unittest
 
 from custom_components.cl_control.dashboard_native import build_dashboard_model, build_native_lovelace
@@ -37,10 +37,10 @@ class ProAreaCardTest(unittest.TestCase):
         return build_dashboard_model(
             registry_entities=kwargs.get("entities", self.entities),
             areas=self.areas, runtime={"experience_level": level},
-            site={}, branding={}, version="3.5.3-beta.39", revision=1,
+            site={}, branding={}, version="3.5.3-beta.40", revision=1,
         )
 
-    def test_pro_is_full_width_with_all_metrics_and_navigation(self):
+    def test_pro_two_columns_with_all_metrics_and_navigation(self):
         model=self.model()
         cards=[c for c in home_cards(model) if c.get("type")=="custom:cl-control-area-pro-card"]
         self.assertEqual(len(cards), 1)
@@ -48,7 +48,7 @@ class ProAreaCardTest(unittest.TestCase):
         self.assertEqual(card["area"],"room")
         self.assertEqual(card["icon"],"mdi:bed")
         self.assertEqual(card["navigation_path"],"area-room")
-        self.assertEqual(card["grid_options"]["columns"],12)
+        self.assertEqual(card["grid_options"]["columns"],6)
         self.assertEqual(card["telemetry"]["temperature"],["sensor.room_temperature"])
         self.assertEqual(card["telemetry"]["humidity"],["sensor.room_humidity"])
         self.assertEqual(card["telemetry"]["carbon_dioxide"],["sensor.room_co2"])
