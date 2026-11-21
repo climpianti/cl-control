@@ -108,24 +108,25 @@ button{font:inherit}
  .name{font-size:13px}
  .arrow{font-size:19px}
  .metrics{gap:5px;margin-top:7px}
- .metric{
-  grid-template-columns:14px minmax(0,1fr);grid-template-rows:auto 1fr;
-  column-gap:4px;row-gap:2px;align-items:start;padding:5px 4px;border-radius:8px
- }
- .metric .copy{display:contents}
- .metric .label{grid-row:1;grid-column:1/-1;font-size:10px}
- .metric .value{grid-row:2;grid-column:2;font-size:12px}
- .metric ha-icon{grid-row:2;grid-column:1;--mdc-icon-size:14px}
+ .metric{grid-template-columns:12px minmax(0,1fr);gap:3px;padding:5px 4px;border-radius:8px}
+ .metric .label{font-size:clamp(9px,5.2cqi,11px)}
+ .metric .value{font-size:clamp(10px,6.2cqi,13px)}
+ .metric ha-icon{--mdc-icon-size:12px}
  .alerts{margin-top:7px}
  .alert{font-size:10px;padding:4px 5px}
 }
-@container (max-width:165px){
+@container (max-width:175px){
  .content{padding-inline:5px}
  .top{gap:4px}
  .name{font-size:12px}
- .metric{grid-template-columns:12px minmax(0,1fr);column-gap:3px;padding-inline:3px}
- .metric .value{font-size:11px}
- .metric ha-icon{--mdc-icon-size:12px}
+ .metric{
+  grid-template-columns:11px minmax(0,1fr);grid-template-rows:auto 1fr;
+  row-gap:2px;align-items:start;padding-inline:3px
+ }
+ .metric .copy{display:contents}
+ .metric .label{grid-row:1;grid-column:1/-1}
+ .metric .value{grid-row:2;grid-column:2}
+ .metric ha-icon{grid-row:2;grid-column:1;--mdc-icon-size:11px}
 }
 `;
 export class CLControlAreaProCard extends HTMLElement{

@@ -10,7 +10,7 @@ const rooms = [
   ['Living', 'mdi:sofa-outline', '1600210492486-724fe5c67fb0', 20.7, 58.8, 432, 0],
   ['Camera da letto', 'mdi:bed', '1616594039964-ae9021a400a0', 19.9, 57.2, 448, 0],
   ['Bagno', 'mdi:toilet', '1620626011761-996317b8d101', 19.5, 54.7, 438, 0],
-  ['Bagno Ospiti', 'mdi:human-male-female', '1600566753086-00f18fb6b3ea', 20, 56.2, 430, 0],
+  ['Bagno Ospiti', 'mdi:human-male-female', '1584622650111-993a426fbf0a', 20, 56.2, 430, 0],
 ];
 const iconNames = [
   ...rooms.map(room => room[1]), 'mdi:home', 'mdi:thermometer',
@@ -55,7 +55,7 @@ async function main() {
 <title>CL Control Area Pro</title>
 <style>
  *{box-sizing:border-box}
- body{margin:0;color:#f3f8ff;font:14px system-ui,sans-serif;background:
+ body{margin:0;color:#f3f8ff;font:14px Roboto,Arial,sans-serif;background:
    radial-gradient(ellipse at 25% 15%,#15426c,transparent 55%),
    linear-gradient(125deg,#0b1725,#0c1424 65%,#16162a)}
  header{display:flex;align-items:center;gap:18px;padding:13px 16px;font-size:20px;

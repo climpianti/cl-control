@@ -65,7 +65,7 @@ fs.mkdirSync(out,{recursive:true});
     compact:other.height<box.height,photo:root.querySelector('.picture').hidden===false&&Math.abs(image.width/image.height-16/9)<.05,
     inside:metric.every(b=>b.left>=box.left&&b.right<=box.right+1),
     values:[...root.querySelectorAll('.value')].every(fits),
-    labels:labels.filter(fits).map(el=>el.textContent),
+    labels:labels.filter(el=>fits(el)&&el.clientHeight<=parseFloat(getComputedStyle(el).lineHeight)+1).map(el=>el.textContent),
     icons:icons.filter(fits).map(el=>el.getAttribute('icon'))};
   });
   assert.ok(dims.scroll<=dims.viewport,'horizontal overflow at '+width+JSON.stringify(dims));
