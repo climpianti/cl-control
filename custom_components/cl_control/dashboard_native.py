@@ -73,6 +73,12 @@ FAVORITE_DOMAINS = {
 
 LEVEL_RANK = {"essential": 0, "standard": 1, "pro": 2, "installer": 3}
 TECHNICAL_PLATFORMS = {"cl_control", "cl_power_control", "cl_irrigation"}
+# Only identify Echo/Alexa devices from their HA integration, never from names.
+ALEXA_MEDIA_PLATFORMS = {"alexa_media", "alexa_devices", "alexa_media_player", "alexa"}
+ALEXA_MEMBER_DOMAINS = {
+    "switch", "select", "number", "button", "sensor", "binary_sensor",
+    "text", "event", "time", "date", "datetime", "update", "remote",
+}
 SECURITY_PLATFORMS = {
     "risco",
     "irisco",
@@ -652,6 +658,98 @@ def build_dashboard_model(
 
 
 
+    # Echo entities are one physical HA device. Attach supported member entities
+    # to its media card instead of showing duplicate Interruttori/Modalita/
+    # Comandi cards. No pairing by display name: two Echo devices can have
+    # similar names but different device_id values.
+    alexa_players: dict[str, list[dict[str, Any]]] = {}
+    for item in visible_entities:
+        if (
+            item["domain"] == "media_player"
+            and str(item["platform"]).lower() in ALEXA_MEDIA_PLATFORMS
+            and item["device_id"]
+        ):
+            alexa_players.setdefault(item["device_id"], []).append(item)
+
+    alexa_grouped_ids: set[str] = set()
+    for device_id, players in alexa_players.items():
+        # Multiple media players on the same HA device are ambiguous. Keep
+        # all standalone rather than silently merging the wrong player.
+        if len(players) != 1:
+            continue
+        player = players[0]
+        members: list[dict[str, str]] = []
+        device_seen: set[str] = set()
+        for raw in registry_entities:
+            entity_id = str(raw.get("entity_id") or "")
+            if (
+                not entity_id
+                or entity_id in device_seen
+                or str(raw.get("device_id") or "") != device_id
+            ):
+                continue
+            domain = entity_id.split(".", 1)[0]
+            if domain not in ALEXA_MEMBER_DOMAINS:
+                continue
+            # Installer module overrides intentionally keep their own cards.
+            if entity_id in module_overrides:
+                continue
+            explicit = visibility.get(entity_id)
+            if explicit is False or (entity_id in hidden and explicit is not True):
+                continue
+            if raw.get("disabled") or (raw.get("hidden") and explicit is not True):
+                continue
+            if raw.get("entity_category") and explicit is not True:
+                continue
+            if str(raw.get("platform") or "") in TECHNICAL_PLATFORMS and explicit is not True:
+                continue
+            original_module = DOMAIN_MODULE.get(domain) or (
+                "outlets" if domain == "switch" and raw.get("device_class") == "outlet"
+                else "switches" if domain == "switch" else ""
+            )
+            required_level = str(module_levels.get(original_module) or profile)
+            if not _allowed(entity_levels.get(entity_id), required_level):
+                continue
+            member_area = _resolve_area(
+                entity_id, str(raw.get("area_id") or "") or None,
+                ui, by_id, by_name,
+            )
+            # A deliberate move to another room must remain visible there.
+            if member_area and member_area["id"] != player["area_id"]:
+                continue
+            name = _entity_name(raw, ui)
+            prefix = str(player["name"]).strip()
+            if prefix and name.casefold().startswith(prefix.casefold()):
+                suffix = name[len(prefix):].lstrip(" -–:·")
+                if suffix:
+                    name = suffix
+            members.append({
+                "entity": entity_id,
+                "domain": domain,
+                "name": name,
+                "icon": str(raw.get("icon") or ""),
+            })
+            device_seen.add(entity_id)
+            alexa_grouped_ids.add(entity_id)
+        if members:
+            priority = {"switch": 0, "select": 1, "number": 2, "button": 3}
+            members.sort(key=lambda m: (
+                priority.get(m["domain"], 4), m["name"].casefold(), m["entity"],
+            ))
+            player["alexa_entities"] = members
+
+    if alexa_grouped_ids:
+        visible_entities = [
+            item for item in visible_entities
+            if item["entity_id"] not in alexa_grouped_ids
+        ]
+        for area in by_id.values():
+            for module in AREA_MODULE_LABELS:
+                area["entities"][module] = [
+                    item for item in area["entities"][module]
+                    if item["entity_id"] not in alexa_grouped_ids
+                ]
+
     # Area telemetry is structural metadata only. Runtime values remain owned by
     # Home Assistant native cards/badges so normal state changes never rebuild
     # the CL Control dashboard model.
@@ -668,6 +766,8 @@ def build_dashboard_model(
             if telemetry_class not in allowed_classes:
                 continue
             if domain not in {"sensor", "binary_sensor"}:
+                continue
+            if entity_id in alexa_grouped_ids:
                 continue
             explicit_visibility = visibility.get(entity_id)
             if explicit_visibility is False or (
@@ -988,6 +1088,8 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
             "type": "custom:cl-control-media-card",
             "entity": entity["entity_id"],
             "name": entity["name"],
+            **({"alexa_entities": entity["alexa_entities"]}
+               if entity.get("alexa_entities") else {}),
             **({"remote_entity": entity["remote_entity"], "remote_platform": entity.get("remote_platform", ""), "remote_commands": entity.get("remote_commands", {})} if entity.get("remote_entity") else {}),
             **({"remote_type": "webostv", "icon": "mdi:television"}
                if entity.get("platform") == "webostv" else {}),
