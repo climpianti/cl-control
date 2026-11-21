@@ -1,6 +1,6 @@
 # CL Control
 
-> Versione di collaudo **3.5.3-beta.40**: nuova card Area del profilo Pro con temperatura, umidità, CO₂ e potenza leggibili su smartphone, senza troncare i valori. Essential e Standard mantengono le card native. La beta.38 ha uniformato i badge W/kW nelle card Luci, Prese e Interruttori; la beta.37 ha introdotto il riconoscimento dei sensori di potenza Shelly e di terze parti; la beta.36 ha corretto la visualizzazione dei nomi Shelly.
+> Versione di collaudo **3.5.3-beta.40**: card Area Pro di nuovo affiancate a due, con foto in alto e fino a quattro misure in griglia 2×2 (temperatura, umidità, CO₂ e potenza). Quando i sensori mancano, la card resta compatta senza testi o spazi di riempimento. Essential e Standard mantengono le card native. La beta.38 ha uniformato i badge W/kW nelle card Luci, Prese e Interruttori; la beta.37 ha introdotto il riconoscimento dei sensori di potenza Shelly e di terze parti; la beta.36 ha corretto la visualizzazione dei nomi Shelly.
 > Le beta.33–35 hanno introdotto riconoscimento e gestione dei telecomandi Samsung, Android/Fire TV e LG webOS con interfaccia Blue Tech Glass.
 > Include le funzioni Scenari luci e Preferiti e la base sperimentale AI Studio/Discovery; non è un rilascio stabile. Le funzioni AI reali, il discovery Modbus completo e gli effetti RGB ciclici sono ancora da completare.
 > Test offline: `python tests/run_offline.py` (non emula il runtime HA).
