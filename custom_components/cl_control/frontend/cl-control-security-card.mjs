@@ -174,6 +174,9 @@ class CLSecurityCard extends HTMLElement {
     this._busy = new Set();
     this._pending = new Map();
     this._modeNotice = '';
+    this._zoneNotice = '';
+    this._zoneFilter = 'all';
+    this._zonesInitialized = false;
     this._hidden = new Set();
     this._visibilityKey = '';
     this._onVisibility = event => {
@@ -194,20 +197,19 @@ class CLSecurityCard extends HTMLElement {
         .panelGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:var(--cl-sec-gap)}.panel{padding:13px;border:1px solid var(--divider-color);border-radius:14px;background:var(--ha-card-background,var(--card-background-color));box-shadow:0 1px 2px rgba(0,0,0,.04)}.panelTop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.panelName{font-weight:700}.panelArea{margin-top:3px;color:var(--secondary-text-color);font-size:12px}.alarmState{padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;background:var(--secondary-background-color)}.alarmState.triggered{background:color-mix(in srgb,var(--error-color,#db4437) 18%,transparent);color:var(--error-color,#db4437)}.alarmState.armed{background:color-mix(in srgb,var(--warning-color,#f59e0b) 16%,transparent);color:var(--warning-color,#f59e0b)}
         .actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}.cmd{min-height:38px;padding:0 12px;border-radius:10px;border:1px solid var(--divider-color);background:var(--primary-background-color);color:var(--primary-text-color);font:inherit;cursor:pointer}.cmd.primary{background:color-mix(in srgb,var(--primary-color) 12%,transparent);border-color:color-mix(in srgb,var(--primary-color) 42%,transparent);color:var(--primary-color)}.cmd.danger{background:color-mix(in srgb,var(--error-color,#db4437) 10%,transparent);border-color:color-mix(in srgb,var(--error-color,#db4437) 38%,transparent);color:var(--error-color,#db4437)}.cmd:disabled{opacity:.45;cursor:not-allowed}
         .partitionList,.zoneList{display:grid;gap:9px}.partitionCard{padding:13px;border:1px solid var(--divider-color);border-radius:14px;background:var(--ha-card-background,var(--card-background-color));box-shadow:0 1px 2px rgba(0,0,0,.04)}.partitionTop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.partitionIdentity{display:flex;align-items:center;gap:10px;min-width:0}.partitionIcon{display:grid;place-items:center;width:38px;height:38px;border-radius:12px;background:color-mix(in srgb,var(--primary-color) 9%,transparent);color:var(--primary-color);flex:0 0 auto}.partitionIcon ha-icon{--mdc-icon-size:21px}.partitionCopy{min-width:0}.partitionCopy b,.partitionCopy small{display:block}.partitionCopy b{font-size:14px}.partitionCopy small{margin-top:3px;color:var(--secondary-text-color);font-size:11px;overflow:hidden;text-overflow:ellipsis}.partitionState{padding:5px 9px;border-radius:999px;font-size:12px;font-weight:700;background:var(--secondary-background-color);white-space:nowrap}.partitionState.armed{background:color-mix(in srgb,var(--warning-color,#f59e0b) 14%,transparent);color:var(--warning-color,#f59e0b)}.partitionState.disarmed{background:color-mix(in srgb,var(--success-color,#43a047) 12%,transparent);color:var(--success-color,#43a047)}.partitionState.bad{background:color-mix(in srgb,var(--error-color,#db4437) 12%,transparent);color:var(--error-color,#db4437)}.partitionActions{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px;margin-top:11px}.partitionActions .cmd{min-width:0;padding:0 8px}.partitionActions .cmd.active{box-shadow:inset 0 0 0 1px currentColor;font-weight:700}
-        .zone{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:10px;min-height:52px;padding:9px 10px;border:1px solid var(--divider-color);border-radius:12px;background:var(--ha-card-background,var(--card-background-color))}.zoneIcon{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:var(--secondary-background-color);color:var(--secondary-text-color)}.zoneIcon ha-icon{--mdc-icon-size:19px}.zone.attention{border-color:color-mix(in srgb,var(--warning-color,#f59e0b) 55%,var(--divider-color));background:color-mix(in srgb,var(--warning-color,#f59e0b) 7%,var(--card-background-color))}.zone.attention .zoneIcon{color:var(--warning-color,#f59e0b)}.zone.bypassed{border-color:color-mix(in srgb,var(--primary-color) 48%,var(--divider-color));background:color-mix(in srgb,var(--primary-color) 6%,var(--card-background-color))}.zone.bypassed .zoneIcon{color:var(--primary-color)}.zone.unavailable{opacity:.65}.zone b,.zone small{display:block}.zone small{margin-top:3px;color:var(--secondary-text-color);font-size:12px}.zoneRight{display:flex;align-items:center;gap:10px}.zoneState{font-size:12px;font-weight:700;white-space:nowrap}.zoneState.warn{color:var(--warning-color,#f59e0b)}.zoneState.bad{color:var(--error-color,#db4437)}
-        .toggle{position:relative;width:44px;height:24px;border:0;padding:0;border-radius:999px;background:var(--disabled-color,#777);cursor:pointer;transition:.16s}.toggle:before{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:white;transition:.16s}.toggle.on{background:var(--primary-color)}.toggle.on:before{transform:translateX(20px)}.toggle:disabled{opacity:.45;cursor:not-allowed}
+
         .empty{padding:14px;border:1px dashed var(--divider-color);border-radius:12px;color:var(--secondary-text-color);font-size:13px}
         .overlay{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.45)}.overlay.open{display:flex}.dialog{width:min(100%,420px);padding:18px;border-radius:18px;background:var(--ha-card-background,var(--card-background-color));box-shadow:0 18px 50px rgba(0,0,0,.3)}.dialog h3{margin:0 0 5px}.dialog p{margin:0 0 14px;color:var(--secondary-text-color);font-size:13px}.dialog input{box-sizing:border-box;width:100%;height:46px;padding:0 12px;border:1px solid var(--divider-color);border-radius:10px;background:var(--primary-background-color);color:var(--primary-text-color);font:inherit;font-size:20px;letter-spacing:.12em}.dialogActions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}.dialogError{min-height:18px;margin-top:8px;color:var(--error-color,#db4437);font-size:12px}
-        @media(max-width:700px){ha-card{padding:13px}.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.areaGroup{padding:10px}.zone{grid-template-columns:auto minmax(0,1fr)}.zoneRight{grid-column:2;justify-content:space-between}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.cmd{width:100%}.partitionActions{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media(max-width:700px){ha-card{padding:13px}.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.areaGroup{padding:10px}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.cmd{width:100%}.partitionActions{grid-template-columns:repeat(2,minmax(0,1fr))}}
         /* Glass presentation only: existing PIN and command handlers are retained. */
         :host{--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--divider-color:#ffffff20;--secondary-background-color:#ffffff0c;--primary-background-color:#121721;--card-background-color:#18222b;--ha-card-background:#18222b;--primary-color:#9b83ff;--error-color:#ff8599;--warning-color:#ffd08a;--success-color:#7bdec3}
         ha-card{border-radius:25px;${GLASS_SURFACE}}
         .panel,.partitionCard{border-radius:20px;background:linear-gradient(120deg,#ffffff08,#9b83ff08);box-shadow:inset 0 1px 1px #ffffff18}
-        .areaGroup{background:transparent;border-color:#ffffff18;border-radius:20px}.zone{background:#ffffff06;border-radius:15px}.summary{background:#ffffff08;border-radius:16px}.summary.attention{border-color:#ffd08a88}
-        .partitionIcon,.shield,.zoneIcon{background:linear-gradient(140deg,#39adff22,#bd65f322);color:#c5caff;border:1px solid #b2daff33}
+        .areaGroup{background:transparent;border-color:#ffffff18;border-radius:20px}.summary{background:#ffffff08;border-radius:16px}.summary.attention{border-color:#ffd08a88}
+        .partitionIcon,.shield{background:linear-gradient(140deg,#39adff22,#bd65f322);color:#c5caff;border:1px solid #b2daff33}
         .cmd{min-height:44px;border-radius:12px}.cmd.primary{background:linear-gradient(120deg,#256ba466,#65439e66);color:#f5f7fc}.cmd.danger{background:#ff859918;color:#ffc2cc;border-color:#ff85994d}
         .securityControls{margin-top:10px;border-top:1px solid #ffffff18}.securityControls summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:#bdcadd;font-size:13px}.securityControls summary:before{content:'▸';margin-right:8px}.securityControls[open] summary:before{content:'▾'}.securityControls summary:focus-visible{outline:2px solid #67c5ff;outline-offset:2px}
-        .dialog{background:linear-gradient(120deg,#18222b,#211a29);border:1px solid #b2daff66;color:#f5f7fc;border-radius:25px}.partitionTop,.panelTop{flex-wrap:wrap}.partitionCopy b,.panelName{overflow-wrap:anywhere}.toggle{min-height:44px}.partitionActions{grid-template-columns:repeat(auto-fit,minmax(min(100%,95px),1fr))}
+        .dialog{background:linear-gradient(120deg,#18222b,#211a29);border:1px solid #b2daff66;color:#f5f7fc;border-radius:25px}.partitionTop,.panelTop{flex-wrap:wrap}.partitionCopy b,.panelName{overflow-wrap:anywhere}.partitionActions{grid-template-columns:repeat(auto-fit,minmax(min(100%,95px),1fr))}
 
         .header{align-items:center;flex-wrap:wrap}.headerCopy{flex:1}.header .cmd{width:auto}
         ha-card{container-type:inline-size}@container(max-width:470px){.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -232,8 +234,34 @@ class CLSecurityCard extends HTMLElement {
         .visibilityList{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:4px 10px;margin:8px 0}
         .visibilityList label{min-height:44px;display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}.visibilityList input{accent-color:#8bcfff;width:17px;height:17px;flex:none}
         .visibilityActions{display:flex;flex-wrap:wrap;gap:8px}.visibilityActions .cmd{width:auto}
-        .zoneDetails>summary{font-size:13px;color:#d4e7ff;min-height:42px;align-content:center;cursor:pointer}
+
         @media(max-width:430px){.header .cmd{flex:1 1 100%}.areaGroup{padding:7px}.partitionCard,.panel{padding:6px 7px}}
+
+        .zoneSection{border-top:1px solid #a8d4ff37;margin-top:16px;padding-top:12px}
+        .zoneHeader{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+        .zoneHeader h3{margin:0;font-size:17px}
+        .zoneFilters{display:flex;flex-wrap:wrap;gap:6px}.zoneFilters .cmd{width:auto;padding-inline:10px}
+        .zoneFilters [aria-pressed="true"]{background:#245579;border-color:#8bcfff}
+        .zoneArea{margin:8px 0}.zoneArea>summary{display:flex;align-items:center;gap:8px;min-height:44px;cursor:pointer}
+        .zoneArea>summary::before{content:'›';color:#8bcfff}.zoneArea[open]>summary::before{content:'⌄'}
+        .zoneArea>summary::-webkit-details-marker{display:none}
+        .zoneRoomCount{margin-inline-start:auto;color:#bdcadd;font-size:12px}
+        .zone{box-sizing:border-box;display:grid;grid-template-columns:31px minmax(0,1fr) minmax(0,max-content) 44px;align-items:center;gap:7px;min-height:54px;padding:4px 7px;border:1px solid #a8d4ff37;border-radius:12px;background:linear-gradient(110deg,#1b3550,#181f34)}
+        .zoneCopy{min-width:0;overflow-wrap:anywhere}.zoneCopy b,.zoneCopy small{display:block}.zoneCopy small{color:#b6c9dd;font-size:11px}
+        .zoneIcon{display:grid;place-items:center;width:31px;height:31px;border-radius:9px;color:#8bcfff;background:#3978aa36}.zoneIcon ha-icon{--mdc-icon-size:17px}
+        .zoneBadge{display:inline-flex;align-items:center;gap:4px;max-width:118px;padding:4px 6px;border-radius:7px;font-size:11px;font-weight:650;line-height:1.2;color:#9bf1c4;background:#3b786c32}
+        .zone:not(:has(.zoneAction)) .zoneBadge{grid-column:3/-1;justify-self:end}
+        .zoneBadge.warn,.zoneBadge.excluded{color:#ffd075;background:#845c282f}
+        .zoneBadge.danger{color:#ffa1ab;background:#91384d38}
+        .zoneBadge.offline{color:#d2ddea;background:#62748835}
+        .zoneBadge ha-icon{--mdc-icon-size:13px;flex:none}
+        .zoneAction{display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:10px;background:transparent;cursor:pointer}
+        .zoneAction:disabled{opacity:.55;cursor:default}
+        .zoneAction:focus-visible,.zoneArea>summary:focus-visible{outline:2px solid #8bcfff;outline-offset:1px}
+        .zoneDisc{box-sizing:border-box;display:grid;place-items:center;width:30px;height:30px;border:1px solid transparent;border-radius:50%;background:#273241;color:#bfd9ed}
+        .zoneDisc ha-icon{--mdc-icon-size:17px}
+        .zoneAction[data-excluded="true"] .zoneDisc{color:#ffd075;border-color:currentColor;background:#3f3326;box-shadow:0 0 6px #ffc45c42}
+        @container(max-width:370px){.zone{grid-template-columns:25px minmax(0,1fr) minmax(0,max-content) 44px;gap:4px;padding-inline:5px}.zoneIcon{width:25px;height:28px}.zoneBadge{max-width:105px}}
       </style>
       <ha-card><div id="overview"></div><div id="visibility"></div><div id="main"></div></ha-card>
       <div id="overlay" class="overlay" aria-hidden="true"></div>
@@ -330,15 +358,47 @@ class CLSecurityCard extends HTMLElement {
   getCardSize() { return 8; }
   _state(entityId) { return this._hass?.states?.[entityId]; }
 
-  _attentionCount() {
-    return (this._config.zones || []).filter(zone => {
-      const state = this._state(zone.entity_id)?.state;
-      const bypass = zone.bypass_entity_id ? this._state(zone.bypass_entity_id)?.state === 'on' : false;
-      return bypass || state === 'on' || ['unknown', 'unavailable'].includes(state);
-    }).length;
+  _zoneStatus(zone) {
+    const state = this._state(zone.entity_id)?.state;
+    const bypass = this._state(zone.bypass_entity_id)?.state;
+    const sensorUnavailable = !isAvailable(state);
+    const bypassUnavailable = Boolean(zone.bypass_entity_id && !['on','off'].includes(bypass));
+    const unavailable = sensorUnavailable || bypassUnavailable;
+    const excluded = bypass === 'on';
+    const active = state === 'on';
+    const danger = active && ['smoke','gas','tamper'].includes(zone.device_class);
+    if (excluded) return {label:'Esclusa',tone:'excluded',icon:'mdi:shield-off-outline',attention:true,excluded,unavailable};
+    if (sensorUnavailable || (bypassUnavailable && !active)) return {
+      label:sensorUnavailable ? 'Non disponibile' : 'Esclusione non disponibile',
+      tone:'offline',icon:'mdi:lan-disconnect',attention:true,excluded,unavailable,
+    };
+    return {
+      label:zoneLabel(zone.device_class, active), tone:danger ? 'danger' : active ? 'warn' : 'good',
+      icon:active ? 'mdi:alert-outline' : 'mdi:check', attention:active, excluded, unavailable,
+    };
   }
 
-  _groupItems() {
+  _zoneSection(attention) {
+    if (!this._config.zones.length) return '';
+    const filtered = this._zoneFilter === 'attention';
+    const groups = this._groupItems(true);
+    if (!this._zonesInitialized && groups.length) {
+      this._zonesInitialized = true;
+      this._openControls.add('zones:' + groups[0].areas[0].id);
+    }
+    const sections = groups.map(group => {
+      const title = this._config.group_by_floor
+        ? `<div class="floorTitle"><ha-icon icon="${esc(group.icon)}"></ha-icon><span>${esc(group.name)}</span></div>` : '';
+      const rooms = group.areas.map(area => {
+        const key = 'zones:' + area.id;
+        return `<details class="zoneArea" ${filtered ? '' : `data-controls="${esc(key)}"`} ${filtered || this._openControls.has(key) ? 'open' : ''}><summary><b>${esc(area.name)}</b><span class="zoneRoomCount">${area.zones.length} ${area.zones.length === 1 ? 'zona' : 'zone'}</span></summary><div class="zoneList">${area.zones.map(zone => this._zoneRow(zone)).join('')}</div></details>`;
+      }).join('');
+      return `<section class="floorGroup">${title}${rooms}</section>`;
+    }).join('');
+    return `<section class="zoneSection" aria-label="Zone e rilevatori"><div class="zoneHeader"><h3>Zone e rilevatori</h3><div class="zoneFilters" role="group" aria-label="Mostra zone"><button class="cmd" type="button" data-zone-filter="all" aria-pressed="${!filtered}">Tutte</button><button class="cmd" type="button" data-zone-filter="attention" aria-pressed="${filtered}">Da verificare · ${attention}</button></div></div>${this._zoneNotice ? `<p class="notice" role="status">${esc(this._zoneNotice)}</p>` : ''}${sections || '<p class="empty">Nessuna zona da verificare.</p>'}</section>`;
+  }
+
+  _groupItems(zonesOnly = false) {
     const groups = new Map();
     const add = (kind, item) => {
       const floorId = item.floor_id || '__no_floor__';
@@ -351,9 +411,14 @@ class CLSecurityCard extends HTMLElement {
       if (!floor.areas.has(areaId)) floor.areas.set(areaId, {id: areaId, name: areaName, panels: [], partitions: [], zones: []});
       floor.areas.get(areaId)[kind].push(item);
     };
-    for (const item of this._config.panels) if (!this._hidden.has(item.entity_id)) add('panels', item);
-    for (const item of this._config.partitions) if (!this._hidden.has(item.entity_id)) add('partitions', item);
-    for (const item of this._config.zones || []) add('zones', item);
+    if (zonesOnly) {
+      for (const zone of this._config.zones) {
+        if (this._zoneFilter === 'all' || this._zoneStatus(zone).attention) add('zones', zone);
+      }
+    } else {
+      for (const item of this._config.panels) if (!this._hidden.has(item.entity_id)) add('panels', item);
+      for (const item of this._config.partitions) if (!this._hidden.has(item.entity_id)) add('partitions', item);
+    }
     return [...groups.values()]
       .sort((a,b) => a.order - b.order || a.name.localeCompare(b.name, 'it'))
       .map(floor => ({...floor, areas: [...floor.areas.values()].sort((a,b) => a.name.localeCompare(b.name, 'it'))}));
@@ -369,12 +434,12 @@ class CLSecurityCard extends HTMLElement {
     const inserted = states.filter(state => isAvailable(state) && !isDisarmPartitionMode(state) &&
       !['triggered','arming','pending','disarming'].includes(state)).length;
     const offline = states.filter(state => !isAvailable(state)).length;
-    const attention = this._attentionCount();
+    const attention = cfg.zones.filter(zone => this._zoneStatus(zone).attention).length;
     const shown = items.filter(item => !this._hidden.has(item.entity_id)).length;
     const overview = this.shadowRoot.getElementById('overview');
     const editing = Boolean(this.shadowRoot.querySelector('#visibility form'));
     overview.innerHTML = `<div class="header"><div class="shield"><ha-icon icon="mdi:shield-home-outline"></ha-icon></div><div class="headerCopy"><h2>${esc(cfg.title)}</h2></div>${items.length ? `<button type="button" class="cmd" data-visibility aria-controls="visibility" aria-expanded="${editing}">Partizioni visibili</button>` : ''}</div>
-      <div class="summaryGrid"><div class="summary"><b>${inserted}</b><small>Inserite</small></div><div class="summary"><b>${disarmed}</b><small>Disinserite</small></div><div class="summary ${offline ? 'attention' : ''}"><b>${offline}</b><small>Non disponibili</small></div><div class="summary ${attention ? 'attention' : ''}"><b>${attention}</b><small>Zone da verificare</small></div></div>
+      ${items.length ? `<div class="summaryGrid"><div class="summary"><b>${inserted}</b><small>Inserite</small></div><div class="summary"><b>${disarmed}</b><small>Disinserite</small></div><div class="summary ${offline ? 'attention' : ''}"><b>${offline}</b><small>Non disponibili</small></div><div class="summary ${attention ? 'attention' : ''}"><b>${attention}</b><small>Zone da verificare</small></div></div>` : ''}
       ${this._modeNotice ? '<div class="notice" role="status">' + esc(this._modeNotice) + '</div>' : ''}
       ${states.includes('triggered') ? '<div class="notice" role="alert"><b>Allarme attivo</b></div>' : ''}
       ${items.length ? `<p class="visibleCount">${shown} di ${items.length} partizioni visibili</p>` : ''}
@@ -382,8 +447,14 @@ class CLSecurityCard extends HTMLElement {
     const visibilityButton = overview.querySelector('[data-visibility]');
     if (visibilityButton) visibilityButton.onclick = () => this._editVisibility();
     const groups = this._groupItems();
-    main.innerHTML = groups.length ? groups.map(group => this._groupMarkup(group, cfg.group_by_floor)).join('') :
-      '<div class="empty">Nessuna entità di sicurezza visibile.</div>';
+    const partitions = groups.map(group => this._groupMarkup(group, cfg.group_by_floor)).join('');
+    main.innerHTML = (partitions || (items.length ? '<div class="empty">Nessuna partizione visibile.</div>' : '')) +
+      this._zoneSection(attention);
+    main.querySelectorAll('[data-zone-filter]').forEach(button => button.addEventListener('click', () => {
+      this._zoneFilter = button.dataset.zoneFilter;
+      this._render();
+      main.querySelector('[aria-pressed="true"][data-zone-filter]')?.focus();
+    }));
     main.querySelectorAll('[data-controls]').forEach(details=>details.addEventListener('toggle',()=>{if(details.open)this._openControls.add(details.dataset.controls);else this._openControls.delete(details.dataset.controls);}));
     main.querySelectorAll('[data-panel-command]').forEach(button => button.addEventListener('click', () => this._panelCommand(button)));
     main.querySelectorAll('[data-partition-command]').forEach(button => button.addEventListener('click', () => this._partitionCommand(button)));
@@ -401,12 +472,10 @@ class CLSecurityCard extends HTMLElement {
   }
 
   _areaMarkup(area) {
-    const count = area.panels.length + area.partitions.length + area.zones.length;
+    const count = area.panels.length + area.partitions.length;
     const panels = area.panels.length ? `<div class="subTitle"><ha-icon icon="mdi:shield-home-outline"></ha-icon>Partizioni impianto</div><div class="panelGrid">${area.panels.map(panel => this._panelMarkup(panel)).join('')}</div>` : '';
     const partitions = area.partitions.length ? `<div class="subTitle"><ha-icon icon="mdi:shield-key-outline"></ha-icon>Partizioni INIM</div><div class="partitionList">${area.partitions.map(partition => this._partitionCard(partition)).join('')}</div>` : '';
-    const zoneKey = 'zones:' + area.id;
-    const zones = area.zones.length ? `<details class="zoneDetails" data-controls="${esc(zoneKey)}" ${this._openControls.has(zoneKey) ? 'open' : ''}><summary>Zone · ${area.zones.length}</summary><div class="zoneList">${area.zones.map(zone => this._zoneRow(zone)).join('')}</div></details>` : '';
-    return `<div class="areaGroup"><div class="areaHeader"><h3>${esc(area.name)}</h3><span class="areaCount">${count} elementi</span></div>${panels}${partitions}${zones}</div>`;
+    return `<div class="areaGroup"><div class="areaHeader"><h3>${esc(area.name)}</h3><span class="areaCount">${count} ${count === 1 ? 'elemento' : 'elementi'}</span></div>${panels}${partitions}</div>`;
   }
 
   _modeRow(item, {state, label, options, target, stateTone}) {
@@ -460,17 +529,12 @@ class CLSecurityCard extends HTMLElement {
   }
 
   _zoneRow(zone) {
-    const entity = this._state(zone.entity_id);
-    const state = entity?.state || 'unknown';
-    const unavailable = ['unknown', 'unavailable'].includes(state);
-    const active = state === 'on';
-    const bypassEntity = zone.bypass_entity_id ? this._state(zone.bypass_entity_id) : null;
-    const bypassed = bypassEntity?.state === 'on';
-    const bypassBusy = zone.bypass_entity_id && this._busy.has(zone.bypass_entity_id);
-    const label = unavailable ? 'Non disponibile' : bypassed ? 'Esclusa' : zoneLabel(zone.device_class, active);
-    const cls = unavailable ? 'bad' : (bypassed || active) ? 'warn' : '';
-    const toggle = zone.bypass_entity_id ? `<button class="toggle ${bypassed ? 'on' : ''}" data-bypass-zone="${esc(zone.entity_id)}" data-bypass-id="${esc(zone.bypass_entity_id)}" data-bypass-pin="${zone.bypass_requires_pin ? '1' : '0'}" data-bypass-state="${bypassed ? '1' : '0'}" aria-label="${bypassed ? 'Reincludi' : 'Escludi'} ${esc(zone.name)}" ${bypassBusy || unavailable || (zone.bypass_requires_pin && !this._config.pin_configured) ? 'disabled' : ''}></button>` : '';
-    return `<div class="zone ${unavailable ? 'unavailable' : ''} ${active ? 'attention' : ''} ${bypassed ? 'bypassed' : ''}"><div class="zoneIcon"><ha-icon icon="${zoneIcon(zone.device_class)}"></ha-icon></div><div><b>${esc(zone.name)}</b><small>${esc(zoneType(zone.device_class))}${zone.platform ? ` · ${esc(zone.platform.toUpperCase())}` : ''}</small></div><div class="zoneRight"><span class="zoneState ${cls}">${esc(label)}</span>${toggle}</div></div>`;
+    const status = this._zoneStatus(zone);
+    const action = status.excluded ? 'Reincludi' : 'Escludi';
+    const busy = this._busy.has(zone.bypass_entity_id);
+    const blocked = busy || status.unavailable || (zone.bypass_requires_pin && !this._config.pin_configured);
+    const control = zone.bypass_entity_id && `<button type="button" class="zoneAction" data-bypass-zone="${esc(zone.entity_id)}" data-excluded="${status.excluded}" aria-label="${esc(action + ' ' + zone.name)}" title="${action} zona" ${blocked ? 'disabled' : ''}><span class="zoneDisc"><ha-icon icon="${status.excluded ? 'mdi:shield-check-outline' : 'mdi:shield-off-outline'}" aria-hidden="true"></ha-icon></span></button>`;
+    return `<div class="zone" data-zone-id="${esc(zone.entity_id)}"><span class="zoneIcon"><ha-icon icon="${zoneIcon(zone.device_class)}" aria-hidden="true"></ha-icon></span><span class="zoneCopy"><b>${esc(zone.name)}</b>${zone.name.toLocaleLowerCase('it') === zoneType(zone.device_class).toLocaleLowerCase('it') ? '' : `<small>${esc(zoneType(zone.device_class))}</small>`}</span><span class="zoneBadge ${status.tone}"><ha-icon icon="${status.icon}" aria-hidden="true"></ha-icon><span>${busy ? 'In attesa' : esc(status.label)}</span></span>${control || ''}</div>`;
   }
 
   _clearPending(id) {
@@ -547,27 +611,38 @@ class CLSecurityCard extends HTMLElement {
   }
 
   async _toggleBypass(button) {
-    const zoneEntityId = button.dataset.bypassZone;
-    const entityId = button.dataset.bypassId;
-    const excluded = button.dataset.bypassState !== '1';
-    const requiresPin = button.dataset.bypassPin === '1';
-    let pin;
-    if (requiresPin) {
-      pin = await this._askPin('Codice Sicurezza', excluded ? 'Conferma esclusione zona.' : 'Conferma reinclusione zona.');
-      if (pin === null) return;
-    }
-    this._busy.add(entityId); this._render();
-    try {
-      const payload = {type: 'cl_control/security/zone_exclusion', zone_entity_id: zoneEntityId, entity_id: entityId, excluded};
-      if (requiresPin) payload.pin = pin;
-      await this._hass.callWS(payload);
-      this._closeDialog();
-    } catch (error) {
-      if (requiresPin) this._showDialogError(this._friendlyError(error));
-      else this._openMessage('Comando non eseguito', this._friendlyError(error));
+    const zone = this._config.zones.find(item => item.entity_id === button.dataset.bypassZone);
+    const id = zone?.bypass_entity_id;
+    if (!id || this._busy.has(id) || this.shadowRoot.getElementById('overlay').classList.contains('open')) return;
+    const before = this._zoneStatus(zone);
+    const requiresPin = Boolean(zone.bypass_requires_pin);
+    if (before.unavailable || (requiresPin && !this._config.pin_configured)) return;
+    const excluded = !before.excluded;
+    const action = excluded ? 'Escludi' : 'Reincludi';
+    const pin = await this._askPin(requiresPin ? 'Codice Sicurezza' : 'Conferma zona', action + ' · ' + zone.name, requiresPin);
+    if (pin === null || !this.isConnected) return;
+    const currentZone = this._config.zones.find(item => item.entity_id === zone.entity_id);
+    const current = currentZone && this._zoneStatus(currentZone);
+    if (!current || currentZone.bypass_entity_id !== id || Boolean(currentZone.bypass_requires_pin) !== requiresPin ||
+      (requiresPin && !this._config.pin_configured) || current.unavailable || current.excluded !== before.excluded ||
+      this._busy.has(id)) {
+      this._zoneNotice = 'Stato cambiato · ' + zone.name + '. Controlla la zona prima di riprovare.';
+      this._render();
       return;
+    }
+    this._zoneNotice = '';
+    this._busy.add(id);
+    this._render();
+    try {
+      await this._hass.callWS({
+        type:'cl_control/security/zone_exclusion', zone_entity_id:zone.entity_id, entity_id:id, excluded,
+        ...(requiresPin ? {pin} : {}),
+      });
+    } catch (error) {
+      this._zoneNotice = zone.name + ' · ' + this._friendlyError(error);
     } finally {
-      this._busy.delete(entityId); this._render();
+      this._busy.delete(id);
+      this._render();
     }
   }
 
@@ -585,20 +660,20 @@ class CLSecurityCard extends HTMLElement {
     return 'Impossibile completare il comando.';
   }
 
-  _askPin(title, description) {
+  _askPin(title, description, requiresPin = true) {
     return new Promise(resolve => {
       const overlay = this.shadowRoot.getElementById('overlay');
-      overlay.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pinTitle"><form id="pinForm"><h3 id="pinTitle">${esc(title)}</h3><p>${esc(description)}</p><input id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required aria-label="PIN Sicurezza"><div id="dialogError" class="dialogError"></div><div class="dialogActions"><button type="button" class="cmd" id="dialogCancel">Annulla</button><button type="submit" class="cmd primary">Conferma</button></div></form></div>`;
+      overlay.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pinTitle"><form id="pinForm"><h3 id="pinTitle">${esc(title)}</h3><p>${esc(description)}</p>${requiresPin ? '<input id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required aria-label="PIN Sicurezza"><div id="dialogError" class="dialogError"></div>' : ''}<div class="dialogActions"><button type="button" class="cmd" id="dialogCancel">Annulla</button><button type="submit" class="cmd primary">Conferma</button></div></form></div>`;
       overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false');
-      overlay.querySelector('#dialogCancel')?.addEventListener('click', () => { this._closeDialog(); resolve(null); });
-      overlay.querySelector('#pinForm')?.addEventListener('submit', event => {
+      overlay.querySelector('#dialogCancel').onclick = () => { this._closeDialog(); resolve(null); };
+      overlay.querySelector('#pinForm').onsubmit = event => {
         event.preventDefault();
-        const value = overlay.querySelector('#pinInput')?.value || '';
-        if (!/^\d{4,12}$/.test(value)) { this._showDialogError('Usa un PIN numerico da 4 a 12 cifre.'); return; }
+        const value = requiresPin ? overlay.querySelector('#pinInput').value : '';
+        if (requiresPin && !/^\d{4,12}$/.test(value)) { this._showDialogError('Usa un PIN numerico da 4 a 12 cifre.'); return; }
         this._closeDialog();
         resolve(value);
-      });
-      queueMicrotask(() => overlay.querySelector('#pinInput')?.focus());
+      };
+      queueMicrotask(() => overlay.querySelector(requiresPin ? '#pinInput' : '#dialogCancel')?.focus());
     });
   }
 
