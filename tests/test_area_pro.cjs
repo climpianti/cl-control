@@ -14,6 +14,7 @@ fs.mkdirSync(out,{recursive:true});
  await page.evaluate(()=>{
   window.hass={states:{
    'sensor.temperature':{state:'19.3714027404785',attributes:{unit_of_measurement:'°C'}},
+   'sensor.temperature_coarse':{state:'20',attributes:{unit_of_measurement:'°C'}},
    'sensor.humidity':{state:'54.9758911132812',attributes:{unit_of_measurement:'%'}},
    'sensor.co2':{state:'445.0',attributes:{unit_of_measurement:'ppm'}},
    'sensor.power':{state:'0',attributes:{unit_of_measurement:'W'}},
@@ -22,7 +23,7 @@ fs.mkdirSync(out,{recursive:true});
   window.card=document.createElement('cl-control-area-pro-card');
   card.setConfig({area:'camera_da_letto',name:'Camera da letto',icon:'mdi:bed',
    navigation_path:'area-camera-da-letto',
-   telemetry:{temperature:['sensor.temperature'],humidity:['sensor.humidity'],
+   telemetry:{temperature:['sensor.temperature_coarse','sensor.temperature'],humidity:['sensor.humidity'],
     carbon_dioxide:['sensor.co2'],power:['sensor.power'],motion:['binary_sensor.motion']}});
   card.hass=hass;document.querySelector('main').append(card);
  });
