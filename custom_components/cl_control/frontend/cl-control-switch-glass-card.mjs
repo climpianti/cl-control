@@ -1,4 +1,4 @@
-import { readInstantPower } from './cl-control-power-badge.mjs';
+import { readInstantPower, INSTANT_POWER_BADGE_CSS } from './cl-control-power-badge.mjs';
 /* CL Control Blue Tech Glass switch — circular power, no slider. */
 class CLSwitchGlassCard extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._config={};this._hass=null;this._busy=false;}
@@ -24,8 +24,7 @@ class CLSwitchGlassCard extends HTMLElement {
       .identity{flex:1;min-width:0}
       strong{display:block;font-size:18px;font-weight:700;line-height:1.3;letter-spacing:-.3px;overflow-wrap:anywhere;color:#fff}
       small{display:block;margin-top:7px;font-size:13px;color:#bac6dc}
-      .meter{color:#ffd27e;font-size:12px;font-variant-numeric:tabular-nums}
-      .meter ha-icon{--mdc-icon-size:14px;vertical-align:middle;margin-right:3px}
+      ${INSTANT_POWER_BADGE_CSS}
       .power{width:58px;height:58px;min-width:58px;display:grid;place-items:center;border:1px solid rgba(142,178,211,.42);border-radius:50%;
         background:linear-gradient(145deg,#303a49,#202936);color:#9ca8b8;cursor:pointer;box-shadow:inset 0 1px 1px #ffffff24,0 3px 10px #0004;transition:background .18s,box-shadow .18s}
       .power[aria-checked=true]{color:#422d0d;background:linear-gradient(140deg,#ffe09a,#e9aa34);border-color:#ffe5ab;box-shadow:0 0 18px #f3bd4b77,inset 0 1px 2px #ffffff88}
@@ -36,7 +35,7 @@ class CLSwitchGlassCard extends HTMLElement {
       @media(prefers-reduced-motion:reduce){.power{transition:none}}
     </style>
     <ha-card><button class="device" id="details" aria-label="Dettagli ${esc(name)}"><ha-icon icon="${esc(this._config.icon||s?.attributes?.icon||'mdi:toggle-switch-outline')}"></ha-icon></button>
-    <div class="identity"><strong>${esc(name)}</strong><small>${available?(on?'Acceso':'Spento'):'Non disponibile'}</small>${watts?`<small class="meter"><ha-icon icon="mdi:flash"></ha-icon>${esc(watts)}</small>`:''}</div>
+    <div class="identity"><strong>${esc(name)}</strong><small>${available?(on?'Acceso':'Spento'):'Non disponibile'}</small>${watts?`<small class="cl-power-meter" aria-label="Potenza istantanea ${esc(watts)}"><span class="cl-power-symbol" aria-hidden="true">⚡</span><span class="cl-power-value">${esc(watts)}</span></small>`:''}</div>
     <button class="power" id="power" role="switch" aria-label="Accensione ${esc(name)}" aria-checked="${on}" ${!available||this._busy?'disabled':''}><ha-icon icon="mdi:power"></ha-icon></button></ha-card>`;
     this.shadowRoot.querySelector('#details').onclick=()=>this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:this._config.entity},bubbles:true,composed:true}));
     this.shadowRoot.querySelector('#power').onclick=async()=>{
