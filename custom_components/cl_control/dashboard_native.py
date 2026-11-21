@@ -1463,6 +1463,29 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
             for area in group["areas"]:
                 if area["native"]:
                     use_picture = bool(area.get("picture")) and area.get("show_picture", True)
+                    if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) >= LEVEL_RANK["pro"]:
+                        # Pro uses a dedicated responsive full-width area summary:
+                        # HA native compact area cards truncate multiple metrics on phones.
+                        # Send entity IDs only: frontend reads live states via hass.
+                        telemetry = {
+                            kind: [item["entity_id"] for item in (area.get("telemetry") or {}).get(kind, [])]
+                            for kind in AREA_SENSOR_CLASSES + AREA_ALERT_CLASSES
+                        }
+                        power_entity = str(
+                            (model.get("area_power_entities") or {}).get(area["id"]) or ""
+                        )
+                        telemetry["power"] = [power_entity] if power_entity else []
+                        area_cards.append({
+                            "type": "custom:cl-control-area-pro-card",
+                            "area": area["id"],
+                            "name": area["name"],
+                            "icon": area.get("icon") or "mdi:home-outline",
+                            "picture": area.get("picture", "") if use_picture else "",
+                            "navigation_path": area["path"],
+                            "telemetry": telemetry,
+                            "grid_options": {"columns": 12, "rows": "auto"},
+                        })
+                        continue
                     area_card = {
                         "type": "area",
                         "area": area["id"],
