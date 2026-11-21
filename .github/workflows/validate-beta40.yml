@@ -1,4 +1,4 @@
-name: Validate and publish CL Control 3.5.3-beta.40 two-column photo Area Pro
+name: Validate CL Control 3.5.3-beta.40 two-column photo Area Pro
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
