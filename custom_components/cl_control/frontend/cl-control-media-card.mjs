@@ -53,6 +53,7 @@ export class CLControlMediaCard extends HTMLElement {
     .power ha-icon{--mdc-icon-size:20px}
     .notice{position:absolute;left:24px;top:150px;font-size:11px;color:#bfc7d4;right:165px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
     .error{position:absolute;inset:0;z-index:5;background:#17202df2;display:grid;place-items:center;padding:24px;text-align:center;font-size:13px}
+    .alexa[hidden]{display:none!important}
     .error[hidden]{display:none}
     @media(prefers-reduced-motion:reduce){button{transition:none}}
     .more,.mute,.tool,.power,.round{min-width:44px;min-height:44px}.volume-step button{min-height:44px}input[type=range]{height:24px;background-size:100% 7px!important;background-repeat:no-repeat!important;background-position:center!important}
@@ -75,13 +76,14 @@ export class CLControlMediaCard extends HTMLElement {
       <div class="bottom">
         <button class="mute" aria-label="Attiva o disattiva audio" title="Audio"><ha-icon icon="mdi:volume-high"></ha-icon></button>
         <div class="volume"><div class="slider-wrap"><input type="range" min="0" max="100" step="1" aria-label="Volume"></div><div class="volume-step" hidden><button class="minus" aria-label="Diminuisci volume"><ha-icon icon="mdi:minus"></ha-icon></button><button class="plus" aria-label="Aumenta volume"><ha-icon icon="mdi:plus"></ha-icon></button></div></div>
-        <div class="tools"><button class="tool sources" aria-label="Sorgenti e app" title="Sorgenti e app"><ha-icon icon="mdi:play-box-multiple-outline"></ha-icon><select aria-label="Seleziona sorgente" hidden></select></button><button class="tool remote" aria-label="Apri telecomando completo" title="Telecomando completo"><ha-icon icon="mdi:remote-tv"></ha-icon></button></div>
+        <div class="tools"><button class="tool alexa" hidden aria-label="Funzioni Alexa" title="Funzioni Alexa"><ha-icon icon="mdi:amazon-alexa"></ha-icon></button><button class="tool sources" aria-label="Sorgenti e app" title="Sorgenti e app"><ha-icon icon="mdi:play-box-multiple-outline"></ha-icon><select aria-label="Seleziona sorgente" hidden></select></button><button class="tool remote" aria-label="Apri telecomando completo" title="Telecomando completo"><ha-icon icon="mdi:remote-tv"></ha-icon></button></div>
       </div>
       <div class="error" hidden role="alert"></div>
     </ha-card>`;
     const q=s=>this.shadowRoot.querySelector(s);
     q('.more').onclick=()=>this._more();
     q('.remote').onclick=()=>this._navigate();
+    q('.alexa').onclick=()=>this._showAlexa();
     q('.cover').onclick=()=>this._navigate();
     q('.sources').onclick=e=>{if(e.target.tagName!=='SELECT' && !this._sources?.length) this._more();};
     q('select').onchange=e=>{if(e.target.value) this._call('media_player','select_source',{source:e.target.value});};
@@ -105,9 +107,11 @@ export class CLControlMediaCard extends HTMLElement {
     this._state=s;this._features=Number(s?.attributes.supported_features||0);
     this._online=!!s && !['off','unavailable','unknown'].includes(s.state);
     this._syncRemoteDialog();
+    this._syncAlexaDialog();
     const a=s?.attributes||{},f=this._features;
     q('.name').textContent=this._config.name||a.friendly_name||this._config.entity; q('.name').title=q('.name').textContent;
-    q('.device').setAttribute('icon',this._config.icon||'mdi:speaker');
+    q('.device').setAttribute('icon',this._config.icon||(this._config.alexa_entities?.length?'mdi:amazon-alexa':'mdi:speaker'));
+    q('.alexa').hidden=!this._config.alexa_entities?.length;
     const stateNames={off:'Spento',unavailable:'Non raggiungibile',unknown:'Stato non disponibile',paused:'In pausa',idle:'Pronto',on:'Acceso',playing:'In riproduzione'};
     q('.subtitle').textContent=this._online?(a.media_title||a.source||this._config.subtitle||stateNames[s.state]):(stateNames[s?.state]||'Non disponibile');
     q('.notice').textContent=this._online?(this._config.subtitle||''):(!this._config.wake_entity && !(f&128)?'Accensione non configurata':'');
@@ -149,6 +153,147 @@ export class CLControlMediaCard extends HTMLElement {
     if(typeof path==='string' && /^\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_/-]+$/.test(path)){
       history.pushState(null,'',path);window.dispatchEvent(new Event('location-changed'));
     }else this._more();
+  }
+
+  _showAlexa(){
+    const members=Array.isArray(this._config.alexa_entities)?this._config.alexa_entities:[];
+    if(!members.length)return;
+    const prior=this.shadowRoot.querySelector('dialog.cl-alexa-modal');
+    if(prior?.open)return;
+    prior?.remove();
+    const make=(tag,cls,text)=>{
+      const el=document.createElement(tag);
+      if(cls)el.className=cls;
+      if(text!==undefined)el.textContent=text;
+      return el;
+    };
+    const dialog=make('dialog','cl-alexa-modal');
+    dialog.setAttribute('aria-label','Funzioni e stati Alexa');
+    const style=make('style');
+    style.textContent=[
+      'dialog.cl-alexa-modal{border:1px solid #83bffbb0;border-radius:24px;padding:0;width:min(470px,calc(100vw - 20px));max-width:calc(100vw - 20px);max-height:88dvh;overflow:auto;color:#f7faff;color-scheme:dark;background:linear-gradient(145deg,#173b59,#171e30 55%,#281d3d);box-shadow:0 25px 70px #000b,inset 0 1px 2px #ffffff40}',
+      'dialog.cl-alexa-modal::backdrop{background:#07121ecf;backdrop-filter:blur(6px)}',
+      '.cl-alexa-modal .alexa-shell{padding:17px;display:grid;gap:12px;font-family:var(--paper-font-body1_-_font-family,Arial,sans-serif)}',
+      '.cl-alexa-modal .alexa-head{display:flex;align-items:start;justify-content:space-between;gap:10px}',
+      '.cl-alexa-modal h2{font-size:19px;margin:0;line-height:1.3}.cl-alexa-modal p{font-size:12px;color:#bed1e7;margin:4px 0 0;line-height:1.5}',
+      '.cl-alexa-modal .alexa-list{display:grid;gap:8px}',
+      '.cl-alexa-modal .alexa-row{min-height:64px;padding:10px 12px;border-radius:16px;border:1px solid #81c0f333;background:#ffffff0d;display:grid;grid-template-columns:29px minmax(0,1fr) auto;gap:10px;align-items:center}',
+      '.cl-alexa-modal .alexa-row[data-available=false]{opacity:.55}',
+      '.cl-alexa-modal .alexa-icon{--mdc-icon-size:25px;color:#9acbff}',
+      '.cl-alexa-modal .alexa-name{font-size:14px;line-height:1.4;font-weight:650;overflow-wrap:anywhere}',
+      '.cl-alexa-modal .alexa-status{font-size:12px;color:#bed0e3;margin-top:3px;overflow-wrap:anywhere}',
+      '.cl-alexa-modal button{border:1px solid #9dcdf746;min-height:44px;min-width:44px;color:#f5f8ff;border-radius:13px;background:linear-gradient(145deg,#367dab55,#6347a366);font:inherit;cursor:pointer;padding:7px 11px}',
+      '.cl-alexa-modal button[data-on=true]{background:linear-gradient(125deg,#2588ad,#694cc2);box-shadow:0 0 15px #517cdd55}',
+      '.cl-alexa-modal button:disabled,.cl-alexa-modal select:disabled,.cl-alexa-modal input:disabled{opacity:.37;cursor:default}',
+      '.cl-alexa-modal select,.cl-alexa-modal input{min-height:44px;max-width:136px;border-radius:11px;border:1px solid #87bfed55;background:#101f35;color:white;padding:8px;font:inherit;font-size:13px}',
+      '.cl-alexa-modal input{max-width:85px}.cl-alexa-modal button:focus-visible,.cl-alexa-modal select:focus-visible,.cl-alexa-modal input:focus-visible{outline:2px solid #6dccff;outline-offset:3px}',
+      '.cl-alexa-modal .alexa-feedback{min-height:15px;color:#ffccdc}',
+      '@media(max-width:360px){.cl-alexa-modal .alexa-shell{padding:12px}.cl-alexa-modal .alexa-row{padding:9px 8px;gap:7px;grid-template-columns:24px minmax(0,1fr) auto}.cl-alexa-modal .alexa-name{font-size:13px}.cl-alexa-modal select{max-width:100px}}'
+    ].join('\n');
+    const shell=make('div','alexa-shell'),head=make('div','alexa-head'),intro=make('div');
+    intro.append(make('h2','',this._config.name||'Dispositivo Alexa'));
+    intro.append(make('p','','Comandi e sensori dello stesso dispositivo Echo'));
+    const close=make('button','','✕');
+    close.type='button';close.setAttribute('aria-label','Chiudi funzioni Alexa');
+    close.onclick=()=>dialog.close();
+    head.append(intro,close);shell.append(head);
+    const list=make('div','alexa-list');
+    const icons={switch:'mdi:toggle-switch',light:'mdi:lightbulb',select:'mdi:form-dropdown',number:'mdi:tune',button:'mdi:gesture-tap-button',sensor:'mdi:thermometer',binary_sensor:'mdi:motion-sensor',remote:'mdi:remote'};
+    for(const member of members){
+      if(!member||typeof member.entity!=='string'||!member.entity.includes('.'))continue;
+      const row=make('div','alexa-row');row.dataset.entity=member.entity;
+      const icon=make('ha-icon','alexa-icon');
+      icon.setAttribute('icon',member.icon||icons[member.domain]||'mdi:information-outline');
+      const info=make('div');
+      info.append(make('div','alexa-name',member.name||member.entity),make('div','alexa-status',''));
+      const controls=make('div','alexa-controls');
+      if(['switch','light'].includes(member.domain)){
+        const toggle=make('button','alexa-toggle','OFF');
+        toggle.type='button';toggle.setAttribute('aria-label','Attiva o disattiva '+(member.name||member.entity));
+        toggle.onclick=()=>this._callAlexa(member,this._hass?.states?.[member.entity]?.state==='on'?'turn_off':'turn_on');
+        controls.append(toggle);
+      }else if(member.domain==='select'){
+        const select=make('select');
+        select.setAttribute('aria-label','Seleziona '+(member.name||member.entity));
+        select.onchange=()=>{if(select.value)this._callAlexa(member,'select_option',{option:select.value});};
+        controls.append(select);
+      }else if(member.domain==='number'){
+        const input=make('input');input.type='number';
+        input.setAttribute('aria-label','Valore '+(member.name||member.entity));
+        input.onchange=()=>{const value=Number(input.value);if(input.value!==''&&Number.isFinite(value))this._callAlexa(member,'set_value',{value});};
+        controls.append(input);
+      }else{
+        const button=make('button','alexa-action',member.domain==='button'?'Esegui':'Dettagli');
+        button.type='button';
+        button.setAttribute('aria-label',(member.domain==='button'?'Esegui ':'Dettagli ')+(member.name||member.entity));
+        button.onclick=()=>member.domain==='button'?this._callAlexa(member,'press'):this._moreAlexa(member.entity);
+        controls.append(button);
+      }
+      row.append(icon,info,controls);list.append(row);
+    }
+    shell.append(list);
+    const feedback=make('p','alexa-feedback','');
+    feedback.setAttribute('role','status');feedback.setAttribute('aria-live','polite');shell.append(feedback);
+    dialog.append(style,shell);
+    dialog.addEventListener('close',()=>{dialog.remove();this.shadowRoot.querySelector('.alexa')?.focus();},{once:true});
+    this.shadowRoot.append(dialog);
+    this._syncAlexaDialog();dialog.showModal();close.focus();
+  }
+  _syncAlexaDialog(){
+    const dialog=this.shadowRoot?.querySelector('dialog.cl-alexa-modal');
+    if(!dialog||!this._hass)return;
+    for(const row of dialog.querySelectorAll('.alexa-row')){
+      const member=(this._config.alexa_entities||[]).find(m=>m?.entity===row.dataset.entity);
+      if(!member)continue;
+      const state=this._hass.states?.[member.entity],attrs=state?.attributes||{};
+      const offline=!state||['unknown','unavailable'].includes(state.state);
+      row.dataset.available=String(!offline);
+      const value=!state?'':state.state;
+      row.querySelector('.alexa-status').textContent=offline?'Non disponibile':(member.domain==='binary_sensor'
+        ?(value==='on'?'Rilevato':value==='off'?'Non rilevato':value)
+        :value==='on'?'Acceso':value==='off'?'Spento':value)
+        +(attrs.unit_of_measurement?' '+attrs.unit_of_measurement:'');
+      const toggle=row.querySelector('.alexa-toggle');
+      if(toggle){
+        const on=value==='on';toggle.dataset.on=String(on);
+        toggle.textContent=on?'ON':'OFF';toggle.disabled=offline||this._busy;
+      }
+      const select=row.querySelector('select');
+      if(select){
+        const opts=Array.isArray(attrs.options)?attrs.options.filter(o=>typeof o==='string'):[];
+        if(select.dataset.options!==JSON.stringify(opts)){
+          select.dataset.options=JSON.stringify(opts);select.replaceChildren();
+          for(const option of opts){const el=document.createElement('option');el.value=option;el.textContent=option;select.append(el);}
+        }
+        select.disabled=offline||this._busy||!opts.length;
+        if(this.shadowRoot.activeElement!==select)select.value=opts.includes(value)?value:'';
+      }
+      const input=row.querySelector('input');
+      if(input){
+        for(const key of ['min','max','step'])if(attrs[key]!==undefined&&Number.isFinite(Number(attrs[key])))input[key]=String(attrs[key]);
+        input.disabled=offline||this._busy;
+        if(this.shadowRoot.activeElement!==input)input.value=offline?'':value;
+      }
+      const action=row.querySelector('.alexa-action');
+      if(action)action.disabled=offline||this._busy;
+    }
+  }
+  _moreAlexa(entity){
+    this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:entity},bubbles:true,composed:true}));
+  }
+  async _callAlexa(member,service,data={}){
+    if(this._busy||!this._hass)return;
+    const state=this._hass.states?.[member.entity];
+    if(!state||['unknown','unavailable'].includes(state.state))return;
+    this._busy=true;this._syncAlexaDialog();
+    try{
+      await this._hass.callService(member.domain,service,{...data,entity_id:member.entity});
+      const label=this.shadowRoot.querySelector('.alexa-feedback');
+      if(label)label.textContent='';
+    }catch(error){
+      const label=this.shadowRoot.querySelector('.alexa-feedback');
+      if(label)label.textContent='Comando non riuscito. Verifica il dispositivo.';
+    }finally{this._busy=false;this._syncAlexaDialog();}
   }
   _remoteCommands(){
     // A paired HA device does not imply that its remote accepts universal key names.
