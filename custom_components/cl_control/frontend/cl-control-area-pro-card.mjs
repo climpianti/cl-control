@@ -11,7 +11,6 @@ const ALERTS=[
   ['presence','Presenza','mdi:account-check'],
 ];
 const INVALID=new Set(['','unknown','unavailable','none','null']);
-const own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
 
 export function areaMetric(kind,entities,hass){
   // Only select a valid state from eligible, visible registry entities.
@@ -75,7 +74,6 @@ button{font:inherit}
 .alert{display:flex;align-items:center;gap:4px;font-size:12px;color:#ffdb9a;background:#ffbb4a1b;border:1px solid #ffcf7c40;padding:5px 8px;border-radius:12px}
 .alert ha-icon{--mdc-icon-size:17px}
 .empty{color:#bdcadd;font-size:13px;margin:10px 0 0}
-@container (max-width:260px){.metrics{grid-template-columns:1fr}.name{font-size:15px}}
 @media(max-width:360px){.card{padding:13px}.metrics{gap:7px}.metric{padding:7px}.metric .value{font-size:14px}.name{font-size:15px}}
 @media(prefers-reduced-motion:reduce){.card{transition:none}}
 `;
@@ -133,7 +131,7 @@ export class CLControlAreaProCard extends HTMLElement{
     target.replaceChildren(...alerts.map(({kind,label})=>{
       const pill=document.createElement('span');pill.className='alert';
       const i=document.createElement('ha-icon');i.setAttribute('icon',ALERTS.find(a=>a[0]===kind)[2]);
-      const caption=document.createElement('span');caption.textContent=label+' rilevata';pill.append(i,caption);return pill;
+      const caption=document.createElement('span');caption.textContent=label+(kind==='motion'?' rilevato':' rilevata');pill.append(i,caption);return pill;
     }));
     target.hidden=!alerts.length;
     root.querySelector('.empty').hidden=active.length>0||alerts.length>0;
