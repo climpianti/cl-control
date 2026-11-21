@@ -206,11 +206,15 @@ def _resolve_area(
 def _entity_name(entity: dict[str, Any], ui: dict[str, Any]) -> str:
     entity_id = str(entity["entity_id"])
     aliases = ui.get("aliases") or {}
-    if aliases.get(entity_id):
-        return str(aliases[entity_id])
-    for key in ("name", "original_name"):
-        if entity.get(key):
-            return str(entity[key])
+    alias = str(aliases.get(entity_id) or "").strip()
+    if alias:
+        return alias
+    # Respect explicit HA overrides, then HA's resolved display name; this
+    # includes device-level names for Shelly multi-channel light entities.
+    for key in ("name", "friendly_name", "original_name"):
+        value = str(entity.get(key) or "").strip()
+        if value:
+            return value
     return entity_id.split(".", 1)[-1].replace("_", " ").strip().title()
 
 
@@ -1941,6 +1945,12 @@ class NativeDashboardService:
                 if device is not None:
                     area_id = dr.async_get_effective_area_id(self.hass, device)
             category = getattr(entry.entity_category, "value", entry.entity_category)
+            # Read only display metadata; never copy runtime state values.
+            state = self.hass.states.get(entry.entity_id)
+            friendly_name = (
+                str(state.attributes.get("friendly_name") or "").strip()
+                if state is not None else ""
+            )
             entities.append(
                 {
                     "entity_id": entry.entity_id,
@@ -1955,6 +1965,7 @@ class NativeDashboardService:
                     "entity_category": str(category or ""),
                     "name": entry.name,
                     "original_name": entry.original_name,
+                    "friendly_name": friendly_name,
                     "icon": entry.icon or entry.original_icon,
                     "supported_features": entry.supported_features or 0,
                     "device_class": str(

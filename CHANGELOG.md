@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.5.3-beta.36 — Nomi Shelly e Home Assistant
+
+- Correzione fallback nome di canali Shelly senza nome nel registro.
+- Preservati alias e override HA; uso di friendly_name prima del nome originale e dell'ID tecnico.
+- Aggiunti test per i canali LED Letto, LED Bagno e LED Cameretta e test dello snapshot metadati.
+
+
 ## 3.5.3-beta.17 — Modifica scenari e priorità delle azioni
 
 - Menu secondario ⋮ con Modifica ed Elimina; Avvia evidenziato con gradiente blu/viola, conservando la conferma di attivazione.
