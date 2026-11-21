@@ -60,7 +60,7 @@ fs.mkdirSync(out,{recursive:true});
  }
  await page.setViewportSize({width:320,height:900});
  await page.evaluate(()=>{hass.states['sensor.co2'].state='1234';card.hass=hass;});
- assert.equal(await value('carbon_dioxide'),'1.234 ppm');
+ assert.equal(await value('carbon_dioxide'),'1234 ppm');
  const longValue=await page.evaluate(()=>{
   const el=card.shadowRoot.querySelector('[data-kind="carbon_dioxide"] .value');
   return {width:el.clientWidth,scrollWidth:el.scrollWidth,whiteSpace:getComputedStyle(el).whiteSpace};
