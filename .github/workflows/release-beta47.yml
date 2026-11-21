@@ -1,0 +1,86 @@
+name: Validate and publish CL Control 3.5.3-beta.47 Alexa Unified Media
+
+on:
+  push:
+    branches:
+      - beta/3.5.3-beta.47
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify version and Python syntax
+        run: |
+          python -m compileall -q custom_components/cl_control tests
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          v = "3.5.3-beta.47"
+          assert json.loads(Path("custom_components/cl_control/manifest.json").read_text())["version"] == v
+          assert f'VERSION = "{v}"' in Path("custom_components/cl_control/const.py").read_text()
+          assert f'ASSET_REVISION = "{v}-alexa-unified"' in Path("custom_components/cl_control/frontend.py").read_text()
+          PY
+      - name: Python offline regressions (including Alexa grouping)
+        run: python tests/run_offline.py
+      - name: Check all JavaScript syntax
+        run: |
+          for file in custom_components/cl_control/frontend/*.mjs; do node --check "$file"; done
+          for file in tests/*.cjs; do node --check "$file"; done
+      - name: Verify entity power formatting
+        run: node tests/test_card_power.cjs
+      - name: Install browser test dependencies
+        run: |
+          npm install --no-save playwright@1.62.1 @mdi/js@7.4.47
+          npx playwright install --with-deps chromium
+      - name: Browser regressions: Alexa, Multimedia, Home, Pro and Installer
+        run: |
+          node tests/test_media_glass.cjs
+          node tests/test_alexa_media.cjs
+          node tests/test_home_glass.cjs
+          node tests/test_area_pro.cjs
+          node tests/test_light_memories_ui.cjs
+          node tests/test_scenes_guided.cjs
+          node tests/test_switch_glass_power.cjs
+          node tests/test_installer_layout.cjs
+      - name: Browser regressions: Energy and Security
+        run: |
+          node tests/test_energy_curves.cjs
+          node tests/test_energy_visual_parity.cjs
+          node tests/test_energy_power_series.cjs
+          node --test tests/test_energy_recorder_failures.cjs
+          node tests/test_energy_missing_data.cjs
+          node tests/test_energy_schematic.cjs
+          node tests/test_security_partitions.cjs
+          node tests/test_security_zones.cjs
+      - name: Build and validate release archive
+        run: python scripts/build_release.py
+      - name: Upload verified zip and preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: cl-control-beta47-verified
+          path: |
+            dist/cl-control-3.5.3-beta.47.zip
+            dist/SHA256SUMS.txt
+            test-artifacts/beta47-preview/*.png
+          if-no-files-found: error
+      - name: Publish prerelease only after successful tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v3.5.3-beta.47 \
+            dist/cl-control-3.5.3-beta.47.zip dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" \
+            --title "CL Control 3.5.3-beta.47 - Alexa Unified Media" \
+            --prerelease \
+            --notes-file docs/RELEASE_BETA47.md
