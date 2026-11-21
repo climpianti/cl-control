@@ -13,7 +13,9 @@ const ALERTS=[
 const INVALID=new Set(['','unknown','unavailable','none','null']);
 
 export function areaMetric(kind,entities,hass){
-  // Only select a valid state from eligible, visible registry entities.
+  // Pick one valid source. For multiple room temperature/humidity sensors,
+  // prefer the sensor with finer reported precision over whole-degree values.
+  let best=null, bestPrecision=-1;
   for(const id of Array.isArray(entities)?entities:[]){
     const state=hass?.states?.[id];
     if(!state||INVALID.has(String(state.state).trim().toLowerCase()))continue;
@@ -37,9 +39,13 @@ export function areaMetric(kind,entities,hass){
       suffix=watts>=1000?'kW':'W';
       display=new Intl.NumberFormat('it-IT',{maximumFractionDigits:watts>=1000?2:1}).format(watts>=1000?watts/1000:watts);
     }else continue;
-    return {id,value,unit:suffix,text:`${display} ${suffix}`};
+    const precise=(String(state.state).split('.')[1]||'').replace(/0+$/,'').length;
+    const precision=Math.min(precise,3);
+    if(!best||(['temperature','humidity'].includes(kind)&&precision>bestPrecision)){
+      best={id,value,unit:suffix,text:`${display} ${suffix}`};bestPrecision=precision;
+    }
   }
-  return null;
+  return best;
 }
 
 export function areaAlerts(config,hass){
