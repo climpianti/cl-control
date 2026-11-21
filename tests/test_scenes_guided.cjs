@@ -9,7 +9,7 @@ const html=fixture.replace('<html lang="it">','<html lang="it"><meta charset="ut
  .replace("this.style.display='block'","this.style.display='block';this.style.color='var(--primary-text-color, #111111)'");
 const server=http.createServer((req,res)=>{
  res.setHeader('Content-Type',req.url.endsWith('.mjs')?'text/javascript':'text/html');
- res.end(req.url==='/card.mjs'?fs.readFileSync(asset):req.url==='/baseline.mjs'?baseline:html.replace("from '/card.mjs'",req.url.startsWith('/before')?"from '/baseline.mjs'":"from '/card.mjs'"));
+ res.end(req.url==='/cl-control-power-badge.mjs'?fs.readFileSync(path.join(path.dirname(asset),'cl-control-power-badge.mjs')):req.url==='/card.mjs'?fs.readFileSync(asset):req.url==='/baseline.mjs'?baseline:html.replace("from '/card.mjs'",req.url.startsWith('/before')?"from '/baseline.mjs'":"from '/card.mjs'"));
 });
 async function prepare(page,url){
  await page.goto(url);await page.waitForFunction(()=>window.ready);
