@@ -43,7 +43,7 @@ jobs:
         run: |
           npm install --no-save playwright@1.62.1 @mdi/js@7.4.47
           npx playwright install --with-deps chromium
-      - name: Browser regressions: Alexa, Multimedia, Home, Pro and Installer
+      - name: "Browser regressions - Alexa, Multimedia, Home, Pro and Installer"
         run: |
           node tests/test_media_glass.cjs
           node tests/test_alexa_media.cjs
@@ -53,7 +53,7 @@ jobs:
           node tests/test_scenes_guided.cjs
           node tests/test_switch_glass_power.cjs
           node tests/test_installer_layout.cjs
-      - name: Browser regressions: Energy and Security
+      - name: "Browser regressions - Energy and Security"
         run: |
           node tests/test_energy_curves.cjs
           node tests/test_energy_visual_parity.cjs
