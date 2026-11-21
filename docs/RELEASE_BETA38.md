@@ -1,4 +1,4 @@
-# CL Control 3.5.3-beta.38 — uniformità potenza Blue Tech Glass (bozza)
+# CL Control 3.5.3-beta.38 — uniformità potenza Blue Tech Glass
 
 Base: **v3.5.3-beta.37**, già collaudata su impianti reali. `main` invariato.
 
@@ -19,5 +19,7 @@ Base: **v3.5.3-beta.37**, già collaudata su impianti reali. `main` invariato.
 - Test browser Installatore, anteprima automatica/manuale/off, anche con 0 W.
 - Suite regressione completa Home, Luci, Scenari, Multimedia, Energia, creazione ZIP senza rilascio.
 
-## Stato
-Sviluppo su `beta/3.5.3-beta.38`. Pubblicazione GitHub e installazione demo **solo dopo CI verde e verifica**.
+## Stato e rilascio
+Sviluppo su `beta/3.5.3-beta.38`; `main` stabile invariato. Suite GitHub Actions già superata nel dry-run (run #44909703311), comprensiva di Python, JavaScript, browser, Energia e creazione ZIP.
+La pubblicazione come prerelease è gestita dal workflow `release-beta38.yml` e richiede il superamento dei test prima della creazione del tag e dell'asset ZIP. L'installazione sulla demo è un passaggio separato, da verificare dopo la pubblicazione.
+Rollback: reinstallare `v3.5.3-beta.37` e riavviare Home Assistant se necessario. Nessuna migrazione dati richiesta.
