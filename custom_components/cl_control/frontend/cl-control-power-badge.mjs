@@ -21,7 +21,7 @@ export function readInstantPower(hass, entityId) {
  * Keep the measurement separate from the on/off state: a valid 0 W is visible.
  */
 export const INSTANT_POWER_BADGE_CSS = `
-  .cl-power-meter {
+  .identity .cl-power-meter {
     display: inline-flex;
     align-items: center;
     flex-wrap: wrap;
@@ -36,7 +36,7 @@ export const INSTANT_POWER_BADGE_CSS = `
     font-variant-numeric: tabular-nums;
     overflow-wrap: anywhere;
   }
-  .cl-power-meter[hidden] { display: none !important; }
+  .identity .cl-power-meter[hidden] { display: none !important; }
   .cl-power-symbol { color: #ffbf4c; font-size: 16px; line-height: 1; }
   .cl-power-value { min-width: 0; }
 `;
