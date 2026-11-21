@@ -14,7 +14,7 @@ const rooms = [
 ];
 const iconNames = [
   ...rooms.map(room => room[1]), 'mdi:home', 'mdi:thermometer',
-  'mdi:water-percent', 'mdi:molecule-co2', 'mdi:flash',
+  'mdi:water-percent', 'mdi:molecule-co2', 'mdi:flash', 'mdi:motion-sensor', 'mdi:account-check', 'mdi:account-eye',
 ];
 const iconPaths = Object.fromEntries(iconNames.map(name => [
   name, icons['mdi' + name.slice(4).replace(/(^|-)([a-z])/g, (_, separator, letter) => letter.toUpperCase())],
@@ -37,7 +37,7 @@ async function samplePhoto(photoId) {
 }
 
 async function main() {
-  const output = path.resolve(process.env.CL_TEST_ARTIFACTS || 'test-artifacts', 'beta42-preview');
+  const output = path.resolve(process.env.CL_TEST_ARTIFACTS || 'test-artifacts', 'beta43-preview');
   await mkdir(output, { recursive: true });
   const photos = await Promise.all(rooms.map(room => samplePhoto(room[2])));
   const browser = await chromium.launch();
@@ -94,6 +94,12 @@ async function main() {
           telemetry[kind] = [id];
           states[id] = { state: String(values[kindIndex]), attributes: { unit_of_measurement: units[kindIndex] } };
         });
+        const alertKind = ['motion', '', 'presence', 'occupancy'][index];
+        if (alertKind) {
+          const id = 'binary_sensor.' + alertKind;
+          telemetry[alertKind] = [id];
+          states[id] = { state: 'on' };
+        }
         const card = document.createElement('cl-control-area-pro-card');
         card.setConfig({ area: 'area-' + index, name, icon, picture: photos[index], navigation_path: 'area-' + index, telemetry });
         card.hass = { states };

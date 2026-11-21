@@ -55,7 +55,7 @@ REQUIRED_ASSETS = (
     "apple-touch-icon.png",
 )
 LEGACY_ASSET_ROOT = "/local/cl_control/"
-ASSET_REVISION = "3.5.3-beta.42-area-blue-glass"
+ASSET_REVISION = "3.5.3-beta.43-area-photo-alerts"
 
 
 def static_url(version: str) -> str:
