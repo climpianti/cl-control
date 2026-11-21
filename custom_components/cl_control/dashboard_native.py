@@ -1464,7 +1464,7 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                 if area["native"]:
                     use_picture = bool(area.get("picture")) and area.get("show_picture", True)
                     if LEVEL_RANK.get(str(model.get("profile") or "standard"), 1) >= LEVEL_RANK["pro"]:
-                        # Pro uses a dedicated responsive full-width area summary:
+                        # Pro uses a dedicated responsive two-column area summary:
                         # HA native compact area cards truncate multiple metrics on phones.
                         # Send entity IDs only: frontend reads live states via hass.
                         telemetry = {
@@ -1483,7 +1483,9 @@ def build_native_lovelace(model: dict[str, Any]) -> dict[str, Any]:
                             "picture": area.get("picture", "") if use_picture else "",
                             "navigation_path": area["path"],
                             "telemetry": telemetry,
-                            "grid_options": {"columns": 12, "rows": "auto"},
+                            # Two areas per row on phones, without truncating
+                            # their telemetry: the Pro card owns its layout.
+                            "grid_options": {"columns": 6, "rows": "auto"},
                         })
                         continue
                     area_card = {
