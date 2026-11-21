@@ -59,7 +59,8 @@ async function main() {
       const { CLControlDashboardStrategy } = await import('/cl-control-dashboard-strategy.mjs');
       const grid = { columns: 6, rows: 1 };
       const status = { type:'tile', entity:'sensor.area_power', name:'Potenza area', icon:'mdi:flash',
-        color:'#ffd075', grid_options:grid, tap_action:{action:'more-info'} };
+        color:'#ffd075', tap_action:{action:'more-info'} };
+      const surface = { type:'custom:cl-control-home-surface', card:status, grid_options:grid };
       const hass = {
         states: {
           'sensor.area_power': { state:'61.2', attributes:{unit_of_measurement:'W'} },
@@ -70,7 +71,7 @@ async function main() {
           'cover.example': { state:'closed', attributes:{current_position:0} },
         },
         callWS: async ({type}) => type==='cl_control/dashboard/native_config'
-          ? { config:{ views:[{ sections:[{ cards:[status] }] }] }, model:{favorites:[]} } : {items:[]},
+          ? { config:{ views:[{ sections:[{ cards:[surface] }] }] }, model:{favorites:[]} } : {items:[]},
       };
       window.loadCardHelpers = async () => ({
         createCardElement(config) {

@@ -67,9 +67,11 @@ class ProAreaCardTest(unittest.TestCase):
         model = self.model()
         model["home_power_entity"] = "sensor.home_power"
         model["area_power_entities"] = {"room": "sensor.room_watts"}
-        for view in build_native_lovelace(model)["views"][:2]:
-            tile = next(card for section in view["sections"] for card in section["cards"]
-                        if card.get("name") in {"Potenza", "Potenza casa"})
+        views = {view["path"]: view for view in build_native_lovelace(model)["views"]}
+        for path, name in [("home", "Potenza casa"), ("area-room", "Potenza")]:
+            wrapped = next(card for section in views[path]["sections"] for card in section["cards"]
+                           if card.get("card", {}).get("name") == name)
+            tile = wrapped["card"]
             self.assertEqual(tile["icon"], "mdi:flash")
             self.assertEqual(tile["color"], "#ffd075")
             self.assertEqual(tile["tap_action"], {"action": "more-info"})
