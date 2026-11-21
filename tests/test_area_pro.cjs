@@ -58,6 +58,14 @@ fs.mkdirSync(out,{recursive:true});
   assert.ok(dims.columnsSideBySide&&dims.compact&&dims.photo,'photo/compact/two columns '+width+JSON.stringify(dims));
   await page.screenshot({path:path.join(out,'area-pro-'+width+'.png'),fullPage:true});
  }
+ await page.setViewportSize({width:320,height:900});
+ await page.evaluate(()=>{hass.states['sensor.co2'].state='1234';card.hass=hass;});
+ assert.equal(await value('carbon_dioxide'),'1.234 ppm');
+ const longValue=await page.evaluate(()=>{
+  const el=card.shadowRoot.querySelector('[data-kind="carbon_dioxide"] .value');
+  return {width:el.clientWidth,scrollWidth:el.scrollWidth,whiteSpace:getComputedStyle(el).whiteSpace};
+ });
+ assert.ok(longValue.scrollWidth<=longValue.width+1,'long metric clipped '+JSON.stringify(longValue));
  await page.evaluate(()=>{
   hass.states['sensor.power'].state='unavailable';
   hass.states['sensor.humidity'].state='unknown';
