@@ -1,3 +1,4 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
 /* CL Control Media: Glass presentation adapted from the user supplied CL Glass 1.0.1. */
 export class CLControlMediaCard extends HTMLElement {
   setConfig(config) {
@@ -15,7 +16,7 @@ export class CLControlMediaCard extends HTMLElement {
     <style>
     :host{display:block;min-width:0;--accent-a:#39adff;--accent-b:#bd65f3}
     *{box-sizing:border-box}
-    ha-card{position:relative;isolation:isolate;height:224px;width:100%;max-width:820px;margin:auto;overflow:hidden;border-radius:25px;border:1px solid rgba(178,218,255,.4);background:radial-gradient(ellipse at 22% 0%,#253e5d88,transparent 68%),radial-gradient(ellipse at 96% 80%,#542f7366,transparent 65%),linear-gradient(115deg,#18222b,#121721 60%,#201a23);color:#f6f7fb;box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff55;font-family:var(--paper-font-body1_-_font-family,Arial,sans-serif)}
+    ha-card{position:relative;isolation:isolate;height:224px;width:100%;max-width:820px;margin:auto;overflow:hidden;border-radius:25px;color:#f6f7fb;font-family:var(--paper-font-body1_-_font-family,Arial,sans-serif);${GLASS_SURFACE}}
     .blur{position:absolute;inset:-24px;background-position:center;background-size:cover;filter:blur(17px);opacity:.22;z-index:-2;pointer-events:none}
     .veil{position:absolute;inset:0;background:linear-gradient(90deg,#0e17234d,#12162066);z-index:-1;pointer-events:none}
     button{appearance:none;border:0;color:inherit;font:inherit;cursor:pointer;display:grid;place-items:center;background:#ffffff0c;transition:background .15s,transform .15s;touch-action:manipulation;-webkit-tap-highlight-color:transparent}

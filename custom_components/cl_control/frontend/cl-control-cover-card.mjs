@@ -1,3 +1,4 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
 // Glass cover card. Adjusting a draft never moves the cover; Apply dispatches it.
 const FEATURES={open_cover:1,close_cover:2,set_cover_position:4,stop_cover:8,open_cover_tilt:16,close_cover_tilt:32,stop_cover_tilt:64,set_cover_tilt_position:128};
 const position=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&v<=100?Math.round(v):null;
@@ -13,7 +14,7 @@ export class CLControlCoverCard extends HTMLElement {
   _render(){
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;min-width:0;color:#f5f7fc}*{box-sizing:border-box}
-      ha-card{display:block;padding:16px;border-radius:25px;border:1px solid #b2daff66;background:radial-gradient(ellipse at 22% 0%,#253e5d88,transparent 68%),radial-gradient(ellipse at 96% 80%,#542f7366,transparent 65%),linear-gradient(115deg,#18222b,#121721 60%,#211a29);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff55;color:inherit}
+      ha-card{display:block;padding:16px;border-radius:25px;color:inherit;${GLASS_SURFACE}}
       .head{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:transparent;border:0;padding:0}.head ha-icon{flex:none}.head .identity{display:block}.identity{flex:1;min-width:0}strong{display:block;overflow-wrap:anywhere;font-size:16px}small{display:block;color:#bdcadd;margin-top:5px;font-size:13px}
       button,input{font:inherit}button{color:inherit;border:1px solid #ffffff18;background:#ffffff0c;border-radius:12px;min-width:44px;min-height:44px;cursor:pointer;padding:8px;touch-action:manipulation}button:disabled,input:disabled{opacity:.4;cursor:default}button:focus-visible,input:focus-visible{outline:2px solid #67c5ff;outline-offset:3px}ha-icon{--mdc-icon-size:25px}.info{background:transparent;border:0;flex:none}
       .meter{height:4px;background:#ffffff18;border-radius:4px;margin-top:14px;overflow:hidden}.meter span{display:block;height:100%;background:linear-gradient(90deg,#39adff,#9b83ff,#bd65f3)}

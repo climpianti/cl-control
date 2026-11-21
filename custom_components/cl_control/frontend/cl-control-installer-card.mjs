@@ -1,3 +1,4 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
 const esc = value => String(value ?? '')
   .replaceAll('&', '&amp;')
   .replaceAll('<', '&lt;')
@@ -137,7 +138,7 @@ class CLControlInstallerCard extends HTMLElement {
       const watts=unit==='kW'?number*1000:number;
       const kw=Math.abs(watts)>=1000;
       const formatted=new Intl.NumberFormat('it-IT',{maximumFractionDigits:kw?2:1}).format(kw?watts/1000:watts);
-      labelText='⚡ '+formatted+(kw?' kW':' W')+' · '+id;
+      labelText=formatted+(kw?' kW':' W')+' · '+id;
     }
     label.textContent=labelText;
     label.dataset.available=String(valid&&mode!=='off');
@@ -682,7 +683,7 @@ class CLControlInstallerCard extends HTMLElement {
       .monitoredList{display:grid;gap:10px;margin-top:12px}.monitoredLoad{border:1px solid var(--divider-color);border-radius:12px;padding:12px;background:var(--card-background-color)}.monitoredLoadHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.monitoredLoadHead b{font-size:14px}.monitoredLoadActions{display:flex;align-items:center;gap:7px}.monitoredLoadActions button{min-height:34px;padding:0 10px}.toggleLine{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px}.toggleLine label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--secondary-text-color)}.toggleLine input{width:auto;min-height:auto}.sourceBadge{font-size:10px;font-weight:800;padding:4px 7px;border-radius:999px;background:var(--secondary-background-color)}.sourceBadge.ok{color:var(--success-color,#43a047);background:color-mix(in srgb,var(--success-color,#43a047) 12%,transparent)}.pcLoadList{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}.pcLoadItem{border:1px solid var(--divider-color);border-radius:10px;padding:9px 10px}.pcLoadItem b{font-size:12px}.pcLoadItem small{display:block;margin-top:3px;color:var(--secondary-text-color);font-size:10px}
       .saveBar{position:static;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:18px;padding:10px 12px;border:1px solid var(--divider-color);border-radius:13px;background:color-mix(in srgb,var(--card-background-color) 94%,transparent);backdrop-filter:blur(10px);box-shadow:0 6px 22px rgba(0,0,0,.12)}.saveBar.clean{opacity:.72}.saveBarText{font-size:12px;min-width:0;flex:1 1 180px}.saveBarText b{display:block}.saveBarActions{display:flex;gap:7px;flex-wrap:wrap;margin-left:auto}
       @media(max-width:760px){ha-card{padding:14px}.grid,.installerHome,.orderGrid,.energyContractGrid,.pcLoadList{grid-template-columns:1fr}.cameraRow{grid-template-columns:1fr}.top{align-items:flex-start}.sectionTitle{flex-direction:column}.sectionTitle button{width:100%}.areaHead{align-items:flex-start;flex-direction:column}.saveBarActions button{padding:0 10px}.areaOrderRow{flex-wrap:wrap}.areaOrderRow .orderText{min-width:130px}.areaOptions{order:4;width:100%;padding-left:32px}}
-    :host{--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--primary-color:#356a9c;--text-primary-color:#fff;--card-background-color:#18222b;--primary-background-color:#121721;--secondary-background-color:#ffffff08;--divider-color:#ffffff20;color:#f5f7fc}ha-card{box-sizing:border-box;border:1px solid #b2daff55;border-radius:25px;background:radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33}input,select,textarea{color-scheme:dark}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #78c5ff;outline-offset:3px}</style>`;
+    :host{--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--primary-color:#356a9c;--text-primary-color:#fff;--card-background-color:#18222b;--primary-background-color:#121721;--secondary-background-color:#ffffff08;--divider-color:#ffffff20;color:#f5f7fc}ha-card{box-sizing:border-box;border-radius:25px;${GLASS_SURFACE}}input,select,textarea{color-scheme:dark}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #78c5ff;outline-offset:3px}</style>`;
   }
 
   _markDirty(key = 'config') {
@@ -788,7 +789,7 @@ class CLControlInstallerCard extends HTMLElement {
         ['areas','mdi:floor-plan','Aree & organizzazione',`${areas.length} aree · ordine, visibilità, immagini e dispositivi`],
         ['weather','mdi:weather-partly-cloudy','Meteo',weather.mode === 'off' ? 'Disattivato' : weather.mode === 'manual' ? `Manuale · ${weather.entity || 'nessuna entità'}` : 'Automatico'],
         ['energy','mdi:flash','Energia',`Data Contract v${energyContract.contract_version || 2} · realtime ${energyContract.realtime_provider || 'none'} · ${Array.isArray(r.energy?.monitored_loads) ? r.energy.monitored_loads.length : 0} utenze monitorate`],
-        ['card_power','mdi:flash-outline','Potenza nelle card','Luci, prese e interruttori · auto o manuale'],
+        ['card_power','mdi:flash','Potenza nelle card','Luci, prese e interruttori · auto o manuale'],
         ['security','mdi:shield-home-outline','Sicurezza',`${visibleSecurityCount}/${securityEntities.length} entità visibili · ${this._securityPinConfigured ? 'codice attivo' : 'codice da configurare'}`],
         ['multimedia','mdi:remote-tv','Multimedia',`Telecomandi configurati: ${Object.keys(r.media_remotes || {}).length}`],
         ['cameras','mdi:cctv','Telecamere',`${visibleCameraCount}/${cameras.length} visibili`],

@@ -1,3 +1,4 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Isolated browser rendering. All values simulated; commands intercepted.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
@@ -18,7 +19,7 @@ async function setup(page,source){
 (async()=>{
  const browser=await chromium.launch({headless:true,channel:process.env.CL_TEST_BROWSER_CHANNEL||undefined});
  if(process.env.CL_BASELINE_REF){const before=await browser.newPage({viewport:{width:390,height:900}});await setup(before,cp.execFileSync('git',['show',process.env.CL_BASELINE_REF+':'+file],{encoding:'utf8'}));await before.screenshot({path:path.join(out,'before-390.png'),fullPage:true});await before.close();}
- const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await setup(page,fs.readFileSync(file,'utf8'));const card=page.locator('cl-control-energy-card');
+ const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await setup(page,inlineSharedImports(fs.readFileSync(file,'utf8')));const card=page.locator('cl-control-energy-card');
  for(const width of [320,390,768,1024,1440,1920]){
   await page.setViewportSize({width,height:900});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`overflow ${width}`);
   const overlap=await card.locator('.energyNode').evaluateAll(nodes=>nodes.some((node,i)=>nodes.slice(i+1).some(other=>{const a=node.getBoundingClientRect(),b=other.getBoundingClientRect();return Math.min(a.right,b.right)-Math.max(a.left,b.left)>1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1;})));

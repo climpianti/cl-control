@@ -1,3 +1,4 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Isolated browser: all device services are mocked.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
@@ -6,7 +7,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  const browser=await chromium.launch({headless:true,channel:process.env.CL_TEST_BROWSER_CHANNEL||undefined}),page=await browser.newPage({viewport:{width:390,height:900}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setContent('<html lang="it"><style>body{margin:16px;background:#f4f6f8;font-family:Arial}main{display:grid;gap:16px;max-width:820px;margin:auto}h1{font-size:20px}p{font-size:13px}</style><main><h1>Aperture · anteprima locale</h1><p>Dati simulati · nessun dispositivo connesso</p></main></html>');
- await page.evaluate(fs.readFileSync('custom_components/cl_control/frontend/cl-control-cover-card.mjs','utf8').replace('export class ','class '));
+ await page.evaluate(inlineSharedImports(fs.readFileSync('custom_components/cl_control/frontend/cl-control-cover-card.mjs','utf8')).replace('export class ','class '));
  await page.evaluate(()=>{
   window.calls=[];window.hass={states:{'cover.fixture':{state:'open',attributes:{current_position:35,supported_features:255}}},callService:async(...args)=>calls.push(args)};
   window.card=document.createElement('cl-control-cover-card');card.setConfig({entity:'cover.fixture',name:'Tapparella soggiorno'});card.hass=hass;document.querySelector('main').append(card);

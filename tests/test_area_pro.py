@@ -63,6 +63,19 @@ class ProAreaCardTest(unittest.TestCase):
                 self.assertFalse(any(c.get("type")=="custom:cl-control-area-pro-card" for c in cards))
                 self.assertTrue(any(c.get("type")=="area" and c["area"]=="room" for c in cards))
 
+    def test_power_tiles_use_the_area_flash(self):
+        model = self.model()
+        model["home_power_entity"] = "sensor.home_power"
+        model["area_power_entities"] = {"room": "sensor.room_watts"}
+        views = {view["path"]: view for view in build_native_lovelace(model)["views"]}
+        for path, name in [("home", "Potenza casa"), ("area-room", "Potenza")]:
+            wrapped = next(card for section in views[path]["sections"] for card in section["cards"]
+                           if card.get("card", {}).get("name") == name)
+            tile = wrapped["card"]
+            self.assertEqual(tile["icon"], "mdi:flash")
+            self.assertEqual(tile["color"], "#ffd075")
+            self.assertEqual(tile["tap_action"], {"action": "more-info"})
+
     def test_no_source_does_not_invent_metric(self):
         model=self.model(entities=[fixture("", "light.room"),fixture("temperature","sensor.room_temperature",unit="°C")])
         area=next(c for c in home_cards(model) if c.get("type")=="custom:cl-control-area-pro-card")

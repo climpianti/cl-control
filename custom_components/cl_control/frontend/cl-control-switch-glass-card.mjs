@@ -1,4 +1,5 @@
-import { readInstantPower, INSTANT_POWER_BADGE_CSS } from './cl-control-power-badge.mjs';
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
+import { readInstantPower, INSTANT_POWER_BADGE_CSS, INSTANT_POWER_GLYPH } from './cl-control-power-badge.mjs';
 /* CL Control Blue Tech Glass switch — circular power, no slider. */
 class CLSwitchGlassCard extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._config={};this._hass=null;this._busy=false;}
@@ -9,13 +10,12 @@ class CLSwitchGlassCard extends HTMLElement {
   _render(){
     const s=this._hass?.states?.[this._config.entity],on=s?.state==='on',available=!!s&&!['unavailable','unknown'].includes(s.state);
     const name=this._config.name||s?.attributes?.friendly_name||this._config.entity||'Interruttore';
+    const defaultIcon=s?.attributes?.device_class==='outlet'?'mdi:power-socket-eu':'mdi:toggle-switch-outline';
     const watts=readInstantPower(this._hass,this._config.power_entity);
     const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;'}[c]));
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;min-width:0;color:#f5f7fc}
-      ha-card{position:relative;isolation:isolate;box-sizing:border-box;min-height:154px;display:flex;align-items:center;gap:15px;padding:19px 20px;
-        background:radial-gradient(ellipse at 90% 15%,rgba(117,72,157,.38),transparent 54%),linear-gradient(135deg,#122846,#151a29 62%,#251b35);
-        border:1px solid rgba(155,190,255,.28);border-radius:24px;box-shadow:0 12px 28px rgba(0,0,0,.22);overflow:hidden}
+      ha-card{position:relative;isolation:isolate;box-sizing:border-box;min-height:154px;display:flex;align-items:center;gap:15px;padding:19px 20px;border-radius:24px;overflow:hidden;${GLASS_SURFACE}}
       ha-card:before{content:"";position:absolute;inset:0;background:linear-gradient(120deg,rgba(40,120,229,.09),transparent 65%);pointer-events:none}
       .device,.identity,.power{position:relative;z-index:1}
       .device{width:57px;min-width:57px;height:57px;border:0;border-radius:18px;background:rgba(112,175,225,.12);color:#9daab8;display:grid;place-items:center;cursor:pointer}
@@ -34,8 +34,8 @@ class CLSwitchGlassCard extends HTMLElement {
       @media(max-width:520px){ha-card{padding:14px;border-radius:19px;gap:12px}.device{width:46px;min-width:46px;height:50px}.device ha-icon{--mdc-icon-size:28px}strong{font-size:16px}.power{width:54px;min-width:54px;height:54px}}
       @media(prefers-reduced-motion:reduce){.power{transition:none}}
     </style>
-    <ha-card><button class="device" id="details" aria-label="Dettagli ${esc(name)}"><ha-icon icon="${esc(this._config.icon||s?.attributes?.icon||'mdi:toggle-switch-outline')}"></ha-icon></button>
-    <div class="identity"><strong>${esc(name)}</strong><small>${available?(on?'Acceso':'Spento'):'Non disponibile'}</small>${watts?`<small class="cl-power-meter" aria-label="Potenza istantanea ${esc(watts)}"><span class="cl-power-symbol" aria-hidden="true">⚡</span><span class="cl-power-value">${esc(watts)}</span></small>`:''}</div>
+    <ha-card><button class="device" id="details" aria-label="Dettagli ${esc(name)}"><ha-icon icon="${esc(this._config.icon||s?.attributes?.icon||defaultIcon)}"></ha-icon></button>
+    <div class="identity"><strong>${esc(name)}</strong><small>${available?(on?'Acceso':'Spento'):'Non disponibile'}</small>${watts?`<small class="cl-power-meter" aria-label="Potenza istantanea ${esc(watts)}">${INSTANT_POWER_GLYPH}<span class="cl-power-value">${esc(watts)}</span></small>`:''}</div>
     <button class="power" id="power" role="switch" aria-label="Accensione ${esc(name)}" aria-checked="${on}" ${!available||this._busy?'disabled':''}><ha-icon icon="mdi:power"></ha-icon></button></ha-card>`;
     this.shadowRoot.querySelector('#details').onclick=()=>this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:this._config.entity},bubbles:true,composed:true}));
     this.shadowRoot.querySelector('#power').onclick=async()=>{

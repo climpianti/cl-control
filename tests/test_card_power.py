@@ -52,7 +52,8 @@ class CardPowerTest(unittest.TestCase):
 
     def test_area_cards_and_outlets(self):
         records=[item("light.lamp"),item("switch.socket",cls="outlet"),
-                 item("switch.relay"),item("sensor.power",power=True)]
+                 item("switch.relay"),item("switch.socket_without_meter","device-2",cls="outlet"),
+                 item("sensor.power",power=True)]
         overrides={"card_power":{
             "light.lamp":{"mode":"manual","entity":"sensor.power"},
             "switch.socket":{"mode":"manual","entity":"sensor.power"},
@@ -67,6 +68,10 @@ class CardPowerTest(unittest.TestCase):
         self.assertEqual(by_id("switch.socket")["type"],"custom:cl-control-switch-glass-card")
         self.assertEqual(by_id("switch.socket")["power_entity"],"sensor.power")
         self.assertNotIn("power_entity",by_id("switch.relay"))
+        socket_without_meter = by_id("switch.socket_without_meter")
+        self.assertEqual(socket_without_meter["type"],"custom:cl-control-switch-glass-card")
+        self.assertEqual(socket_without_meter["icon"],"mdi:power-socket-eu")
+        self.assertNotIn("power_entity",socket_without_meter)
 
 
 if __name__=="__main__":

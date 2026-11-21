@@ -956,14 +956,18 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
     if entity.get("domain") in {"input_button", "button"} and entity.get("module") == "commands":
         return {"type": "custom:cl-control-command-glass-card", "entity": entity["entity_id"], "name": entity["name"], "grid_options": {"columns": "full", "rows": "auto"}, **({"icon": entity["icon"]} if entity.get("icon") else {})}
     if entity.get("domain") == "switch" and entity.get("module") in {"switches", "outlets"}:
-        if entity.get("module") == "switches" or entity.get("power_entity"):
-            return {"type": "custom:cl-control-switch-glass-card", "entity": entity["entity_id"],
-                    "name": entity["name"],
-                    **({"power_entity": entity["power_entity"]} if entity.get("power_entity") else {}),
-                    **({"icon": entity["icon"]} if entity.get("icon") else
-                       ({"icon": "mdi:power-socket-eu"} if entity.get("module") == "outlets" else {})),
-                    }
-        return _tile(entity)
+        card = {
+            "type": "custom:cl-control-switch-glass-card",
+            "entity": entity["entity_id"],
+            "name": entity["name"],
+        }
+        if power_entity := entity.get("power_entity"):
+            card["power_entity"] = power_entity
+        if icon := entity.get("icon"):
+            card["icon"] = icon
+        elif entity.get("module") == "outlets":
+            card["icon"] = "mdi:power-socket-eu"
+        return card
     if entity.get("domain") == "climate":
         return {"type": "custom:cl-control-climate-glass-card", "entity": entity["entity_id"], "name": entity["name"]}
     if entity.get("domain") == "cover":
@@ -1201,7 +1205,7 @@ _STATUS_LABELS = {
 }
 
 
-def _status_tile(entity_id: str, *, name: str = "") -> dict[str, Any]:
+def _status_tile(entity_id: str, *, name: str = "", power: bool = False) -> dict[str, Any]:
     """Return a compact native status tile used below the CL brand header."""
     card: dict[str, Any] = {
         "type": "tile",
@@ -1213,6 +1217,9 @@ def _status_tile(entity_id: str, *, name: str = "") -> dict[str, Any]:
     }
     if name:
         card["name"] = name
+    if power:
+        card["icon"] = "mdi:flash"
+        card["color"] = "#ffd075"
     return card
 
 
@@ -1228,7 +1235,7 @@ def _home_status_section(model: dict[str, Any], *, column_span: int) -> dict[str
         "type": "grid",
         "column_span": column_span,
         "cards": [
-            _status_tile(str(model["home_power_entity"]), name="Potenza casa")
+            _status_tile(str(model["home_power_entity"]), name="Potenza casa", power=True)
         ],
     }
 
@@ -1289,7 +1296,7 @@ def _area_status_section(
             (model.get("area_power_entities") or {}).get(area["id"]) or ""
         )
         if power_entity:
-            cards.append(_status_tile(power_entity, name="Potenza"))
+            cards.append(_status_tile(power_entity, name="Potenza", power=True))
     if not cards:
         return None
     return {

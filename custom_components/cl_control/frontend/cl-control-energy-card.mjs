@@ -1,3 +1,4 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
 const RANGE_OPTIONS = Object.freeze({
   '12h': {label: '12 h', hours: 12, period: '5minute'},
   '24h': {label: '24 h', hours: 24, period: '5minute'},
@@ -297,8 +298,8 @@ class CLEnergyCard extends HTMLElement {
         @media(max-width:390px){.appBar{align-items:flex-start;flex-direction:column}.viewTabs{width:100%}.flowScene{min-height:275px}.energyNode.battery{left:-5%}.energyNode.grid{right:-5%}.statusGrid,.summaryGrid,.loadGrid{grid-template-columns:1fr 1fr}}
         /* Shared Glass surfaces; Energy retains its central flow schematic. */
         :host{color:#f5f7fc;--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--cl-panel:#18222b;--cl-soft:#ffffff09;--cl-line:#ffffff20;--cl-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33;--cl-blue:#6bbcff;--cl-blue-soft:#6bbcff18;--cl-solar:#ffd075;--cl-home:#6bbcff;--cl-grid:#aec7e7;--cl-export:#6ce0c5;--cl-battery:#6ce0c5;--cl-good:#6ce0c5;--cl-danger:#ff9bae;--cl-warning:#ffd075;--card-background-color:#18222b;--ha-card-background:#18222b}
-        .appBar,.card,.statusTile{background:radial-gradient(ellipse at 8% 0%,#28456855,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);border-color:#b2daff44;border-radius:25px;box-shadow:var(--cl-shadow)}
-        .metric,.loadCard{background:linear-gradient(135deg,#ffffff08,#ffffff03);border-color:#ffffff20;border-radius:18px}.loadModal{background:linear-gradient(130deg,#1c2a3a,#191623);border-color:#b2daff55}.loadDetailStat{background:#ffffff08}.viewTab.active,.range.active,.historyPeriod.active{background:linear-gradient(110deg,#357ebb,#7255b3);color:#fff}.flowCard{background:radial-gradient(ellipse at 12% 0%,#2c558055,transparent 68%),radial-gradient(ellipse at 95% 90%,#643d7b33,transparent 60%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);border-color:#b2daff66;color:#f5f7fc}
+        .appBar,.card,.statusTile,.metric,.loadCard{${GLASS_SURFACE}}
+        .metric,.loadCard{border-radius:18px}.loadModal{background:linear-gradient(130deg,#1c2a3a,#191623);border-color:#b2daff55}.loadDetailStat{background:#ffffff08}.viewTab.active,.range.active,.historyPeriod.active{background:linear-gradient(110deg,#357ebb,#7255b3);color:#fff}.flowCard{color:#f5f7fc}
         .flowCard .sectionHead{flex-wrap:wrap}.flowCard .badge{white-space:normal}.flowCard .provider{display:block;font-size:11px}.flowCard .flowMeta{gap:8px}
         .flowScene{height:410px;min-height:410px;max-width:720px;margin:12px auto 0;background:radial-gradient(ellipse at 50% 52%,#4685c322,transparent 54%)}
         .flowSvg{inset:0;width:100%;height:100%;overflow:visible}.flowPath{stroke:#8fa6c1;opacity:.7;stroke-width:2}.flowPath.solar{stroke:#ffd075}.flowPath.battery{stroke:#6ce0c5}.flowPath.grid{stroke:#78bdff}.flowPath.missing{stroke:#8290a6;stroke-dasharray:3 6;opacity:.5}.flowPath.active{stroke-width:3;opacity:1;stroke-dasharray:3 9}

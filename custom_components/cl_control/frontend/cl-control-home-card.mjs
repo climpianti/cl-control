@@ -1,6 +1,7 @@
+import { GLASS_SURFACE, NATIVE_GLASS } from './cl-control-glass.mjs';
 // Home navigation and native-card surfaces. No device commands live here.
 const HOME_GLASS=`
- :host{display:block;min-width:0;--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--primary-color:#78c5ff;--card-background-color:#18222b;--ha-card-background:linear-gradient(115deg,#18222b,#121721 60%,#211c30);--ha-card-border-radius:25px;--ha-card-border-color:#b2daff55;--ha-card-box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33;color:#f5f7fc}
+ :host{display:block;min-width:0;--primary-color:#78c5ff;--card-background-color:#18222b;${NATIVE_GLASS}color:#f5f7fc}
  *{box-sizing:border-box}button{font:inherit;color:inherit}button:focus-visible{outline:2px solid #78c5ff;outline-offset:3px}
 `;
 
@@ -60,7 +61,7 @@ const glyphs={
 class CLControlSystemCard extends HTMLElement{
  constructor(){super();this.attachShadow({mode:'open'});this._config={};}
  setConfig(config){this._config={...config};this._glyph=null;this.shadowRoot.innerHTML=`<style>${HOME_GLASS}
- .tile{width:100%;min-height:116px;display:flex;align-items:center;gap:13px;padding:16px;text-align:left;border:1px solid #b2daff55;border-radius:25px;background:radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),var(--ha-card-background);box-shadow:var(--ha-card-box-shadow);cursor:pointer}
+ .tile{width:100%;min-height:116px;display:flex;align-items:center;gap:13px;padding:16px;text-align:left;border-radius:25px;cursor:pointer;${GLASS_SURFACE}}
  .icon{width:54px;height:60px;flex-shrink:0;display:grid;place-items:center;color:var(--accent,#b8c1ce);background:linear-gradient(145deg,#ffffff10,#ffffff03);border:1px solid color-mix(in srgb,var(--accent,#b8c1ce) 45%,transparent);border-radius:18px}.icon svg{width:42px;height:42px;overflow:visible}.copy{min-width:0;flex:1}strong{display:block;font-size:16px;overflow-wrap:anywhere}.state{display:block;margin-top:6px;font-size:13px;line-height:1.5;color:#bdcadd;overflow-wrap:anywhere}.arrow{color:#bdcadd}.slats{transform-origin:32px 12px;transform:scaleY(var(--slats,1))}.bar{transform-origin:32px 32px}
  [data-motion=moving] .slats{animation:slats 1.3s ease-in-out infinite alternate}[data-motion=playing] .bar{animation:equalizer .9s ease-in-out infinite alternate}[data-motion=playing] .b2{animation-delay:-.4s}[data-motion=playing] .b3{animation-delay:-.7s}[data-motion=climate] svg,[data-motion=alert] svg{animation:pulse 1.5s ease-in-out infinite}[data-motion=live] .record{fill:currentColor;animation:pulse 1.2s ease-in-out infinite}
  @keyframes slats{to{opacity:.45}}@keyframes equalizer{to{transform:scaleY(.35)}}@keyframes pulse{50%{opacity:.45}}

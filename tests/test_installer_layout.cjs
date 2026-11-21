@@ -1,3 +1,4 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Unlocked state is simulated only in this isolated fixture. No PIN/API calls.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
@@ -6,7 +7,7 @@ const out=path.resolve(process.env.CL_TEST_ARTIFACTS||'test-artifacts', 'install
  const browser=await chromium.launch({headless:true,channel:process.env.CL_TEST_BROWSER_CHANNEL||undefined}),page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.setContent('<html lang="it"><style>body{margin:16px;background:#f4f6f9;font:14px Arial}main{max-width:900px;margin:auto;display:grid;gap:16px}h1{font-size:20px}</style><main><h1>Installatore · test layout locale</h1><p>Stato sbloccato simulato · nessun PIN e nessuna connessione HA</p></main></html>');
  await page.evaluate(()=>customElements.define('ha-card',class extends HTMLElement{constructor(){super();this.attachShadow({mode:'open'}).innerHTML='<style>:host{display:block}</style><slot></slot>';}}));
- for(const file of ['cl-control-installer-card.mjs','cl-control-discovery-card.mjs','cl-control-modbus-card.mjs'])await page.evaluate(fs.readFileSync('custom_components/cl_control/frontend/'+file,'utf8').replace(/export (class|function) /g,'$1 ').replace(/export\s*\{[^}]+\};?/g,''));
+ for(const file of ['cl-control-installer-card.mjs','cl-control-discovery-card.mjs','cl-control-modbus-card.mjs'])await page.evaluate(inlineSharedImports(fs.readFileSync('custom_components/cl_control/frontend/'+file,'utf8')).replace(/export (class|function) /g,'$1 ').replace(/export\s*\{[^}]+\};?/g,''));
  await page.evaluate(()=>{window.calls=[];window.installer=document.createElement('cl-control-installer-card');installer.setConfig({});installer._hass={user:{is_admin:true},states:{},callWS:async(...args)=>{calls.push(args);throw Error('Unexpected write/read')}};installer._unlocked=true;installer._runtime={site_name:'Casa di prova',site:{site_name:'Casa di prova'},experience_level:'standard'};installer._render();document.querySelector('main').append(installer);for(const name of ['cl-control-discovery-card','cl-control-modbus-card']){const card=document.createElement(name);card.setConfig({});document.querySelector('main').append(card);}});
  const card=page.locator('cl-control-installer-card');
  for(const width of [320,390,768,1024,1440,1920]){

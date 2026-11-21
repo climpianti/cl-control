@@ -1,3 +1,4 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
 const WEATHER = {
   'clear-night': ['mdi:weather-night', 'Sereno'],
   cloudy: ['mdi:weather-cloudy', 'Nuvoloso'],
@@ -117,7 +118,7 @@ class CLControlHeaderCard extends HTMLElement {
           .weatherText small{font-size:11px}
         }
         :host{--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--primary-color:#78c5ff;color:#f5f7fc}
-        ha-card{border:1px solid #b2daff55;border-radius:25px;background:radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff33}
+        ha-card{border-radius:25px;${GLASS_SURFACE}}
         .title,.site{white-space:normal;overflow-wrap:anywhere}.weather{min-height:44px}.weather:focus-visible{outline:2px solid #78c5ff;outline-offset:3px}
         @media(max-width:520px){.wrap{flex-wrap:nowrap}.weather{margin-left:auto}.weatherText{max-width:92px}.weatherText b,.weatherText small{white-space:normal;overflow-wrap:anywhere}}
       </style>

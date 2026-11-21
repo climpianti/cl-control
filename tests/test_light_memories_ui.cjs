@@ -28,7 +28,7 @@ card.hass=hass;document.querySelector('main').append(card);window.ready=true;
 
 module.exports={fixture,asset};
 if(require.main===module)(async()=>{
- const server=http.createServer((req,res)=>{if(req.url==='/card.mjs'||req.url==='/cl-control-power-badge.mjs'){res.setHeader('Content-Type','text/javascript');res.end(fs.readFileSync(req.url==='/card.mjs'?asset:path.join(path.dirname(asset),'cl-control-power-badge.mjs')));}else{res.setHeader('Content-Type','text/html');res.end(fixture);}});
+ const server=http.createServer((req,res)=>{if(req.url==='/card.mjs'||req.url==='/cl-control-power-badge.mjs'||req.url==='/cl-control-glass.mjs'){res.setHeader('Content-Type','text/javascript');res.end(fs.readFileSync(req.url==='/card.mjs'?asset:path.join(path.dirname(asset),path.basename(req.url))));}else{res.setHeader('Content-Type','text/html');res.end(fixture);}});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  let browser;
  try{

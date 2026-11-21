@@ -1,8 +1,9 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
-const source = fs.readFileSync(path.join(__dirname, '../custom_components/cl_control/frontend/cl-control-energy-card.mjs'), 'utf8').replace('export {CLEnergyCard};', '');
+const source = inlineSharedImports(fs.readFileSync(path.join(__dirname, '../custom_components/cl_control/frontend/cl-control-energy-card.mjs'), 'utf8')).replace('export {CLEnergyCard};', '');
 const context = vm.createContext({HTMLElement: class {}, customElements: {get() {}, define() {}}, window: {}});
 vm.runInContext(source + '\nthis.check = {number, formatPower, isEnergyStatusGood};', context);
 const {number, formatPower, isEnergyStatusGood} = context.check;

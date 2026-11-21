@@ -1,3 +1,4 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
 // CL Control assistance shortcut.
 // Uses a real anchor instead of a Lovelace tap_action so external WhatsApp
 // handoffs behave consistently in Home, Area and System subviews.
@@ -47,8 +48,7 @@ class CLControlAssistanceCard extends HTMLElement {
         --secondary-text-color: #bdcadd;
         --primary-color: #78c5ff;
       }
-      a {
-        box-sizing: border-box;
+      a{box-sizing: border-box;
         width: 100%;
         min-height: 72px;
         display: flex;
@@ -57,13 +57,9 @@ class CLControlAssistanceCard extends HTMLElement {
         padding: 14px 18px;
         text-decoration: none;
         color: var(--primary-text-color);
-        background: radial-gradient(ellipse at 0% 0%,#29496a66,transparent 75%),linear-gradient(115deg,#18222b,#121721 60%,#211c30);
-        border: 1px solid #b2daff55;
         border-radius: 25px;
-        box-shadow: 0 9px 25px #0004,inset 0 1px 2px #e7f7ff33;
         cursor: pointer;
-        -webkit-tap-highlight-color: transparent;
-      }
+        -webkit-tap-highlight-color: transparent;${GLASS_SURFACE}}
       a:focus-visible {
         outline: 2px solid var(--primary-color);
         outline-offset: 2px;

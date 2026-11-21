@@ -1,3 +1,4 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Actual custom components, simulated states, native area card placeholder.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
@@ -9,7 +10,7 @@ const out=path.resolve(process.env.CL_TEST_ARTIFACTS||'test-artifacts', 'home-gl
  await page.setContent('<html lang="it"><style>body{margin:16px;background:#f4f6f9;font:14px Arial}main{max-width:1100px;margin:auto;display:grid;gap:16px}h1{font-size:20px}.systems{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}h2{font-size:18px;margin:0}@media(min-width:900px){.systems{grid-template-columns:repeat(3,minmax(0,1fr))}}</style><main><h1>Home · anteprima locale</h1><p>Dati simulati · nessun dispositivo connesso</p></main></html>');
  await page.evaluate(()=>customElements.define('ha-card',class extends HTMLElement{constructor(){super();this.attachShadow({mode:'open'}).innerHTML='<style>:host{display:block}</style><slot></slot>';}}));
  for(const file of ['cl-control-header-card.mjs','cl-control-welcome-card.mjs','cl-control-home-card.mjs','cl-control-assistance-card.mjs']){
-  let source=fs.readFileSync('custom_components/cl_control/frontend/'+file,'utf8').replace(/export \{[^}]*\};?/g,'').replace('export function ','function ');
+  let source=inlineSharedImports(fs.readFileSync('custom_components/cl_control/frontend/'+file,'utf8')).replace(/export \{[^}]*\};?/g,'').replace('export function ','function ');
   if(file==='cl-control-home-card.mjs')source+='\nwindow.presentation=systemPresentation;';await page.evaluate(source);
  }
  await page.evaluate(()=>{

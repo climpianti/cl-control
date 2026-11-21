@@ -1,3 +1,4 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
 const ALARM_FEATURES = Object.freeze({
   arm_home: 1,
   arm_away: 2,
@@ -153,7 +154,7 @@ class CLSecurityCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host{display:block;--cl-sec-gap:12px}
-        ha-card{overflow:hidden;padding:18px;background:var(--ha-card-background,var(--card-background-color));color:var(--primary-text-color)}
+        ha-card{overflow:hidden;padding:18px;color:var(--primary-text-color);${GLASS_SURFACE}}
         .header{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}.headerCopy{min-width:0}.header h2{margin:0;font-size:21px}.header p{margin:4px 0 0;color:var(--secondary-text-color);font-size:13px}.shield{display:grid;place-items:center;width:40px;height:40px;border-radius:14px;background:color-mix(in srgb,var(--primary-color) 10%,transparent);color:var(--primary-color)}.shield ha-icon{--mdc-icon-size:24px}
         .summaryGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:0 0 16px}.summary{padding:10px 11px;border:1px solid var(--divider-color);border-radius:13px;background:var(--secondary-background-color)}.summary b{display:block;font-size:17px}.summary small{display:block;margin-top:2px;color:var(--secondary-text-color);font-size:11px}.summary.attention b{color:var(--warning-color,#f59e0b)}
         .notice{margin:0 0 14px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--warning-color,#f59e0b) 14%,transparent);border:1px solid color-mix(in srgb,var(--warning-color,#f59e0b) 45%,transparent);font-size:13px}
@@ -169,7 +170,7 @@ class CLSecurityCard extends HTMLElement {
         @media(max-width:700px){ha-card{padding:13px}.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.areaGroup{padding:10px}.zone{grid-template-columns:auto minmax(0,1fr)}.zoneRight{grid-column:2;justify-content:space-between}.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.cmd{width:100%}.partitionActions{grid-template-columns:repeat(2,minmax(0,1fr))}}
         /* Glass presentation only: existing PIN and command handlers are retained. */
         :host{--primary-text-color:#f5f7fc;--secondary-text-color:#bdcadd;--divider-color:#ffffff20;--secondary-background-color:#ffffff0c;--primary-background-color:#121721;--card-background-color:#18222b;--ha-card-background:#18222b;--primary-color:#9b83ff;--error-color:#ff8599;--warning-color:#ffd08a;--success-color:#7bdec3}
-        ha-card{border-radius:25px;border:1px solid #b2daff66;background:radial-gradient(ellipse at 22% 0%,#253e5d88,transparent 68%),radial-gradient(ellipse at 96% 80%,#542f7366,transparent 65%),linear-gradient(115deg,#18222b,#121721 60%,#211a29);box-shadow:0 9px 25px #0004,inset 0 1px 2px #e7f7ff55}
+        ha-card{border-radius:25px;${GLASS_SURFACE}}
         .panel,.partitionCard{border-radius:20px;background:linear-gradient(120deg,#ffffff08,#9b83ff08);box-shadow:inset 0 1px 1px #ffffff18}
         .areaGroup{background:transparent;border-color:#ffffff18;border-radius:20px}.zone{background:#ffffff06;border-radius:15px}.summary{background:#ffffff08;border-radius:16px}.summary.attention{border-color:#ffd08a88}
         .partitionIcon,.shield,.zoneIcon{background:linear-gradient(140deg,#39adff22,#bd65f322);color:#c5caff;border:1px solid #b2daff33}
