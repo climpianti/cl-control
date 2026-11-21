@@ -1,9 +1,8 @@
 # CL Control
 
-> Prerelease **3.5.3-beta.17**: modifica degli scenari salvati e nuova priorità grafica per Avvia. Include l'editor con regolazioni nella bozza, le correzioni Recorder, Glass e il collegamento CL B&B Manager con autorizzazioni admin/operatore.
-> Include la base sperimentale AI Studio/Discovery; non è un rilascio stabile.
-> Le funzioni AI reali, Modbus completo, telecomandi proprietari generici ed effetti RGB
-> ciclici sono ancora da implementare. Destinata a installazioni di collaudo.
+> Versione di collaudo **3.5.3-beta.38**: badge potenza istantanea uniforme nelle card Luci, Prese e Interruttori (W/kW, incluso 0 W), con anteprima sensori nell'Installatore. La beta.37 ha introdotto il riconoscimento conservativo dei sensori di potenza Shelly e di terze parti; la beta.36 ha corretto la visualizzazione dei nomi delle entità Shelly.
+> Le beta.33–35 hanno introdotto riconoscimento e gestione dei telecomandi Samsung, Android/Fire TV e LG webOS con interfaccia Blue Tech Glass.
+> Include le funzioni Scenari luci e Preferiti e la base sperimentale AI Studio/Discovery; non è un rilascio stabile. Le funzioni AI reali, il discovery Modbus completo e gli effetti RGB ciclici sono ancora da completare.
 > Test offline: `python tests/run_offline.py` (non emula il runtime HA).
 
 La beta.11 nasconde la barra delle tre schede rapide Home/Energia/Scenari: **Energia** e **Scenari luci** rimangono raggiungibili esclusivamente dalle rispettive card nella Home CL Control. Il pulsante Indietro torna a Home; il menu laterale HA resta disponibile.

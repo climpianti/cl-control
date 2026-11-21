@@ -35,6 +35,7 @@ class CLControlInstallerCard extends HTMLElement {
     const first = !this._hass;
     this._hass = hass;
     if (first) this._bootstrap();
+    else if (this._page === 'card_power') this.shadowRoot.querySelectorAll('[data-card-power-row]').forEach(row=>this._syncCardPowerPreview(row));
   }
 
   getCardSize() { return 10; }
@@ -101,16 +102,45 @@ class CLControlInstallerCard extends HTMLElement {
   }
 
   _powerSensors() {
+    const registry = new Map(this._entities.map(entry => [entry.entity_id,entry]));
     return Object.values(this._hass?.states || {})
       .filter(state => {
         if (!state?.entity_id?.startsWith('sensor.')) return false;
-        const registryEntry = this._entities.find(item => item.entity_id === state.entity_id);
-        if (String(registryEntry?.platform || '').toLowerCase() === 'cl_control') return false;
-        const dc = String(state.attributes?.device_class || '').toLowerCase();
-        const unit = String(state.attributes?.unit_of_measurement || '').toLowerCase();
-        return dc === 'power' || ['w', 'kw', 'mw'].includes(unit);
+        const entry = registry.get(state.entity_id);
+        if (entry?.disabled_by || String(entry?.platform || '').toLowerCase() === 'cl_control') return false;
+        return String(state.attributes?.device_class || '').toLowerCase() === 'power'
+          && ['W','kW'].includes(state.attributes?.unit_of_measurement);
       })
       .sort((a, b) => this._name(a.entity_id).localeCompare(this._name(b.entity_id), 'it'));
+  }
+
+  _syncCardPowerPreview(row) {
+    if (!row) return;
+    const label=row.querySelector('[data-card-power-preview]');
+    if (!label) return;
+    const mode=row.querySelector('[data-card-power-mode]')?.value||'auto';
+    const sensorInput=row.querySelector('[data-card-power-sensor]');
+    const id=mode==='manual'?(sensorInput?.value||'').trim():mode==='auto'?(row.dataset.cardPowerDetected||''):'';
+    if (sensorInput) sensorInput.disabled=mode!=='manual';
+    const state=id?this._hass?.states?.[id]:null;
+    const unit=state?.attributes?.unit_of_measurement;
+    const number=Number(state?.state);
+    const valid=!!state && ['W','kW'].includes(unit)
+      && String(state?.attributes?.device_class||'').toLowerCase()==='power'
+      && state.state!=='' && !['unknown','unavailable'].includes(state.state)
+      && Number.isFinite(number);
+    let labelText='';
+    if(mode==='off') labelText='Visualizzazione disattivata';
+    else if(!id) labelText=mode==='manual'?'Seleziona un sensore W/kW':'Nessuna associazione automatica';
+    else if(!valid) labelText='Dato non disponibile · '+id;
+    else {
+      const watts=unit==='kW'?number*1000:number;
+      const kw=Math.abs(watts)>=1000;
+      const formatted=new Intl.NumberFormat('it-IT',{maximumFractionDigits:kw?2:1}).format(kw?watts/1000:watts);
+      labelText='⚡ '+formatted+(kw?' kW':' W')+' · '+id;
+    }
+    label.textContent=labelText;
+    label.dataset.available=String(valid&&mode!=='off');
   }
 
   _energySensors() {
@@ -642,6 +672,8 @@ class CLControlInstallerCard extends HTMLElement {
       .cardPowerList{max-height:620px;overflow:auto;margin-top:10px}
       .cardPowerRow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(120px,.55fr) minmax(190px,1fr);gap:10px;align-items:center;padding:12px 9px;border-bottom:1px solid var(--divider-color)}
       .cardPowerRow[hidden]{display:none}.cardPowerRow input,.cardPowerRow select{width:100%;box-sizing:border-box}
+      .cardPowerPreview{display:block;overflow-wrap:anywhere;font-size:12px;line-height:1.4;margin-top:6px;color:var(--secondary-text-color)}
+      .cardPowerPreview[data-available=true]{color:#cc940d;font-weight:700}
       @media(max-width:760px){.cardPowerRow{grid-template-columns:1fr}}
       .cameraRow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(190px,.65fr);gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--divider-color)}.cameraInfo{display:flex;flex-direction:column}.cameraInfo small{color:var(--secondary-text-color);margin-top:3px}.cameraToggle{display:flex;align-items:center;gap:6px}.cameraToggle input{width:auto;min-height:auto}
       .tabs{display:flex;gap:6px;overflow:auto;margin:10px 0}.tab{min-height:36px;padding:0 12px;border:1px solid var(--divider-color);white-space:nowrap}.tab.active{background:var(--primary-color);color:var(--text-primary-color,#fff);border-color:var(--primary-color)}
@@ -847,9 +879,9 @@ class CLControlInstallerCard extends HTMLElement {
         `<option value="${esc(e.entity_id)}" label="${esc(this._name(e.entity_id))}"></option>`).join('');
       const rows = controls.map(e => {
         const id=e.entity_id,cfg=r.card_power?.[id]||{},mode=cfg.mode||'auto',source=mapped.get(id)||'';
-        return `<div class="cardPowerRow" data-card-power-row="${esc(id)}" data-search-text="${esc(this._name(id)+' '+id)}">
+        return `<div class="cardPowerRow" data-card-power-row="${esc(id)}" data-card-power-detected="${esc(source)}" data-search-text="${esc(this._name(id)+' '+id)}">
           <div class="cameraInfo"><b>${esc(this._name(id))}</b><small>${esc(id)}</small>
-            <small>${esc(source?'Associato: '+source:'Nessun sensore associato')}</small></div>
+            <small>${esc(source?'Associato: '+source:'Nessun sensore associato')}</small><small class="cardPowerPreview" data-card-power-preview role="status"></small></div>
           <select data-card-power-mode aria-label="Modalità ${esc(this._name(id))}">
             <option value="auto" ${mode==='auto'?'selected':''}>Automatico</option>
             <option value="manual" ${mode==='manual'?'selected':''}>Manuale</option>
@@ -909,11 +941,11 @@ class CLControlInstallerCard extends HTMLElement {
     this.shadowRoot.querySelectorAll('[data-global-save]').forEach(button => button.addEventListener('click', () => this._saveGeneral({reload:true})));
     this.shadowRoot.querySelectorAll('[data-discard]').forEach(button => button.addEventListener('click', async () => { await this._loadData(); this._dirtyKeys.clear(); this._render(); }));
     this.shadowRoot.querySelector('#saveSecurityPin')?.addEventListener('click', () => this._saveSecurityPin());
-    this.shadowRoot.querySelectorAll('[data-card-power-mode]').forEach(select =>
-      select.addEventListener('change', () => {
-        const input=select.closest('[data-card-power-row]')?.querySelector('[data-card-power-sensor]');
-        if(input) input.disabled=select.value!=='manual';
-      }));
+    this.shadowRoot.querySelectorAll('[data-card-power-row]').forEach(row => {
+      this._syncCardPowerPreview(row);
+      row.querySelector('[data-card-power-mode]')?.addEventListener('change',()=>this._syncCardPowerPreview(row));
+      row.querySelector('[data-card-power-sensor]')?.addEventListener('input',()=>this._syncCardPowerPreview(row));
+    });
     this.shadowRoot.querySelector('[data-card-power-search]')?.addEventListener('input', event => {
       const query=event.target.value.trim().toLocaleLowerCase('it');
       this.shadowRoot.querySelectorAll('[data-card-power-row]').forEach(row=>{

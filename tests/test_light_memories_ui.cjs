@@ -46,6 +46,18 @@ if(require.main===module)(async()=>{
    assert.equal(await root.locator('#presetPanel').isVisible(),false);
    assert.equal(await root.locator('[data-control="white"]').count(),0);
    assert.equal(await root.locator('#lightAdjustments').isVisible(),false);
+   await page.evaluate(()=>{
+     hass.states['sensor.fixture_power']={state:'43.3',attributes:{unit_of_measurement:'W',device_class:'power'}};
+     card.setConfig({entity:'light.fixture',name:'Luce prova',power_entity:'sensor.fixture_power'});
+     card.hass={...hass};
+   });
+   assert.equal(await root.locator('#lightPower .cl-power-value').textContent(),'43,3 W');
+   assert.equal(await root.locator('#lightPower').isVisible(),true);
+   await page.evaluate(()=>{hass.states['sensor.fixture_power'].state='0';card.hass={...hass};});
+   assert.equal(await root.locator('#lightPower .cl-power-value').textContent(),'0 W');
+   await page.evaluate(()=>{hass.states['sensor.fixture_power'].state='unavailable';card.hass={...hass};});
+   assert.equal(await root.locator('#lightPower').isVisible(),false);
+   await page.evaluate(()=>{hass.states['sensor.fixture_power'].state='12';card.hass={...hass};});
    const initialCalls=await page.evaluate(()=>serviceCalls.length);
    for(const width of [320,390,768,1024,1440,1920]){
      await page.setViewportSize({width,height:900});

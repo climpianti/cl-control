@@ -20,5 +20,26 @@ const out=path.resolve(process.env.CL_TEST_ARTIFACTS||'test-artifacts', 'install
   }
   await page.evaluate(()=>{installer._dirtyKeys.clear();installer._updateSaveBar();scrollTo(0,0);});await page.screenshot({path:path.join(out,`after-${width}.png`),fullPage:true});
  }
+ await page.evaluate(()=>{
+   const row=document.createElement('div');
+   row.dataset.cardPowerDetected='sensor.shelly_power';
+   row.innerHTML='<select data-card-power-mode><option value="auto">Automatico</option><option value="manual">Manuale</option><option value="off">Disattivato</option></select><input data-card-power-sensor value="sensor.knx_power"><small data-card-power-preview></small>';
+   installer.shadowRoot.append(row);
+   installer._hass.states={
+     'sensor.shelly_power':{state:'43.3',attributes:{device_class:'power',unit_of_measurement:'W'}},
+     'sensor.knx_power':{state:'1.234',attributes:{device_class:'power',unit_of_measurement:'kW'}},
+     'sensor.energy':{state:'200',attributes:{device_class:'energy',unit_of_measurement:'kWh'}}
+   };
+   const mode=row.querySelector('select'),input=row.querySelector('input'),preview=row.querySelector('small');
+   const check=(fragment)=>{installer._syncCardPowerPreview(row);if(!preview.textContent.includes(fragment))throw Error('Power preview mismatch: '+preview.textContent)};
+   check('43,3 W');if(input.disabled!==true)throw Error('Auto sensor not locked');
+   installer._hass.states['sensor.shelly_power'].state='0';
+   check('0 W');
+   mode.value='manual';check('1,23 kW');if(input.disabled)throw Error('Manual sensor not selectable');
+   input.value='sensor.energy';check('Dato non disponibile');
+   input.value='sensor.knx_power';installer._hass.states['sensor.knx_power'].state='unavailable';check('Dato non disponibile');
+   mode.value='off';check('Visualizzazione disattivata');
+   row.remove();
+ });
  assert.equal(await page.evaluate(()=>calls.length),0);assert.deepEqual(errors,[]);await browser.close();console.log('Installer layout OK: six widths, clean/dirty and three scroll positions, no overlap, no calls.');
 })().catch(e=>{console.error(e);process.exit(1)});
