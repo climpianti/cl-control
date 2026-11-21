@@ -88,6 +88,7 @@ DEFAULT_RUNTIME = {
         "home": {"mode": "auto", "entities": []},
         "areas": {},
     },
+    "card_power": {},
     "area_switches": {},
     "ui": {"density": "normal"},
     "shell_title": {"mode": "cl_control", "custom": ""},

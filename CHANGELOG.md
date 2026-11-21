@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.5.3-beta.37 — Potenza istantanea nelle card
+
+- Sensori di potenza W/kW rilevati automaticamente per Luci, Prese e Interruttori.
+- Gestione di Shelly 1PM e 2PM multicanale, Switch-as-X e selezione manuale KNX/Modbus.
+- Configurazione per entità: Automatico, Manuale, Disattivato. Nessuna associazione se ambigua.
+- Badge aggiornato dagli stati HA, senza modificare i comandi dei dispositivi.
+
+
 ## 3.5.3-beta.36 — Nomi Shelly e Home Assistant
 
 - Correzione fallback nome di canali Shelly senza nome nel registro.

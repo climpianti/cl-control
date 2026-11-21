@@ -468,6 +468,17 @@ class CLControlInstallerCard extends HTMLElement {
       });
       current.media_remotes = media;
     }
+    if (this.shadowRoot.querySelector('[data-card-power-row]')) {
+      const power = { ...(current.card_power || {}) };
+      this.shadowRoot.querySelectorAll('[data-card-power-row]').forEach(row => {
+        const id = row.dataset.cardPowerRow;
+        const mode = row.querySelector('[data-card-power-mode]')?.value || 'auto';
+        const entity = row.querySelector('[data-card-power-sensor]')?.value?.trim() || '';
+        if (mode === 'auto') delete power[id];
+        else power[id] = mode === 'off' ? {mode:'off'} : {mode:'manual',entity};
+      });
+      current.card_power = power;
+    }
     const visibility = { ...(current.entity_visibility || {}) };
     const entityAreas = { ...(current.entity_areas || {}) };
     let visibilityTouched = false;
@@ -628,6 +639,10 @@ class CLControlInstallerCard extends HTMLElement {
       .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}.chip{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:999px;background:var(--secondary-background-color);font-size:11px;max-width:100%}.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .picker{margin-top:10px;border:1px solid var(--divider-color);border-radius:12px;background:var(--primary-background-color);padding:10px}.picker[hidden]{display:none}.searchBox{position:relative}.searchBox input{padding-left:38px}.searchBox ha-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);--mdc-icon-size:19px;color:var(--secondary-text-color);pointer-events:none}.list{max-height:320px;overflow:auto;border:1px solid var(--divider-color);border-radius:10px;margin-top:8px}.check{display:flex;align-items:center;gap:9px;padding:9px 10px;border-bottom:1px solid var(--divider-color);font-size:13px}.check:last-child{border-bottom:0}.check[hidden]{display:none}.check input{width:auto;min-height:auto}.check span{min-width:0}.check b{display:block;font-size:13px}.check small{display:block;color:var(--secondary-text-color);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.searchEmpty{padding:12px;color:var(--secondary-text-color);font-size:13px}
       .areaConfig{border:1px solid var(--divider-color);border-radius:12px;margin-top:9px;padding:11px}.areaHead{display:flex;align-items:center;justify-content:space-between;gap:10px}.areaHead b{font-size:14px}.areaHead span{font-size:11px;color:var(--secondary-text-color)}
+      .cardPowerList{max-height:620px;overflow:auto;margin-top:10px}
+      .cardPowerRow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(120px,.55fr) minmax(190px,1fr);gap:10px;align-items:center;padding:12px 9px;border-bottom:1px solid var(--divider-color)}
+      .cardPowerRow[hidden]{display:none}.cardPowerRow input,.cardPowerRow select{width:100%;box-sizing:border-box}
+      @media(max-width:760px){.cardPowerRow{grid-template-columns:1fr}}
       .cameraRow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(190px,.65fr);gap:10px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--divider-color)}.cameraInfo{display:flex;flex-direction:column}.cameraInfo small{color:var(--secondary-text-color);margin-top:3px}.cameraToggle{display:flex;align-items:center;gap:6px}.cameraToggle input{width:auto;min-height:auto}
       .tabs{display:flex;gap:6px;overflow:auto;margin:10px 0}.tab{min-height:36px;padding:0 12px;border:1px solid var(--divider-color);white-space:nowrap}.tab.active{background:var(--primary-color);color:var(--text-primary-color,#fff);border-color:var(--primary-color)}
       .securityGroup{margin-top:12px}.securityGroupTitle{font-size:12px;font-weight:800;color:var(--secondary-text-color);padding:5px 2px}.securityArea{margin:6px 0;border:1px solid var(--divider-color);border-radius:10px;overflow:hidden}.securityAreaTitle{padding:8px 10px;background:var(--secondary-background-color);font-size:12px;font-weight:700}
@@ -741,6 +756,7 @@ class CLControlInstallerCard extends HTMLElement {
         ['areas','mdi:floor-plan','Aree & organizzazione',`${areas.length} aree · ordine, visibilità, immagini e dispositivi`],
         ['weather','mdi:weather-partly-cloudy','Meteo',weather.mode === 'off' ? 'Disattivato' : weather.mode === 'manual' ? `Manuale · ${weather.entity || 'nessuna entità'}` : 'Automatico'],
         ['energy','mdi:flash','Energia',`Data Contract v${energyContract.contract_version || 2} · realtime ${energyContract.realtime_provider || 'none'} · ${Array.isArray(r.energy?.monitored_loads) ? r.energy.monitored_loads.length : 0} utenze monitorate`],
+        ['card_power','mdi:flash-outline','Potenza nelle card','Luci, prese e interruttori · auto o manuale'],
         ['security','mdi:shield-home-outline','Sicurezza',`${visibleSecurityCount}/${securityEntities.length} entità visibili · ${this._securityPinConfigured ? 'codice attivo' : 'codice da configurare'}`],
         ['multimedia','mdi:remote-tv','Multimedia',`Telecomandi configurati: ${Object.keys(r.media_remotes || {}).length}`],
         ['cameras','mdi:cctv','Telecamere',`${visibleCameraCount}/${cameras.length} visibili`],
@@ -817,6 +833,37 @@ class CLControlInstallerCard extends HTMLElement {
       const autoRemote=id=>{const entry=registryById.get(id);if(!['samsungtv','androidtv','androidtv_remote'].includes(String(entry?.platform||'').toLowerCase()))return '';const device=entry?.device_id;if(!device)return '';const matched=remotes.filter(state=>{const candidate=registryById.get(state.entity_id);return candidate?.device_id===device && !candidate.disabled_by;});return matched.length===1?matched[0].entity_id:'';};
       body=`${this._pageHead('Multimedia','Associa un telecomando Home Assistant a ogni lettore TV. Configura soltanto i comandi realmente supportati.')}
         ${players.map(player=>{const id=player.entity_id,cfg=r.media_remotes?.[id]||{},suggested=autoRemote(id);return `<div class="section" data-media-config="${esc(id)}"><h3>${esc(this._name(id))}</h3><p class="muted">${esc(id)}${suggested?' · Telecomando rilevato: '+esc(suggested):''}</p><div class="grid"><div class="field"><label>Telecomando associato</label><select data-media-remote><option value="">Automatico${suggested?' · '+esc(this._name(suggested)):' (LG se disponibile)'}</option>${remotes.map(remote=>`<option value="${esc(remote.entity_id)}" ${cfg.remote_entity===remote.entity_id?'selected':''}>${esc(this._name(remote.entity_id))} · ${esc(remote.entity_id)}</option>`).join('')}</select></div><div class="field full"><label>Mappatura tasti (uno per riga: HOME=KEY_HOME)</label><textarea data-media-commands rows="4" placeholder="ENTER=KEY_OK&#10;BACK=KEY_BACK">${esc(Object.entries(cfg.remote_commands||{}).map(([k,v])=>`${k}=${v}`).join('\n'))}</textarea></div></div></div>`;}).join('')||'<p class="muted">Nessun media player disponibile.</p>'}`;
+    } else if (this._page === 'card_power') {
+      const mapped = new Map();
+      for (const area of (this._dashboardModel?.areas || []))
+        for (const values of Object.values(area.entities || {}))
+          if (Array.isArray(values)) for (const item of values)
+            if (item.entity_id && item.power_entity) mapped.set(item.entity_id,item.power_entity);
+      const controls = this._entities.filter(e =>
+        ['light','switch'].includes(String(e.entity_id||'').split('.')[0]) &&
+        !e.disabled_by && this._hass?.states?.[e.entity_id])
+        .sort((a,b)=>this._name(a.entity_id).localeCompare(this._name(b.entity_id),'it'));
+      const options = power.map(e =>
+        `<option value="${esc(e.entity_id)}" label="${esc(this._name(e.entity_id))}"></option>`).join('');
+      const rows = controls.map(e => {
+        const id=e.entity_id,cfg=r.card_power?.[id]||{},mode=cfg.mode||'auto',source=mapped.get(id)||'';
+        return `<div class="cardPowerRow" data-card-power-row="${esc(id)}" data-search-text="${esc(this._name(id)+' '+id)}">
+          <div class="cameraInfo"><b>${esc(this._name(id))}</b><small>${esc(id)}</small>
+            <small>${esc(source?'Associato: '+source:'Nessun sensore associato')}</small></div>
+          <select data-card-power-mode aria-label="Modalità ${esc(this._name(id))}">
+            <option value="auto" ${mode==='auto'?'selected':''}>Automatico</option>
+            <option value="manual" ${mode==='manual'?'selected':''}>Manuale</option>
+            <option value="off" ${mode==='off'?'selected':''}>Disattivato</option></select>
+          <input data-card-power-sensor list="cardPowerOptions" value="${esc(cfg.entity||'')}"
+            placeholder="sensor.…_power" aria-label="Sensore ${esc(this._name(id))}" ${mode==='manual'?'':'disabled'}></div>`;
+      }).join('');
+      body = `${this._pageHead('Potenza nelle card','Riconoscimento automatico della potenza istantanea W/kW.')}
+        <div class="section"><div class="searchBox"><ha-icon icon="mdi:magnify"></ha-icon>
+          <input type="search" data-card-power-search placeholder="Cerca entità…"></div>
+          <div id="cardPowerList" class="cardPowerList">${rows||'<p class="muted">Nessuna entità disponibile.</p>'}</div>
+          <datalist id="cardPowerOptions">${options}</datalist>
+          <p class="muted">In Manuale puoi scegliere un sensore di potenza Modbus, KNX o Shelly. Associazioni ambigue non vengono mostrate.</p>
+        </div>${this._saveBar()}`;
     } else if (this._page === 'cameras') {
       const opts=areas.map(area=>`<option value="${esc(area.id)}">${esc(area.name)}</option>`).join('');
       const rows=cameras.map(state=>{const id=state.entity_id; const configured=cameraAreas[id]||''; const effective=configured||this._areaForEntity(id)||''; const area=areaNames.get(effective)||effective||'Nessuna area'; const available=!['unavailable','unknown',''].includes(String(state.state||'').toLowerCase()); return `<div class="cameraRow" data-camera-config="${esc(id)}" data-search-text="${esc(`${this._name(id)} ${id} ${area}`)}"><div class="cameraInfo"><b>${esc(this._name(id))}</b><small>${available?'Online':'Non disponibile'} · ${esc(area)} · ${esc(id)}</small></div><label class="cameraToggle"><input type="checkbox" data-camera-visible ${visibility[id]!==false?'checked':''}> Visibile</label><select data-camera-area><option value="">Area automatica</option>${areas.map(a=>`<option value="${esc(a.id)}" ${configured===a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select></div>`;}).join('');
@@ -862,6 +909,17 @@ class CLControlInstallerCard extends HTMLElement {
     this.shadowRoot.querySelectorAll('[data-global-save]').forEach(button => button.addEventListener('click', () => this._saveGeneral({reload:true})));
     this.shadowRoot.querySelectorAll('[data-discard]').forEach(button => button.addEventListener('click', async () => { await this._loadData(); this._dirtyKeys.clear(); this._render(); }));
     this.shadowRoot.querySelector('#saveSecurityPin')?.addEventListener('click', () => this._saveSecurityPin());
+    this.shadowRoot.querySelectorAll('[data-card-power-mode]').forEach(select =>
+      select.addEventListener('change', () => {
+        const input=select.closest('[data-card-power-row]')?.querySelector('[data-card-power-sensor]');
+        if(input) input.disabled=select.value!=='manual';
+      }));
+    this.shadowRoot.querySelector('[data-card-power-search]')?.addEventListener('input', event => {
+      const query=event.target.value.trim().toLocaleLowerCase('it');
+      this.shadowRoot.querySelectorAll('[data-card-power-row]').forEach(row=>{
+        row.hidden=!!query&&!String(row.dataset.searchText||'').toLocaleLowerCase('it').includes(query);
+      });
+    });
     this.shadowRoot.querySelector('#shellTitleMode')?.addEventListener('change', event => { const input=this.shadowRoot.querySelector('#shellTitleCustom'); if(input) input.disabled=event.target.value!=='custom'; });
     this.shadowRoot.querySelector('#welcomeSecondaryMode')?.addEventListener('change', event => { const input=this.shadowRoot.querySelector('#welcomeSecondaryText'); if(input) input.disabled=event.target.value!=='custom'; });
     this.shadowRoot.querySelectorAll('[data-favorite-select]').forEach(input => input.addEventListener('change', () => this._syncFavoriteOrder()));

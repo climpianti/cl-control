@@ -30,6 +30,7 @@ RUNTIME_UI_KEYS = (
     "energy_provider",
     "weather",
     "power_monitoring",
+    "card_power",
     "area_switches",
     "ui",
     "shell_title",

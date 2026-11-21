@@ -46,8 +46,10 @@ class CLControlHomeFavoritesCard extends HTMLElement {
           const type=entity.domain==='light'?'custom:cl-control-light-memories-card':
             entity.domain==='cover'?'custom:cl-control-cover-card':
             entity.domain==='climate'?'custom:cl-control-climate-glass-card':
-            entity.domain==='media_player'?'custom:cl-control-media-card':'tile';
-          card=helpers.createCardElement({type,entity:entity.entity_id,name:entity.name});
+            entity.domain==='media_player'?'custom:cl-control-media-card':
+            entity.domain==='switch'&&entity.power_entity?'custom:cl-control-switch-glass-card':'tile';
+          card=helpers.createCardElement({type,entity:entity.entity_id,name:entity.name,
+            ...(entity.power_entity?{power_entity:entity.power_entity}:{})});
           this._cards.set(entity.entity_id,card);
         }
         card.hass=this._hass;

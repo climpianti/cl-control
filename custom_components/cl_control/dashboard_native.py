@@ -12,6 +12,7 @@ from .const import DATA_CREDENTIALS, DATA_SUMMARY_MANAGER, DOMAIN
 from .ecosystem import async_discover_cl_modules, module_signature, resolve_energy_provider
 from .energy_provider import async_build_energy_model
 from .modules.security import INIM_ZONE_RE, PARTITION_RE, RISCO_BYPASS_RE
+from .modules.card_power import resolve_card_power
 
 DOMAIN_MODULE = {
     "light": "lights",
@@ -548,6 +549,7 @@ def build_dashboard_model(
     }
 
     by_id, by_name = _area_lookup(areas)
+    card_power_sources = resolve_card_power(registry_entities, ui.get("card_power") or {})
     visible_entities: list[dict[str, Any]] = []
     # Pair only HA registry entities belonging to the same physical device.
     remotes_by_device: dict[str, list[str]] = {}
@@ -628,6 +630,8 @@ def build_dashboard_model(
             "device_class": str(raw.get("device_class") or ""),
             "icon": str(raw.get("icon") or ""),
         }
+        if domain in {"light", "switch"} and entity_id in card_power_sources:
+            item["power_entity"] = card_power_sources[entity_id]
         if domain == 'media_player':
             matches = remotes_by_device.get(item['device_id'], []) if platform in {'samsungtv', 'androidtv', 'androidtv_remote'} else []
             if len(matches) == 1:
@@ -801,6 +805,8 @@ def build_dashboard_model(
                 "icon": str(raw.get("icon") or ""),
                 "area_id": area["id"] if area else "",
                 "area_name": area["name"] if area else "",
+                **({"power_entity": card_power_sources[entity_id]}
+                   if domain in {"light", "switch"} and entity_id in card_power_sources else {}),
             }
         )
 
@@ -949,8 +955,16 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
                 **({"icon": entity["icon"]} if entity.get("icon") else {})}
     if entity.get("domain") in {"input_button", "button"} and entity.get("module") == "commands":
         return {"type": "custom:cl-control-command-glass-card", "entity": entity["entity_id"], "name": entity["name"], "grid_options": {"columns": "full", "rows": "auto"}, **({"icon": entity["icon"]} if entity.get("icon") else {})}
-    if entity.get("domain") == "switch" and entity.get("module") == "switches":
-        return {"type": "custom:cl-control-switch-glass-card", "entity": entity["entity_id"], "name": entity["name"], **({"icon": entity["icon"]} if entity.get("icon") else {})}
+    if entity.get("domain") == "switch" and entity.get("module") in {"switches", "outlets"}:
+        if entity.get("module") == "switches" or entity.get("power_entity"):
+            return {"type": "custom:cl-control-switch-glass-card", "entity": entity["entity_id"],
+                    "name": entity["name"],
+                    **({"power_entity": entity["power_entity"]} if entity.get("power_entity") else {}),
+                    "icon": entity.get("icon") or (
+                        "mdi:power-socket-eu" if entity.get("module") == "outlets"
+                        else "mdi:toggle-switch-outline"),
+                    }
+        return _tile(entity)
     if entity.get("domain") == "climate":
         return {"type": "custom:cl-control-climate-glass-card", "entity": entity["entity_id"], "name": entity["name"]}
     if entity.get("domain") == "cover":
@@ -962,6 +976,7 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
             "type": "custom:cl-control-light-memories-card",
             "entity": entity["entity_id"],
             "name": entity["name"],
+            **({"power_entity": entity["power_entity"]} if entity.get("power_entity") else {}),
         }
     if entity.get("domain") == "media_player":
         # HA owns capability checks, playback, volume, sources and more-info.
@@ -1966,6 +1981,14 @@ class NativeDashboardService:
                     "name": entry.name,
                     "original_name": entry.original_name,
                     "friendly_name": friendly_name,
+                    "unit_of_measurement": (
+                        str(state.attributes.get("unit_of_measurement") or "")
+                        if state is not None else ""
+                    ),
+                    "source_entity_id": (
+                        str((getattr(entry, "options", None) or {}).get("switch_as_x", {}).get("entity_id") or "")
+                        if isinstance((getattr(entry, "options", None) or {}).get("switch_as_x"), dict) else ""
+                    ),
                     "icon": entry.icon or entry.original_icon,
                     "supported_features": entry.supported_features or 0,
                     "device_class": str(
