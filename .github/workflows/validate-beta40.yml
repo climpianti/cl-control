@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - beta/3.5.3-beta.40
+  pull_request:
+    branches:
+      - beta/3.5.3-beta.39
   workflow_dispatch:
 
 permissions:
@@ -76,6 +79,7 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
       - name: Publish GitHub prerelease after successful tests
+        if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
