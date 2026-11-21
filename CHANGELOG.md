@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.5.3-beta.47 — Alexa unificata nella card Multimedia
+
+- Le entità di ogni dispositivo Alexa/Echo sono associate automaticamente al proprio `media_player` tramite `device_id`, senza associare dispositivi tramite nomi simili.
+- Mescolare, Ripetere, Non disturbare e gli altri comandi/sensori Echo sono accessibili dal pulsante Alexa nella card Multimedia Blue Tech Glass, invece di comparire come card separate in Interruttori/Modalità/Comandi.
+- Supportati interruttori, luci, selettori, numeri, pulsanti e stati/sensori; altri tipi possono essere aperti nei dettagli Home Assistant.
+- Rispetto di preferenze di visibilità, override installatore, aree esplicite e più lettori sullo stesso dispositivo (in caso di ambiguità non si raggruppa).
+- Nessuna modifica al registro entità HA; rimangono inalterati gli altri telecomandi Samsung, LG e Android/Fire TV. Rollback: beta.46.
+
+
 ## 3.5.3-beta.37 — Potenza istantanea nelle card
 
 - Sensori di potenza W/kW rilevati automaticamente per Luci, Prese e Interruttori.
