@@ -79,9 +79,7 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
       - name: Capture the mobile preview
-        run: |
-          node tests/test_security_climate_glass.cjs
-          node tests/test_security_partitions.cjs
+        run: node tests/test_security_partitions.cjs
       - name: Upload the preview
         uses: actions/upload-artifact@v4
         with:

@@ -223,7 +223,7 @@ class CLSecurityCard extends HTMLElement {
         .quickLock:disabled{cursor:default}.quickLock:disabled:not([data-current="true"]){opacity:.58}
         .quickLock:focus-visible{outline:2px solid #8bcfff;outline-offset:1px}
         .quickLock.partial{--lock-color:#ffc45c}.quickLock.disarmed{--lock-color:#51e494}.quickLock.total{--lock-color:#ff7d88}
-        .lockDisc{display:grid;place-items:center;width:32px;height:32px;border:1px solid transparent;border-radius:50%;background:#273241;color:color-mix(in srgb,var(--lock-color) 75%,#adbac7)}
+        .lockDisc{box-sizing:border-box;display:grid;place-items:center;width:32px;height:32px;border:1px solid transparent;border-radius:50%;background:#273241;color:color-mix(in srgb,var(--lock-color) 75%,#adbac7)}
         .lockDisc ha-icon{--mdc-icon-size:17px}
         .quickLock[data-current="true"] .lockDisc{color:var(--lock-color);border-color:currentColor;background:color-mix(in srgb,var(--lock-color) 14%,#0b1726);box-shadow:0 0 7px color-mix(in srgb,var(--lock-color) 35%,transparent),inset 0 0 5px color-mix(in srgb,var(--lock-color) 18%,transparent)}
         .securityControls{margin-top:4px}.securityControls summary{min-height:36px}
@@ -588,7 +588,7 @@ class CLSecurityCard extends HTMLElement {
   _askPin(title, description) {
     return new Promise(resolve => {
       const overlay = this.shadowRoot.getElementById('overlay');
-      overlay.innerHTML = `<div class="dialog" role="dialog" aria-modal="true"><form id="pinForm"><h3>${esc(title)}</h3><p>${esc(description)}</p><input id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required aria-label="PIN Sicurezza"><div id="dialogError" class="dialogError"></div><div class="dialogActions"><button type="button" class="cmd" id="dialogCancel">Annulla</button><button type="submit" class="cmd primary">Conferma</button></div></form></div>`;
+      overlay.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pinTitle"><form id="pinForm"><h3 id="pinTitle">${esc(title)}</h3><p>${esc(description)}</p><input id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required aria-label="PIN Sicurezza"><div id="dialogError" class="dialogError"></div><div class="dialogActions"><button type="button" class="cmd" id="dialogCancel">Annulla</button><button type="submit" class="cmd primary">Conferma</button></div></form></div>`;
       overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false');
       overlay.querySelector('#dialogCancel')?.addEventListener('click', () => { this._closeDialog(); resolve(null); });
       overlay.querySelector('#pinForm')?.addEventListener('submit', event => {

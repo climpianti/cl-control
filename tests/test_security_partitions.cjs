@@ -87,6 +87,10 @@ async function main() {
     assert.ok(await button('garage','DISARMED').isDisabled());
     assert.equal(await button('esterno','ARM_INSTANT').isVisible(),false);
     assert.equal(await card.locator('[data-panel-command="arm_night"]').count(),0);
+    await card.locator('[data-panel-command="arm_away"]').click();
+    assert.match(await card.locator('.dialog').innerText(),/Perimetro · Inserisci totale/);
+    assert.equal(await page.evaluate(()=>calls.length),0);
+    await card.locator('#dialogCancel').click();
     for (const width of [320,390,780]) {
       await page.setViewportSize({width,height:900});
       assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'overflow '+width);
