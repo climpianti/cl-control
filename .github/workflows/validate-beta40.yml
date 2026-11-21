@@ -1,0 +1,77 @@
+name: Validate and publish CL Control 3.5.3-beta.40 two-column photo Area Pro
+
+on:
+  push:
+    branches:
+      - beta/3.5.3-beta.40
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify version and Python syntax
+        run: |
+          python -m compileall -q custom_components/cl_control tests
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          v='3.5.3-beta.40'
+          assert json.loads(Path('custom_components/cl_control/manifest.json').read_text())['version']==v
+          assert f'VERSION = "{v}"' in Path('custom_components/cl_control/const.py').read_text()
+          assert f'ASSET_REVISION = "{v}-area-grid"' in Path('custom_components/cl_control/frontend.py').read_text()
+          PY
+      - name: Python offline regression
+        run: python tests/run_offline.py
+      - name: Check JavaScript syntax
+        run: |
+          for file in custom_components/cl_control/frontend/*.mjs; do node --check "$file"; done
+          for file in tests/*.cjs; do node --check "$file"; done
+      - name: Verify power formatting
+        run: node tests/test_card_power.cjs
+      - name: Verify Pro Area and switch/installer power UI fixtures
+        run: |
+          node --check tests/test_area_pro.cjs
+          node --check tests/test_switch_glass_power.cjs
+          node --check tests/test_installer_layout.cjs
+      - name: Prepare browser
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install --with-deps chromium
+      - name: Test Home, lights, guided scenes, multimedia and Pro areas
+        run: |
+          node tests/test_home_glass.cjs
+          node tests/test_area_pro.cjs
+          node tests/test_light_memories_ui.cjs
+          node tests/test_scenes_guided.cjs
+          node tests/test_media_glass.cjs
+          node tests/test_switch_glass_power.cjs
+          node tests/test_installer_layout.cjs
+      - name: Test energy regressions
+        run: |
+          node tests/test_energy_curves.cjs
+          node tests/test_energy_visual_parity.cjs
+          node tests/test_energy_power_series.cjs
+          node --test tests/test_energy_recorder_failures.cjs
+          node tests/test_energy_missing_data.cjs
+          node tests/test_energy_schematic.cjs
+      - name: Build and validate release archive
+        run: python scripts/build_release.py
+      - name: Upload artifact for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: cl-control-beta40-dryrun
+          path: |
+            dist/cl-control-3.5.3-beta.40.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
