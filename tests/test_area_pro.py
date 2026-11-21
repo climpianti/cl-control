@@ -1,4 +1,4 @@
-"""CL Control beta.40: Pro area card layout and telemetry contracts."""
+"""CL Control beta.41: Pro area card layout and telemetry contracts."""
 import unittest
 
 from custom_components.cl_control.dashboard_native import build_dashboard_model, build_native_lovelace
@@ -37,7 +37,7 @@ class ProAreaCardTest(unittest.TestCase):
         return build_dashboard_model(
             registry_entities=kwargs.get("entities", self.entities),
             areas=self.areas, runtime={"experience_level": level},
-            site={}, branding={}, version="3.5.3-beta.40", revision=1,
+            site={}, branding={}, version="3.5.3-beta.41", revision=1,
         )
 
     def test_pro_two_columns_with_all_metrics_and_navigation(self):
