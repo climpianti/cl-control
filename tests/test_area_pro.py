@@ -15,7 +15,8 @@ def fixture(cls, entity, *, area="room", unit="", disabled=False):
 def home_cards(model):
     config = build_native_lovelace(model)
     home = next(view for view in config["views"] if view["path"] == "home")
-    return [card for section in home["sections"] for card in section.get("cards", [])]
+    return [card.get("card", card) if card.get("type")=="custom:cl-control-home-surface" else card
+            for section in home["sections"] for card in section.get("cards", [])]
 
 
 class ProAreaCardTest(unittest.TestCase):
@@ -23,6 +24,7 @@ class ProAreaCardTest(unittest.TestCase):
         self.areas = [{"id": "room", "name": "Camera da letto", "icon": "mdi:bed",
                        "floor_id": "upper", "floor_name": "4° Piano"}]
         self.entities = [
+            fixture("", "light.room"),
             fixture("temperature", "sensor.room_temperature", unit="°C"),
             fixture("humidity", "sensor.room_humidity", unit="%"),
             fixture("carbon_dioxide", "sensor.room_co2", unit="ppm"),
@@ -62,7 +64,7 @@ class ProAreaCardTest(unittest.TestCase):
                 self.assertTrue(any(c.get("type")=="area" and c["area"]=="room" for c in cards))
 
     def test_no_source_does_not_invent_metric(self):
-        model=self.model(entities=[fixture("temperature","sensor.room_temperature",unit="°C")])
+        model=self.model(entities=[fixture("", "light.room"),fixture("temperature","sensor.room_temperature",unit="°C")])
         area=next(c for c in home_cards(model) if c.get("type")=="custom:cl-control-area-pro-card")
         self.assertEqual(area["telemetry"]["humidity"],[])
         self.assertEqual(area["telemetry"]["carbon_dioxide"],[])
