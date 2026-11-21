@@ -16,12 +16,31 @@ const ALARM_COMMANDS = Object.freeze([
   ['disarm', 'Disinserisci', 0],
 ]);
 
-const PARTITION_FALLBACK_MODES = Object.freeze([
-  'TOTAL',
-  'PARTIAL',
-  'INSTANT',
-  'DISARMED',
-]);
+
+const LOCKS = [
+  ['partial','Inserisci parziale','mdi:lock'],
+  ['disarmed','Disinserisci','mdi:lock-open-variant'],
+  ['total','Inserisci totale','mdi:lock'],
+];
+const PANEL_LOCK = {arm_home:'partial',disarm:'disarmed',arm_away:'total'};
+const VISIBILITY_EVENT = 'cl-control-security-visibility';
+
+function lockMode(mode) {
+  if (isDisarmPartitionMode(mode)) return 'disarmed';
+  const label = partitionModeLabel(mode);
+  return label === 'Parziale' ? 'partial' : label === 'Totale' ? 'total' : '';
+}
+
+function isAvailable(state) {
+  return Boolean(state) && !['unknown','unavailable'].includes(state);
+}
+
+function partitionOptions(entity) {
+  const options = entity?.attributes?.options;
+  return Array.isArray(options)
+    ? [...new Set(options.filter(option => typeof option === 'string' && option.trim()))]
+    : [];
+}
 
 function normalizePartitionMode(value) {
   return String(value ?? '')
@@ -43,6 +62,9 @@ function partitionModeLabel(value, {action = false} = {}) {
     'ARM HOME': 'Parziale',
     'ARMED HOME': 'Parziale',
     'HOME': 'Parziale',
+    'ARM STAY': 'Parziale',
+    'ARMED STAY': 'Parziale',
+    'STAY': 'Parziale',
     'INSTANT': 'Istantaneo',
     'ARM INSTANT': 'Istantaneo',
     'ARM AWAY INSTANT': 'Totale istantaneo',
@@ -67,7 +89,7 @@ function isDisarmPartitionMode(value) {
 const ALARM_STATES = Object.freeze({
   disarmed: 'Disinserito',
   armed_home: 'Parziale',
-  armed_away: 'Inserito',
+  armed_away: 'Totale',
   armed_night: 'Notte',
   armed_vacation: 'Vacanza',
   armed_custom_bypass: 'Personalizzato',
@@ -150,6 +172,15 @@ class CLSecurityCard extends HTMLElement {
     this._hass = null;
     this._config = {panels: [], partitions: [], zones: [], pin_configured: false, group_by_floor: true};
     this._busy = new Set();
+    this._pending = new Map();
+    this._modeNotice = '';
+    this._hidden = new Set();
+    this._visibilityKey = '';
+    this._onVisibility = event => {
+      if (!this._visibilityKey || (event.detail?.key ?? event.key) !== this._visibilityKey) return;
+      this._loadVisibility();
+      this._render();
+    };
     this._openControls = new Set();
     this.shadowRoot.innerHTML = `
       <style>
@@ -177,10 +208,95 @@ class CLSecurityCard extends HTMLElement {
         .cmd{min-height:44px;border-radius:12px}.cmd.primary{background:linear-gradient(120deg,#256ba466,#65439e66);color:#f5f7fc}.cmd.danger{background:#ff859918;color:#ffc2cc;border-color:#ff85994d}
         .securityControls{margin-top:10px;border-top:1px solid #ffffff18}.securityControls summary{min-height:44px;display:flex;align-items:center;cursor:pointer;color:#bdcadd;font-size:13px}.securityControls summary:before{content:'▸';margin-right:8px}.securityControls[open] summary:before{content:'▾'}.securityControls summary:focus-visible{outline:2px solid #67c5ff;outline-offset:2px}
         .dialog{background:linear-gradient(120deg,#18222b,#211a29);border:1px solid #b2daff66;color:#f5f7fc;border-radius:25px}.partitionTop,.panelTop{flex-wrap:wrap}.partitionCopy b,.panelName{overflow-wrap:anywhere}.toggle{min-height:44px}.partitionActions{grid-template-columns:repeat(auto-fit,minmax(min(100%,95px),1fr))}
+
+        .header{align-items:center;flex-wrap:wrap}.headerCopy{flex:1}.header .cmd{width:auto}
+        ha-card{container-type:inline-size}@container(max-width:470px){.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        .partitionCard,.panel{padding:7px 9px;border-radius:13px;background:linear-gradient(116deg,#18324a,#151e32)}
+        .panelGrid{grid-template-columns:1fr}
+        .securityRow{display:flex;align-items:center;justify-content:space-between;gap:6px}
+        .securityIdentity{min-width:0}.securityIdentity b,.securityIdentity small{display:block;overflow-wrap:anywhere}
+        .securityIdentity small{font-size:12px;color:#bdcadd}
+        .securityIdentity .armed,.securityIdentity .pending{color:#ffd075}
+        .securityIdentity .disarmed{color:#71e5ab}.securityIdentity .bad,.securityIdentity .triggered{color:#ff9aa5}
+        .quickModes{display:flex;flex:none}
+        .quickLock{display:grid;place-items:center;width:44px;height:44px;padding:0;border:0;border-radius:10px;background:transparent;cursor:pointer}
+        .quickLock:disabled{cursor:default}.quickLock:disabled:not([data-current="true"]){opacity:.58}
+        .quickLock:focus-visible{outline:2px solid #8bcfff;outline-offset:1px}
+        .quickLock.partial{--lock-color:#ffc45c}.quickLock.disarmed{--lock-color:#51e494}.quickLock.total{--lock-color:#ff7d88}
+        .lockDisc{box-sizing:border-box;display:grid;place-items:center;width:32px;height:32px;border:1px solid transparent;border-radius:50%;background:#273241;color:color-mix(in srgb,var(--lock-color) 75%,#adbac7)}
+        .lockDisc ha-icon{--mdc-icon-size:17px}
+        .quickLock[data-current="true"] .lockDisc{color:var(--lock-color);border-color:currentColor;background:color-mix(in srgb,var(--lock-color) 14%,#0b1726);box-shadow:0 0 7px color-mix(in srgb,var(--lock-color) 35%,transparent),inset 0 0 5px color-mix(in srgb,var(--lock-color) 18%,transparent)}
+        .securityControls{margin-top:4px}.securityControls summary{min-height:36px}
+        .visibility{border:1px solid #6398c780;background:#112337;border-radius:14px;padding:12px;margin-bottom:14px}
+        .visibility h3{margin:0}.visibility p,.visibleCount{color:#bdcadd;font-size:12px;margin:5px 0}
+        .visibilityList{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:4px 10px;margin:8px 0}
+        .visibilityList label{min-height:44px;display:flex;align-items:center;gap:8px;overflow-wrap:anywhere}.visibilityList input{accent-color:#8bcfff;width:17px;height:17px;flex:none}
+        .visibilityActions{display:flex;flex-wrap:wrap;gap:8px}.visibilityActions .cmd{width:auto}
+        .zoneDetails>summary{font-size:13px;color:#d4e7ff;min-height:42px;align-content:center;cursor:pointer}
+        @media(max-width:430px){.header .cmd{flex:1 1 100%}.areaGroup{padding:7px}.partitionCard,.panel{padding:6px 7px}}
       </style>
-      <ha-card><div id="main"></div></ha-card>
+      <ha-card><div id="overview"></div><div id="visibility"></div><div id="main"></div></ha-card>
       <div id="overlay" class="overlay" aria-hidden="true"></div>
     `;
+  }
+
+
+  connectedCallback() {
+    window.addEventListener(VISIBILITY_EVENT, this._onVisibility);
+    window.addEventListener('storage', this._onVisibility);
+    this._loadVisibility();
+    this._render();
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener(VISIBILITY_EVENT, this._onVisibility);
+    window.removeEventListener('storage', this._onVisibility);
+    for (const id of this._pending.keys()) this._clearPending(id);
+  }
+
+  _items() { return [...this._config.partitions, ...this._config.panels]; }
+
+  _loadVisibility() {
+    if (!this._visibilityKey) return;
+    try {
+      const hidden = JSON.parse(localStorage.getItem(this._visibilityKey) || '[]');
+      this._hidden = new Set(Array.isArray(hidden) ? hidden.filter(id => typeof id === 'string') : []);
+    } catch {
+      // Keep the in-memory selection when storage is unavailable.
+    }
+  }
+
+  _editVisibility() {
+    const host = this.shadowRoot.getElementById('visibility');
+    if (host.firstChild) { host.replaceChildren(); this._render(); return; }
+    host.innerHTML = `<form class="visibility"><h3>Partizioni visibili</h3><p>Il riepilogo include anche le partizioni nascoste.</p><div class="visibilityList">${this._items().map(item => `<label><input type="checkbox" value="${esc(item.entity_id)}" ${this._hidden.has(item.entity_id) ? '' : 'checked'}><span>${esc(item.name)}</span></label>`).join('')}</div><div class="visibilityActions"><button type="button" class="cmd">Annulla</button><button type="submit" class="cmd primary">Applica</button></div></form>`;
+    const form = host.firstElementChild;
+    const close = () => {
+      host.replaceChildren();
+      this._render();
+      this.shadowRoot.querySelector('[data-visibility]')?.focus();
+    };
+    form.querySelector('button[type=button]').onclick = close;
+    form.onsubmit = event => {
+      event.preventDefault();
+      const hidden = new Set(this._hidden);
+      for (const input of form.querySelectorAll('input')) {
+        if (input.checked) hidden.delete(input.value);
+        else hidden.add(input.value);
+      }
+      this._hidden = hidden;
+      if (this._visibilityKey) {
+        try {
+          localStorage.setItem(this._visibilityKey, JSON.stringify([...hidden]));
+          window.dispatchEvent(new CustomEvent(VISIBILITY_EVENT, {detail:{key:this._visibilityKey}}));
+        } catch {
+          // Apply to the current card even when storage is unavailable.
+        }
+      }
+      close();
+    };
+    this.shadowRoot.querySelector('[data-visibility]')?.setAttribute('aria-expanded','true');
+    form.querySelector('input')?.focus();
   }
 
   setConfig(config) {
@@ -197,6 +313,17 @@ class CLSecurityCard extends HTMLElement {
 
   set hass(value) {
     this._hass = value;
+    const key = value?.user?.id ? 'cl-control.security.hidden:' + value.user.id : '';
+    if (key !== this._visibilityKey) {
+      this._visibilityKey = key;
+      this._hidden = new Set();
+      this.shadowRoot.getElementById('visibility').replaceChildren();
+      this._loadVisibility();
+    }
+    for (const [id, pending] of this._pending) {
+      const state = this._state(id)?.state;
+      if (normalizePartitionMode(state) === pending.expected) this._clearPending(id);
+    }
     this._render();
   }
 
@@ -224,8 +351,8 @@ class CLSecurityCard extends HTMLElement {
       if (!floor.areas.has(areaId)) floor.areas.set(areaId, {id: areaId, name: areaName, panels: [], partitions: [], zones: []});
       floor.areas.get(areaId)[kind].push(item);
     };
-    for (const item of this._config.panels || []) add('panels', item);
-    for (const item of this._config.partitions || []) add('partitions', item);
+    for (const item of this._config.panels) if (!this._hidden.has(item.entity_id)) add('panels', item);
+    for (const item of this._config.partitions) if (!this._hidden.has(item.entity_id)) add('partitions', item);
     for (const item of this._config.zones || []) add('zones', item);
     return [...groups.values()]
       .sort((a,b) => a.order - b.order || a.name.localeCompare(b.name, 'it'))
@@ -236,20 +363,27 @@ class CLSecurityCard extends HTMLElement {
     const main = this.shadowRoot?.getElementById('main');
     if (!main) return;
     const cfg = this._config;
-    const panels = cfg.panels || [];
-    const partitions = cfg.partitions || [];
-    const zones = cfg.zones || [];
+    const items = this._items();
+    const states = items.map(item => this._state(item.entity_id)?.state);
+    const disarmed = states.filter(state => isAvailable(state) && isDisarmPartitionMode(state)).length;
+    const inserted = states.filter(state => isAvailable(state) && !isDisarmPartitionMode(state) &&
+      !['triggered','arming','pending','disarming'].includes(state)).length;
+    const offline = states.filter(state => !isAvailable(state)).length;
     const attention = this._attentionCount();
-    const pinNotice = cfg.pin_configured ? '' : '<div class="notice"><b>Codice Sicurezza non configurato.</b> Impostalo da CL Control → Installatore → Sicurezza per abilitare inserimento e disinserimento.</div>';
-    const summary = `<div class="summaryGrid"><div class="summary"><b>${panels.length}</b><small>Impianti allarme</small></div><div class="summary"><b>${partitions.length}</b><small>Partizioni</small></div><div class="summary"><b>${zones.length}</b><small>Zone</small></div><div class="summary ${attention ? 'attention' : ''}"><b>${attention}</b><small>Attenzioni</small></div></div>`;
+    const shown = items.filter(item => !this._hidden.has(item.entity_id)).length;
+    const overview = this.shadowRoot.getElementById('overview');
+    const editing = Boolean(this.shadowRoot.querySelector('#visibility form'));
+    overview.innerHTML = `<div class="header"><div class="shield"><ha-icon icon="mdi:shield-home-outline"></ha-icon></div><div class="headerCopy"><h2>${esc(cfg.title)}</h2></div>${items.length ? `<button type="button" class="cmd" data-visibility aria-controls="visibility" aria-expanded="${editing}">Partizioni visibili</button>` : ''}</div>
+      <div class="summaryGrid"><div class="summary"><b>${inserted}</b><small>Inserite</small></div><div class="summary"><b>${disarmed}</b><small>Disinserite</small></div><div class="summary ${offline ? 'attention' : ''}"><b>${offline}</b><small>Non disponibili</small></div><div class="summary ${attention ? 'attention' : ''}"><b>${attention}</b><small>Zone da verificare</small></div></div>
+      ${this._modeNotice ? '<div class="notice" role="status">' + esc(this._modeNotice) + '</div>' : ''}
+      ${states.includes('triggered') ? '<div class="notice" role="alert"><b>Allarme attivo</b></div>' : ''}
+      ${items.length ? `<p class="visibleCount">${shown} di ${items.length} partizioni visibili</p>` : ''}
+      ${cfg.pin_configured ? '' : '<div class="notice"><b>Codice Sicurezza non configurato.</b> Impostalo da CL Control → Installatore → Sicurezza per abilitare i comandi.</div>'}`;
+    const visibilityButton = overview.querySelector('[data-visibility]');
+    if (visibilityButton) visibilityButton.onclick = () => this._editVisibility();
     const groups = this._groupItems();
-    const grouped = groups.length ? groups.map(group => this._groupMarkup(group, cfg.group_by_floor)).join('') : '<div class="empty">Nessuna entità di sicurezza riconosciuta.</div>';
-    main.innerHTML = `
-      <div class="header"><div class="headerCopy"><h2>${esc(cfg.title)}</h2><p>Stato impianto, partizioni, zone e bypass organizzati per area.</p></div><div class="shield"><ha-icon icon="mdi:shield-home-outline"></ha-icon></div></div>
-      ${summary}
-      ${pinNotice}
-      ${grouped}
-    `;
+    main.innerHTML = groups.length ? groups.map(group => this._groupMarkup(group, cfg.group_by_floor)).join('') :
+      '<div class="empty">Nessuna entità di sicurezza visibile.</div>';
     main.querySelectorAll('[data-controls]').forEach(details=>details.addEventListener('toggle',()=>{if(details.open)this._openControls.add(details.dataset.controls);else this._openControls.delete(details.dataset.controls);}));
     main.querySelectorAll('[data-panel-command]').forEach(button => button.addEventListener('click', () => this._panelCommand(button)));
     main.querySelectorAll('[data-partition-command]').forEach(button => button.addEventListener('click', () => this._partitionCommand(button)));
@@ -257,7 +391,7 @@ class CLSecurityCard extends HTMLElement {
   }
 
   _controlsMarkup(entityId, controls) {
-    return `<details class="securityControls" data-controls="${esc(entityId)}" ${this._openControls.has(entityId)?'open':''}><summary>Comandi impianto</summary>${controls}</details>`;
+    return `<details class="securityControls" data-controls="${esc(entityId)}" ${this._openControls.has(entityId)?'open':''}><summary>Altre modalità</summary>${controls}</details>`;
   }
 
   _groupMarkup(group, showFloor) {
@@ -268,54 +402,61 @@ class CLSecurityCard extends HTMLElement {
 
   _areaMarkup(area) {
     const count = area.panels.length + area.partitions.length + area.zones.length;
-    const panels = area.panels.length ? `<div class="subTitle"><ha-icon icon="mdi:shield-home-outline"></ha-icon>Impianto / partizioni</div><div class="panelGrid">${area.panels.map(panel => this._panelMarkup(panel)).join('')}</div>` : '';
+    const panels = area.panels.length ? `<div class="subTitle"><ha-icon icon="mdi:shield-home-outline"></ha-icon>Partizioni impianto</div><div class="panelGrid">${area.panels.map(panel => this._panelMarkup(panel)).join('')}</div>` : '';
     const partitions = area.partitions.length ? `<div class="subTitle"><ha-icon icon="mdi:shield-key-outline"></ha-icon>Partizioni INIM</div><div class="partitionList">${area.partitions.map(partition => this._partitionCard(partition)).join('')}</div>` : '';
-    const zones = area.zones.length ? `<div class="subTitle"><ha-icon icon="mdi:shield-check-outline"></ha-icon>Zone</div><div class="zoneList">${area.zones.map(zone => this._zoneRow(zone)).join('')}</div>` : '';
+    const zoneKey = 'zones:' + area.id;
+    const zones = area.zones.length ? `<details class="zoneDetails" data-controls="${esc(zoneKey)}" ${this._openControls.has(zoneKey) ? 'open' : ''}><summary>Zone · ${area.zones.length}</summary><div class="zoneList">${area.zones.map(zone => this._zoneRow(zone)).join('')}</div></details>` : '';
     return `<div class="areaGroup"><div class="areaHeader"><h3>${esc(area.name)}</h3><span class="areaCount">${count} elementi</span></div>${panels}${partitions}${zones}</div>`;
+  }
+
+  _modeRow(item, {state, label, options, target, stateTone}) {
+    const pending = this._pending.has(item.entity_id);
+    const disabled = pending || this._busy.has(item.entity_id) || !isAvailable(state) || !this._config.pin_configured;
+    const matched = new Set();
+    const quick = LOCKS.map(([variant, label, icon]) => {
+      const option = options.find(entry => entry.variant === variant);
+      if (!option) return '';
+      matched.add(option.command);
+      const text = label + (option.current ? ' · modalità attiva' : '');
+      return `<button type="button" class="quickLock ${variant}" ${target(option.command)} data-current="${option.current}" aria-label="${esc(item.name + ' · ' + text)}" title="${esc(text)}" ${disabled || option.current ? 'disabled' : ''}><span class="lockDisc"><ha-icon icon="${icon}" aria-hidden="true"></ha-icon></span></button>`;
+    }).join('');
+    const more = options.filter(option => !matched.has(option.command)).map(option =>
+      `<button type="button" class="cmd primary" ${target(option.command)} ${disabled || option.current ? 'disabled' : ''}>${esc(option.label)}</button>`
+    ).join('');
+    const platform = String(item.platform || (item.entity_id.startsWith('select.') ? 'INIM' : 'Allarme')).toUpperCase();
+    return `<div class="partitionCard"><div class="securityRow"><div class="securityIdentity"><b>${esc(item.name)}</b><small class="${pending ? 'pending' : stateTone}">${esc(pending ? 'In attesa di conferma' : label)} · ${esc(platform)}</small></div><div class="quickModes" role="group" aria-label="${esc('Comandi rapidi · ' + item.name)}">${quick}</div></div>${more ? this._controlsMarkup(item.entity_id, `<div class="partitionActions">${more}</div>`) : ''}</div>`;
   }
 
   _panelMarkup(panel) {
     const entity = this._state(panel.entity_id);
     const state = entity?.state || 'unknown';
     const features = Number(entity?.attributes?.supported_features ?? panel.supported_features ?? 0);
-    const stateClass = state === 'triggered' ? 'triggered' : state.startsWith('armed_') || state === 'arming' ? 'armed' : '';
-    const busy = this._busy.has(panel.entity_id);
-    const unavailable = ['unknown', 'unavailable'].includes(state);
-    const buttons = ALARM_COMMANDS
-      .filter(([command, _label, bit]) => command === 'disarm' || (features & bit))
-      .map(([command, label]) => `<button class="cmd ${command === 'disarm' ? 'danger' : 'primary'}" data-panel-command="${command}" data-panel-id="${esc(panel.entity_id)}" ${busy || unavailable || !this._config.pin_configured ? 'disabled' : ''}>${label}</button>`)
-      .join('');
-    return `<div class="panel"><div class="panelTop"><div><div class="panelName">${esc(panel.name)}</div><div class="panelArea">${esc(panel.platform ? panel.platform.toUpperCase() : 'Allarme')}</div></div><span class="alarmState ${stateClass}">${esc(ALARM_STATES[state] || pretty(state))}</span></div>${this._controlsMarkup(panel.entity_id, `<div class="actions">${buttons}</div>`)}</div>`;
+    const options = ALARM_COMMANDS.filter(([, , bit]) => !bit || (features & bit)).map(([command, label]) => ({
+      command, label, variant:PANEL_LOCK[command], current:state === this._panelTarget(command),
+    }));
+    return this._modeRow(panel, {
+      state, options, label:ALARM_STATES[state] || pretty(state),
+      stateTone:state === 'triggered' ? 'triggered' : !isAvailable(state) ? 'bad' : state.startsWith('armed_') ? 'armed' : 'disarmed',
+      target:command => `data-panel-command="${command}" data-panel-id="${esc(panel.entity_id)}"`,
+    });
   }
 
   _partitionCard(partition) {
     const entity = this._state(partition.entity_id);
     const state = String(entity?.state || 'unknown');
-    const normalizedState = normalizePartitionMode(state);
-    const rawOptions = Array.isArray(entity?.attributes?.options) && entity.attributes.options.length
-      ? entity.attributes.options.map(value => String(value))
-      : [...PARTITION_FALLBACK_MODES];
-    const options = [];
-    const seen = new Set();
-    for (const option of rawOptions) {
-      const normalized = normalizePartitionMode(option);
-      if (!normalized || seen.has(normalized)) continue;
-      seen.add(normalized);
-      options.push(option);
-    }
-    const busy = this._busy.has(partition.entity_id);
-    const unavailable = ['UNKNOWN', 'UNAVAILABLE'].includes(normalizedState);
-    const stateClass = unavailable ? 'bad' : isDisarmPartitionMode(state) ? 'disarmed' : 'armed';
-    const buttons = options.map(option => {
-      const isDisarm = isDisarmPartitionMode(option);
-      const active = normalizePartitionMode(option) === normalizedState ? ' active' : '';
-      const label = partitionModeLabel(option, {action: true});
-      return `<button class="cmd ${isDisarm ? 'danger' : 'primary'}${active}" data-partition-command="${esc(option)}" data-partition-id="${esc(partition.entity_id)}" ${busy || unavailable || !this._config.pin_configured ? 'disabled' : ''}>${esc(label)}</button>`;
-    }).join('');
-    const stateLabel = unavailable
-      ? (normalizedState === 'UNAVAILABLE' ? 'Non disponibile' : 'Sconosciuta')
-      : partitionModeLabel(state);
-    return `<div class="partitionCard"><div class="partitionTop"><div class="partitionIdentity"><div class="partitionIcon"><ha-icon icon="mdi:shield-key-outline"></ha-icon></div><div class="partitionCopy"><b>${esc(partition.name)}</b><small>${esc(partition.area_name || '')}</small></div></div><span class="partitionState ${stateClass}">${esc(stateLabel)}</span></div>${this._controlsMarkup(partition.entity_id, `<div class="partitionActions">${buttons || '<span class="empty">Nessun comando disponibile.</span>'}</div>`)}</div>`;
+    const active = normalizePartitionMode(state);
+    const variant = lockMode(state);
+    const options = partitionOptions(entity).map(command => {
+      const kind = lockMode(command);
+      return {command, variant:kind, label:partitionModeLabel(command, {action:true}),
+        current:active === normalizePartitionMode(command) || Boolean(kind && variant === kind)};
+    });
+    return this._modeRow(partition, {
+      state, options,
+      label:isAvailable(state) ? partitionModeLabel(state) : ALARM_STATES[state] || 'Non disponibile',
+      stateTone:isAvailable(state) ? (variant === 'disarmed' ? 'disarmed' : 'armed') : 'bad',
+      target:command => `data-partition-command="${esc(command)}" data-partition-id="${esc(partition.entity_id)}"`,
+    });
   }
 
   _zoneRow(zone) {
@@ -332,44 +473,77 @@ class CLSecurityCard extends HTMLElement {
     return `<div class="zone ${unavailable ? 'unavailable' : ''} ${active ? 'attention' : ''} ${bypassed ? 'bypassed' : ''}"><div class="zoneIcon"><ha-icon icon="${zoneIcon(zone.device_class)}"></ha-icon></div><div><b>${esc(zone.name)}</b><small>${esc(zoneType(zone.device_class))}${zone.platform ? ` · ${esc(zone.platform.toUpperCase())}` : ''}</small></div><div class="zoneRight"><span class="zoneState ${cls}">${esc(label)}</span>${toggle}</div></div>`;
   }
 
-  async _panelCommand(button) {
-    if (!this._config.pin_configured) return;
-    const entityId = button.dataset.panelId;
-    const command = button.dataset.panelCommand;
-    const label = button.textContent?.trim() || 'Comando';
-    const pin = await this._askPin('Codice Sicurezza', `${label}: ${this._config.panels.find(item => item.entity_id === entityId)?.name || entityId}`);
-    if (pin === null) return;
-    this._busy.add(entityId); this._render();
-    try {
-      await this._hass.callWS({type: 'cl_control/security/alarm_command', pin, entity_id: entityId, command});
-      this._closeDialog();
-    } catch (error) {
-      this._openMessage('Comando non eseguito', this._friendlyError(error));
+  _clearPending(id) {
+    clearTimeout(this._pending.get(id)?.timer);
+    this._pending.delete(id);
+  }
+
+  async _sendMode(item, label, expected, canSend, payload) {
+    const id = item.entity_id;
+    if (!this._config.pin_configured || this._pending.has(id) || this._busy.has(id) ||
+      this.shadowRoot.getElementById('overlay').classList.contains('open') || !canSend()) return;
+    const pin = await this._askPin('Codice Sicurezza', item.name + ' · ' + label);
+    if (pin === null || !this.isConnected) return;
+    if (!this._config.pin_configured || !canSend()) {
+      this._openMessage('Comando non eseguito', 'La modalità non è più disponibile per questa partizione.');
       return;
+    }
+    this._modeNotice = '';
+    this._busy.add(id);
+    const timer = setTimeout(() => {
+      this._clearPending(id);
+      this._modeNotice = 'Stato non confermato · ' + item.name;
+      this._render();
+    }, 10000);
+    this._pending.set(id, {expected:normalizePartitionMode(expected), timer});
+    this._render();
+    try {
+      await this._hass.callWS({...payload, pin});
+    } catch (error) {
+      this._clearPending(id);
+      this._modeNotice = item.name + ' · ' + this._friendlyError(error);
     } finally {
-      this._busy.delete(entityId); this._render();
+      this._busy.delete(id);
+      this._render();
     }
   }
 
-  async _partitionCommand(button) {
-    if (!this._config.pin_configured) return;
-    const entityId = String(button?.dataset?.partitionId || '');
-    const mode = String(button?.dataset?.partitionCommand || '').trim();
-    if (!entityId || !mode) return;
-    const partition = (this._config.partitions || []).find(item => item.entity_id === entityId);
-    const label = partitionModeLabel(mode, {action: true});
-    const pin = await this._askPin('Codice Sicurezza', `${label}: ${partition?.name || entityId}`);
-    if (pin === null) return;
-    this._busy.add(entityId); this._render();
-    try {
-      await this._hass.callWS({type: 'cl_control/security/partition_command', pin, mode, entity_ids: [entityId]});
-      this._closeDialog();
-    } catch (error) {
-      this._openMessage('Comando non eseguito', this._friendlyError(error));
-      return;
-    } finally {
-      this._busy.delete(entityId); this._render();
-    }
+  _panelTarget(command) {
+    return command === 'disarm' ? 'disarmed' : command.replace('arm_', 'armed_');
+  }
+
+  _panelCommand(button) {
+    const {panelId, panelCommand:command} = button.dataset;
+    const item = this._config.panels.find(panel => panel.entity_id === panelId);
+    const option = ALARM_COMMANDS.find(([value]) => value === command);
+    if (!item || !option) return;
+    const label = LOCKS.find(([variant]) => variant === PANEL_LOCK[command])?.[1] || option[1];
+    const expected = this._panelTarget(command);
+    const canSend = () => {
+      const entity = this._state(panelId);
+      const features = Number(entity?.attributes?.supported_features ?? item.supported_features ?? 0);
+      return isAvailable(entity?.state) && entity.state !== expected && (!option[2] || Boolean(features & option[2]));
+    };
+    return this._sendMode(item, label, expected, canSend, {
+      type:'cl_control/security/alarm_command', entity_id:panelId, command,
+    });
+  }
+
+  _partitionCommand(button) {
+    const {partitionId, partitionCommand:mode} = button.dataset;
+    const item = this._config.partitions.find(partition => partition.entity_id === partitionId);
+    if (!item || !mode) return;
+    const variant = lockMode(mode);
+    const canSend = () => {
+      const entity = this._state(partitionId);
+      return isAvailable(entity?.state) && partitionOptions(entity).includes(mode) &&
+        normalizePartitionMode(entity.state) !== normalizePartitionMode(mode) &&
+        !(variant && variant === lockMode(entity.state));
+    };
+    const label = LOCKS.find(([kind]) => kind === variant)?.[1] || partitionModeLabel(mode, {action:true});
+    return this._sendMode(item, label, mode, canSend, {
+      type:'cl_control/security/partition_command', mode, entity_ids:[partitionId],
+    });
   }
 
   async _toggleBypass(button) {
@@ -414,7 +588,7 @@ class CLSecurityCard extends HTMLElement {
   _askPin(title, description) {
     return new Promise(resolve => {
       const overlay = this.shadowRoot.getElementById('overlay');
-      overlay.innerHTML = `<div class="dialog" role="dialog" aria-modal="true"><form id="pinForm"><h3>${esc(title)}</h3><p>${esc(description)}</p><input id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required aria-label="PIN Sicurezza"><div id="dialogError" class="dialogError"></div><div class="dialogActions"><button type="button" class="cmd" id="dialogCancel">Annulla</button><button type="submit" class="cmd primary">Conferma</button></div></form></div>`;
+      overlay.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="pinTitle"><form id="pinForm"><h3 id="pinTitle">${esc(title)}</h3><p>${esc(description)}</p><input id="pinInput" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="12" required aria-label="PIN Sicurezza"><div id="dialogError" class="dialogError"></div><div class="dialogActions"><button type="button" class="cmd" id="dialogCancel">Annulla</button><button type="submit" class="cmd primary">Conferma</button></div></form></div>`;
       overlay.classList.add('open'); overlay.setAttribute('aria-hidden', 'false');
       overlay.querySelector('#dialogCancel')?.addEventListener('click', () => { this._closeDialog(); resolve(null); });
       overlay.querySelector('#pinForm')?.addEventListener('submit', event => {

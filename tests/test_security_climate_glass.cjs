@@ -16,9 +16,9 @@ async function setup(page,source){
 }
 (async()=>{
  const browser=await chromium.launch({headless:true,channel:process.env.CL_TEST_BROWSER_CHANNEL||undefined});
- if(process.env.CL_BASELINE_REF){const before=await browser.newPage({viewport:{width:390,height:900}});await setup(before,cp.execFileSync('git',['show',process.env.CL_BASELINE_REF+':'+security],{encoding:'utf8'}));await before.screenshot({path:path.join(out,'security-before-390.png'),fullPage:true});await before.close();}
+ if(process.env.CL_BASELINE_REF){const before=await browser.newPage({viewport:{width:390,height:900}});await setup(before,inlineSharedImports(cp.execFileSync('git',['show',process.env.CL_BASELINE_REF+':'+security],{encoding:'utf8'})));await before.screenshot({path:path.join(out,'security-before-390.png'),fullPage:true});await before.close();}
  const page=await browser.newPage({viewport:{width:390,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await setup(page,inlineSharedImports(fs.readFileSync(security,'utf8')));
- const sec=page.locator('cl-security-card');assert.equal(await sec.locator('[data-panel-command]').first().isVisible(),false);
+ const sec=page.locator('cl-security-card');assert.equal(await sec.locator('[data-panel-command="arm_night"]').isVisible(),false);
  await sec.locator('summary').first().click();await page.evaluate(()=>new Promise(r=>setTimeout(r,0)));assert.equal(await page.evaluate(()=>calls.length),0);
  await page.evaluate(()=>{security.hass={...hass};});assert.equal(await sec.locator('details').first().getAttribute('open'),'');
  await sec.locator('[data-panel-command="arm_away"]').click();assert.equal(await sec.locator('#pinInput').isVisible(),true);assert.equal(await page.evaluate(()=>calls.length),0);await sec.locator('#dialogCancel').click();
