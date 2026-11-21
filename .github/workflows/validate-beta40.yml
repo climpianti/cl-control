@@ -1,4 +1,4 @@
-name: Validate CL Control 3.5.3-beta.40 two-column photo Area Pro
+name: Validate and publish CL Control 3.5.3-beta.40 two-column photo Area Pro
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -75,3 +75,13 @@ jobs:
             dist/cl-control-3.5.3-beta.40.zip
             dist/SHA256SUMS.txt
           if-no-files-found: error
+      - name: Publish GitHub prerelease after successful tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v3.5.3-beta.40 \
+            dist/cl-control-3.5.3-beta.40.zip dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" \
+            --title "CL Control 3.5.3-beta.40 - Card Area Pro affiancate" \
+            --prerelease \
+            --notes-file docs/RELEASE_BETA40.md
