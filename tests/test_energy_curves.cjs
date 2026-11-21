@@ -1,7 +1,8 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Regression: the chart must be smooth WITHOUT inventing values between samples.
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const text=fs.readFileSync(path.join(__dirname,'../custom_components/cl_control/frontend/cl-control-energy-card.mjs'),'utf8');
+const text=inlineSharedImports(fs.readFileSync(path.join(__dirname,'../custom_components/cl_control/frontend/cl-control-energy-card.mjs'),'utf8'));
 const sandbox={HTMLElement:class{},customElements:{get(){return undefined},define(){}},window:{}};
 vm.createContext(sandbox);
 vm.runInContext(text.replace('export {CLEnergyCard};','')+'\nthis.probe={monotoneEnergyPath,energyCurveSegments,card:CLEnergyCard.prototype}',sandbox);

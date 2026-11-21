@@ -1,8 +1,9 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Recorder failures and incomplete power totals; all inputs are simulated.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, '../custom_components/cl_control/frontend/cl-control-energy-card.mjs'), 'utf8');
+const source = inlineSharedImports(fs.readFileSync(path.join(__dirname, '../custom_components/cl_control/frontend/cl-control-energy-card.mjs'), 'utf8'));
 const context = vm.createContext({HTMLElement: class {}, customElements: {get() {}, define() {}}, window: {}});
 vm.runInContext(source.replace('export {CLEnergyCard};', '') + '\nthis.Card = CLEnergyCard;', context);
 const t = Date.UTC(2026, 10, 12, 12);

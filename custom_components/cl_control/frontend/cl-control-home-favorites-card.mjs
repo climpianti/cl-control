@@ -1,3 +1,4 @@
+import { NATIVE_GLASS } from './cl-control-glass.mjs';
 /* Live Home favorites, backed by CL Control's persistent customer_ui favorites. */
 const FAVORITE_CARD_TYPES = {
   light: 'custom:cl-control-light-memories-card',
@@ -27,7 +28,7 @@ class CLControlHomeFavoritesCard extends HTMLElement {
   getGridOptions(){return {columns:12,rows:'auto'};}
   _renderShell(){
     this.shadowRoot.innerHTML=`<style>
-      :host{display:block;min-width:0}
+      :host{display:block;min-width:0;${NATIVE_GLASS}}
       #title{font-size:19px;font-weight:650;display:none;align-items:center;gap:9px;margin:5px 0 13px;color:var(--primary-text-color,#fff)}
       #title ha-icon{color:#ffcb48;--mdc-icon-size:22px}
       #cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}

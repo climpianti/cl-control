@@ -5,7 +5,7 @@ const path=require('node:path');
 const {chromium}=require('playwright');
 const dir=path.resolve(__dirname,'../custom_components/cl_control/frontend');
 const server=http.createServer((req,res)=>{
-  if(req.url==='/cl-control-switch-glass-card.mjs'||req.url==='/cl-control-power-badge.mjs'){
+  if(req.url==='/cl-control-switch-glass-card.mjs'||req.url==='/cl-control-power-badge.mjs'||req.url==='/cl-control-glass.mjs'){
     res.setHeader('content-type','text/javascript');res.end(fs.readFileSync(path.join(dir,req.url.slice(1))));return;
   }
   res.setHeader('content-type','text/html');res.end(`<!doctype html><html><meta name="viewport" content="width=device-width, initial-scale=1">

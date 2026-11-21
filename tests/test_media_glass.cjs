@@ -1,3 +1,4 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Isolated browser: mock states/services, no connection to Home Assistant.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -23,7 +24,7 @@ async function mount(page,source){
  fs.mkdirSync(out,{recursive:true});const browser=await chromium.launch({headless:true,channel:process.env.CL_TEST_BROWSER_CHANNEL||undefined});
  if(process.env.CL_BASELINE_REF){const page=await browser.newPage({viewport:{width:390,height:900}});await mount(page,cp.execFileSync('git',['show',process.env.CL_BASELINE_REF+':'+asset],{encoding:'utf8'}));await page.screenshot({path:path.join(out,'before-390.png'),fullPage:true});await page.close();}
  const p=await browser.newPage({viewport:{width:390,height:900}});let errors=[];p.on('pageerror',e=>errors.push(e.message));
- await mount(p,fs.readFileSync(asset,'utf8'));
+ await mount(p,inlineSharedImports(fs.readFileSync(asset,'utf8')));
  await p.evaluate(async()=>{
   const root=card.shadowRoot;window.slider=root.querySelector('input');slider.focus();slider.value='72';
   hass.states['media_player.salotto'].attributes.volume_level=.21;card.hass={...hass};

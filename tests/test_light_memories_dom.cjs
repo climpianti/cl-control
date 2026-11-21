@@ -1,9 +1,10 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // DOM behavior only: no graphical layout/native HA tile verification.
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM}=require(process.env.JSDOM_MODULE||'jsdom');
 const {fixture,asset}=require('./test_light_memories_ui.cjs');
-const source=fs.readFileSync(asset,'utf8').replace(/export (function|class) /g,'$1 ');
+const source=inlineSharedImports(fs.readFileSync(asset,'utf8')).replace(/export (function|class) /g,'$1 ');
 const fixtureScript=fixture.match(/<script type="module">([\s\S]*?)<\/script>/)[1].replace(/^import .*;$/m,'');
 const flush=()=>new Promise(resolve=>setTimeout(resolve,0));
 async function mount(scenes=false){

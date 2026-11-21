@@ -1,7 +1,8 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // CL Control beta.14: 12/24h must use mean power in kW; 7/30d use energy in kWh.
 const assert=require('node:assert/strict');
 const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
-const src=fs.readFileSync(path.join(__dirname,'../custom_components/cl_control/frontend/cl-control-energy-card.mjs'),'utf8');
+const src=inlineSharedImports(fs.readFileSync(path.join(__dirname,'../custom_components/cl_control/frontend/cl-control-energy-card.mjs'),'utf8'));
 const sandbox=vm.createContext({HTMLElement:class{},customElements:{get(){},define(){}},window:{}});
 vm.runInContext(src.replace('export {CLEnergyCard};','')+'\nthis.exposed={CLEnergyCard,formatChartKw}',sandbox);
 const {CLEnergyCard,formatChartKw}=sandbox.exposed;

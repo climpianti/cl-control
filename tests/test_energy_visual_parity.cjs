@@ -1,7 +1,8 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Concept parity and truthful visual-only smoothing. No HA commands.
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../custom_components/cl_control/frontend/cl-control-energy-card.mjs'),'utf8');
+const source=inlineSharedImports(fs.readFileSync(path.join(__dirname,'../custom_components/cl_control/frontend/cl-control-energy-card.mjs'),'utf8'));
 const sandbox=vm.createContext({HTMLElement:class{},customElements:{get(){return undefined;},define(){}},window:{}});
 vm.runInContext(source.replace('export {CLEnergyCard};','')+'\nthis.probe={visualEnergySegments,energyCurveSegments,CLEnergyCard,ENERGY_LEGEND_ICONS}',sandbox);
 const {visualEnergySegments:visual,CLEnergyCard,ENERGY_LEGEND_ICONS}=sandbox.probe;

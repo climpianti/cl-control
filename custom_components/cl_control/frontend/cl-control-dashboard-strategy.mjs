@@ -25,6 +25,26 @@ import './cl-control-climate-glass-card.mjs';
 // rendering, state updates, gestures, responsiveness and more-info dialogs.
 
 const STRATEGY_TAG = 'll-strategy-dashboard-cl-control';
+const NATIVE_SURFACES = new Set(['tile', 'area', 'picture-entity', 'button', 'shortcut']);
+
+function styleNativeCards(config) {
+  if (!config || typeof config !== 'object') return config;
+  if (NATIVE_SURFACES.has(config.type)) {
+    const { grid_options, visibility, ...card } = config;
+    return {
+      type: 'custom:cl-control-home-surface', card,
+      ...(grid_options ? { grid_options } : {}),
+      ...(visibility ? { visibility } : {}),
+    };
+  }
+  if (config.type === 'custom:cl-control-home-surface') return config;
+  const styled = { ...config };
+  for (const key of ['views', 'sections', 'cards']) {
+    if (Array.isArray(config[key])) styled[key] = config[key].map(styleNativeCards);
+  }
+  if (config.card) styled.card = styleNativeCards(config.card);
+  return styled;
+}
 
 class CLControlDashboardStrategy extends HTMLElement {
   static noEditor = true;
@@ -47,7 +67,7 @@ class CLControlDashboardStrategy extends HTMLElement {
     }
 
     return {
-      ...generated,
+      ...styleNativeCards(generated),
       title: config.title || generated.title || 'CL Control',
     };
   }

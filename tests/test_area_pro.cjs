@@ -1,3 +1,4 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Browser regression for two-column photo-first Area Pro; simulated states only.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
@@ -15,7 +16,7 @@ fs.mkdirSync(out,{recursive:true});
    this.style.height='var(--mdc-icon-size,24px)';
   }
  }));
- const js=fs.readFileSync('custom_components/cl_control/frontend/cl-control-area-pro-card.mjs','utf8').replace(/export /g,'');
+ const js=inlineSharedImports(fs.readFileSync('custom_components/cl_control/frontend/cl-control-area-pro-card.mjs','utf8')).replace(/export /g,'');
  await page.evaluate(js);
  await page.evaluate(()=>{
   window.hass={states:{

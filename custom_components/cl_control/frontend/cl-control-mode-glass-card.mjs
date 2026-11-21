@@ -1,3 +1,4 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
 /* CL Control Blue Tech Glass: full-width high-contrast select/input_select. */
 class CLControlModeGlassCard extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this._config={};this._hass=null;this._open=false;this._busy=false;}
@@ -14,9 +15,7 @@ class CLControlModeGlassCard extends HTMLElement {
     const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
     this.shadowRoot.innerHTML=`<style>
       :host{display:block;min-width:0;color:#fff}
-      ha-card{box-sizing:border-box;min-height:154px;display:flex;align-items:center;gap:15px;padding:19px 20px;position:relative;
-        background:radial-gradient(ellipse at 90% 15%,rgba(117,72,157,.32),transparent 55%),linear-gradient(135deg,#122846,#151a29 62%,#251b35);
-        border:1px solid rgba(155,190,255,.28);border-radius:24px;box-shadow:0 12px 28px #0003}
+      ha-card{box-sizing:border-box;min-height:154px;display:flex;align-items:center;gap:15px;padding:19px 20px;position:relative;border-radius:24px;${GLASS_SURFACE}}
       .device{width:57px;min-width:57px;height:57px;border:0;border-radius:18px;background:rgba(112,175,225,.12);color:#95c7f0;display:grid;place-items:center;cursor:pointer}
       .device ha-icon{--mdc-icon-size:30px}
       .content{flex:1;min-width:0}

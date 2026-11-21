@@ -44,10 +44,12 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 720 }, deviceScaleFactor: 2 });
     await page.route('http://preview.local/**', async route => {
-      if (route.request().url().endsWith('/area-card.mjs')) {
+      const file = new URL(route.request().url()).pathname.slice(1);
+      const module = { 'area-card.mjs': 'cl-control-area-pro-card.mjs', 'cl-control-glass.mjs': file, 'cl-control-power-badge.mjs': file };
+      if (Object.hasOwn(module,file)) {
         await route.fulfill({
           contentType: 'text/javascript',
-          path: 'custom_components/cl_control/frontend/cl-control-area-pro-card.mjs',
+          path: path.join('custom_components/cl_control/frontend', module[file]),
         });
       } else {
         await route.fulfill({ contentType: 'text/html', body: `<!doctype html>

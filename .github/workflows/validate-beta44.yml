@@ -32,7 +32,7 @@ jobs:
           v='3.5.3-beta.44'
           assert json.loads(Path('custom_components/cl_control/manifest.json').read_text())['version']==v
           assert f'VERSION = "{v}"' in Path('custom_components/cl_control/const.py').read_text()
-          assert f'ASSET_REVISION = "{v}-favorite-outlet-glass"' in Path('custom_components/cl_control/frontend.py').read_text()
+          assert f'ASSET_REVISION = "{v}-blue-glass"' in Path('custom_components/cl_control/frontend.py').read_text()
           PY
       - name: Python offline regression
         run: python tests/run_offline.py
@@ -79,7 +79,9 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
       - name: Capture the mobile preview
-        run: node tests/test_favorite_controls.cjs
+        run: |
+          node tests/test_favorite_controls.cjs
+          node tests/test_shared_glass.cjs
       - name: Upload the preview
         uses: actions/upload-artifact@v4
         with:

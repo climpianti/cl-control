@@ -1,3 +1,4 @@
+const { inlineSharedImports } = require('./frontend_source.cjs');
 // Local render only. No device connection, no real PIN, no native thermostat commands.
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
@@ -16,7 +17,7 @@ async function setup(page,source){
 (async()=>{
  const browser=await chromium.launch({headless:true,channel:process.env.CL_TEST_BROWSER_CHANNEL||undefined});
  if(process.env.CL_BASELINE_REF){const before=await browser.newPage({viewport:{width:390,height:900}});await setup(before,cp.execFileSync('git',['show',process.env.CL_BASELINE_REF+':'+security],{encoding:'utf8'}));await before.screenshot({path:path.join(out,'security-before-390.png'),fullPage:true});await before.close();}
- const page=await browser.newPage({viewport:{width:390,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await setup(page,fs.readFileSync(security,'utf8'));
+ const page=await browser.newPage({viewport:{width:390,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await setup(page,inlineSharedImports(fs.readFileSync(security,'utf8')));
  const sec=page.locator('cl-security-card');assert.equal(await sec.locator('[data-panel-command]').first().isVisible(),false);
  await sec.locator('summary').first().click();await page.evaluate(()=>new Promise(r=>setTimeout(r,0)));assert.equal(await page.evaluate(()=>calls.length),0);
  await page.evaluate(()=>{security.hass={...hass};});assert.equal(await sec.locator('details').first().getAttribute('open'),'');
@@ -29,7 +30,7 @@ async function setup(page,source){
  for(const width of [320,390,768,1024,1440,1920]){await page.setViewportSize({width,height:900});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:path.join(out,`security-after-${width}.png`),fullPage:true});}
  // Existing beta.6 preview registers the old tag first. Glass must coexist.
  await page.evaluate(()=>customElements.define('cl-control-climate-card',class extends HTMLElement{}));
- await page.evaluate(fs.readFileSync('custom_components/cl_control/frontend/cl-control-climate-glass-card.mjs','utf8').replace('export class ','class '));
+ await page.evaluate(inlineSharedImports(fs.readFileSync('custom_components/cl_control/frontend/cl-control-climate-glass-card.mjs','utf8')).replace('export class ','class '));
  await page.evaluate(()=>{security.remove();window.climate=document.createElement('cl-control-climate-glass-card');climate.setConfig({entity:'climate.fixture',name:'Clima soggiorno'});climate.hass=hass;document.querySelector('main').append(climate);});
  const cl=page.locator('cl-control-climate-glass-card');assert.match(await cl.locator('.temperature').innerText(),/20,3 °C/);assert.match(await cl.locator('.target').innerText(),/21,5 °C/);
  for(const width of [320,390,768,1024,1440,1920]){await page.setViewportSize({width,height:900});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);await page.screenshot({path:path.join(out,`climate-after-${width}.png`),fullPage:true});}

@@ -16,6 +16,10 @@ export function readInstantPower(hass, entityId) {
   return formatted + (inKw ? ' kW' : ' W');
 }
 
+export const INSTANT_POWER_ICON = 'mdi:flash';
+export const INSTANT_POWER_COLOR = '#ffd075';
+export const INSTANT_POWER_GLYPH = `<ha-icon class="cl-power-symbol" icon="${INSTANT_POWER_ICON}" aria-hidden="true"></ha-icon>`;
+
 /**
  * Shared presentation for instant power across lights, outlets and switches.
  * Keep the measurement separate from the on/off state: a valid 0 W is visible.
@@ -29,7 +33,7 @@ export const INSTANT_POWER_BADGE_CSS = `
     row-gap: 2px;
     max-width: 100%;
     margin-top: 4px;
-    color: #ffd27e;
+    color: #d7e7f7;
     font-size: 12px;
     font-weight: 600;
     line-height: 1.35;
@@ -37,6 +41,6 @@ export const INSTANT_POWER_BADGE_CSS = `
     overflow-wrap: anywhere;
   }
   .identity .cl-power-meter[hidden] { display: none !important; }
-  .cl-power-symbol { color: #ffbf4c; font-size: 16px; line-height: 1; }
+  .cl-power-symbol { color: ${INSTANT_POWER_COLOR}; --mdc-icon-size: 16px; flex: 0 0 auto; }
   .cl-power-value { min-width: 0; }
 `;

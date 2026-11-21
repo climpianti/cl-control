@@ -1,9 +1,11 @@
+import { GLASS_SURFACE } from './cl-control-glass.mjs';
+import { INSTANT_POWER_ICON, INSTANT_POWER_COLOR } from './cl-control-power-badge.mjs';
 // Responsive Home area card for the Pro profile. Presentation only; no device commands.
 const KINDS=[
   ['temperature','Temperatura','mdi:thermometer'],
   ['humidity','Umidità','mdi:water-percent'],
   ['carbon_dioxide','CO₂','mdi:molecule-co2'],
-  ['power','Potenza','mdi:flash'],
+  ['power','Potenza',INSTANT_POWER_ICON],
 ];
 const ALERTS=[
   ['motion','Movimento','mdi:motion-sensor'],
@@ -64,12 +66,8 @@ const STYLE=`
 button{font:inherit}
 .card{
  position:relative;display:block;width:100%;min-width:0;padding:0;text-align:left;overflow:hidden;
- border:1px solid transparent;border-radius:20px;
- background:
-  radial-gradient(ellipse at 12% 35%,#16426a 0%,transparent 64%) padding-box,
-  linear-gradient(115deg,#102438,#0b1524 66%,#1e1938) padding-box,
-  linear-gradient(130deg,#9adcff 0%,#3084bd 37%,#234976 68%,#9976c9 100%) border-box;
- box-shadow:0 0 16px #3184d042,inset 0 0 7px #56b5ff25;
+ border-radius:20px;
+ ${GLASS_SURFACE}
  color:inherit;cursor:pointer
 }
 .card:focus-visible{outline:3px solid #7bd0ff;outline-offset:3px}
@@ -92,7 +90,7 @@ button{font:inherit}
  border:1px solid #acc9e344;box-shadow:inset 0 1px 0 #d5ebff14
 }
 .metric ha-icon{--mdc-icon-size:18px;color:#8dccff}
-.metric[data-kind=power] ha-icon{color:#ffd075}
+.metric[data-kind=power] ha-icon{color:${INSTANT_POWER_COLOR}}
 .metric .copy{display:grid;min-width:0;gap:2px}
 .metric .label{color:#d7e7f7;font-size:11px;line-height:1.16;overflow-wrap:anywhere}
 .metric .value{color:#f5f8ff;font-size:14px;font-weight:650;line-height:1.2;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}

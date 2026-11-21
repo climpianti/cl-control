@@ -1,3 +1,4 @@
+import { GLASS_SURFACE, NATIVE_GLASS } from './cl-control-glass.mjs';
 /* CL Control searchable systems: filter by name without changing entity states. */
 const norm = value => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase().trim();
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -48,9 +49,8 @@ class CLControlEntitySearchCard extends HTMLElement {
     this.shadowRoot.innerHTML = `
       <style>
         :host{display:block;min-width:0}
-        .search{display:flex;align-items:center;gap:11px;padding:12px 15px;border:1px solid rgba(125,151,179,.43);border-radius:28px;
-          background:linear-gradient(115deg,#17242e 0%,#151e2b 53%,#221b30 100%);box-shadow:0 2px 8px rgba(0,0,0,.2),inset 0 1px 0 rgba(235,245,255,.12);
-          color:#fff}
+        .search{display:flex;align-items:center;gap:11px;padding:12px 15px;border-radius:28px;
+          color:#fff;${GLASS_SURFACE}}
         .search:focus-within{border-color:rgba(151,181,210,.65);box-shadow:0 0 0 1px rgba(151,181,210,.15)}
         .search ha-icon{color:#70bfff;--mdc-icon-size:23px}
         input{flex:1;min-width:0;border:0;outline:0;background:transparent!important;color:#fff!important;-webkit-text-fill-color:#fff!important;caret-color:#fff;font:inherit;font-size:16px;appearance:none;-webkit-appearance:none;border-radius:0}
@@ -64,7 +64,7 @@ class CLControlEntitySearchCard extends HTMLElement {
         .group{margin-top:17px}
         .heading{display:flex;align-items:center;gap:9px;font-size:18px;font-weight:500;padding:0 7px 12px}
         .heading ha-icon{--mdc-icon-size:22px}
-        .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
+        .tiles{${NATIVE_GLASS}display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:14px}
         .tiles hui-card{min-width:0}
         .empty{padding:30px 15px;text-align:center;border-radius:19px;border:1px solid rgba(130,180,220,.23);background:rgba(25,40,61,.5);margin-top:16px}
         .empty ha-icon{color:#70bfff;--mdc-icon-size:32px}

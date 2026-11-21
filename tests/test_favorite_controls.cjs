@@ -8,7 +8,7 @@ const { mdiGate, mdiGestureTap, mdiPower, mdiPowerSocketEu, mdiStar, mdiToggleSw
 const frontend = path.resolve('custom_components/cl_control/frontend');
 const modules = new Set([
   'cl-control-home-favorites-card.mjs', 'cl-control-command-glass-card.mjs',
-  'cl-control-switch-glass-card.mjs', 'cl-control-power-badge.mjs',
+  'cl-control-switch-glass-card.mjs', 'cl-control-power-badge.mjs', 'cl-control-glass.mjs',
 ]);
 const iconPaths = {
   'mdi:gate': mdiGate, 'mdi:gesture-tap': mdiGestureTap, 'mdi:power': mdiPower,
