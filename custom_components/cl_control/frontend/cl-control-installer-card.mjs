@@ -35,6 +35,7 @@ class CLControlInstallerCard extends HTMLElement {
     const first = !this._hass;
     this._hass = hass;
     if (first) this._bootstrap();
+    else if (this._page === 'card_power') this.shadowRoot.querySelectorAll('[data-card-power-row]').forEach(row=>this._syncCardPowerPreview(row));
   }
 
   getCardSize() { return 10; }
