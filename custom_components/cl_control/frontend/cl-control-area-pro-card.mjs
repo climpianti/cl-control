@@ -85,7 +85,11 @@ export class CLControlAreaProCard extends HTMLElement{
     this.shadowRoot.querySelector('button').addEventListener('click',()=>{
       const path=this._config.navigation_path;
       if(typeof path!=='string'||!path||path.startsWith('//'))return;
-      const url=new URL(path,window.location.href);
+      // Resolve relative area paths against the dashboard root whether Home
+      // is open as /dashboard or /dashboard/home (both are valid HA URLs).
+      const here=window.location.pathname.replace(/\/+$/,'');
+      const base=(here.endsWith('/home')?here.slice(0,-5):here)+'/';
+      const url=new URL(path,window.location.origin+base);
       if(url.origin!==window.location.origin)return;
       window.history.pushState(null,'',url.pathname+url.search+url.hash);
       window.dispatchEvent(new Event('location-changed'));
