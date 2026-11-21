@@ -9,6 +9,7 @@ class CLSwitchGlassCard extends HTMLElement {
   _render(){
     const s=this._hass?.states?.[this._config.entity],on=s?.state==='on',available=!!s&&!['unavailable','unknown'].includes(s.state);
     const name=this._config.name||s?.attributes?.friendly_name||this._config.entity||'Interruttore';
+    const defaultIcon=s?.attributes?.device_class==='outlet'?'mdi:power-socket-eu':'mdi:toggle-switch-outline';
     const watts=readInstantPower(this._hass,this._config.power_entity);
     const esc=v=>String(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;'}[c]));
     this.shadowRoot.innerHTML=`<style>
@@ -34,7 +35,7 @@ class CLSwitchGlassCard extends HTMLElement {
       @media(max-width:520px){ha-card{padding:14px;border-radius:19px;gap:12px}.device{width:46px;min-width:46px;height:50px}.device ha-icon{--mdc-icon-size:28px}strong{font-size:16px}.power{width:54px;min-width:54px;height:54px}}
       @media(prefers-reduced-motion:reduce){.power{transition:none}}
     </style>
-    <ha-card><button class="device" id="details" aria-label="Dettagli ${esc(name)}"><ha-icon icon="${esc(this._config.icon||s?.attributes?.icon||'mdi:toggle-switch-outline')}"></ha-icon></button>
+    <ha-card><button class="device" id="details" aria-label="Dettagli ${esc(name)}"><ha-icon icon="${esc(this._config.icon||s?.attributes?.icon||defaultIcon)}"></ha-icon></button>
     <div class="identity"><strong>${esc(name)}</strong><small>${available?(on?'Acceso':'Spento'):'Non disponibile'}</small>${watts?`<small class="cl-power-meter" aria-label="Potenza istantanea ${esc(watts)}"><span class="cl-power-symbol" aria-hidden="true">⚡</span><span class="cl-power-value">${esc(watts)}</span></small>`:''}</div>
     <button class="power" id="power" role="switch" aria-label="Accensione ${esc(name)}" aria-checked="${on}" ${!available||this._busy?'disabled':''}><ha-icon icon="mdi:power"></ha-icon></button></ha-card>`;
     this.shadowRoot.querySelector('#details').onclick=()=>this.dispatchEvent(new CustomEvent('hass-more-info',{detail:{entityId:this._config.entity},bubbles:true,composed:true}));

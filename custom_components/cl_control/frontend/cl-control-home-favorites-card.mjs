@@ -1,4 +1,14 @@
 /* Live Home favorites, backed by CL Control's persistent customer_ui favorites. */
+const FAVORITE_CARD_TYPES = {
+  light: 'custom:cl-control-light-memories-card',
+  cover: 'custom:cl-control-cover-card',
+  climate: 'custom:cl-control-climate-glass-card',
+  media_player: 'custom:cl-control-media-card',
+  switch: 'custom:cl-control-switch-glass-card',
+  button: 'custom:cl-control-command-glass-card',
+  input_button: 'custom:cl-control-command-glass-card',
+};
+
 class CLControlHomeFavoritesCard extends HTMLElement {
   constructor() {
     super();
@@ -43,13 +53,17 @@ class CLControlHomeFavoritesCard extends HTMLElement {
       for(const entity of entities){
         let card=this._cards.get(entity.entity_id);
         if(!card){
-          const type=entity.domain==='light'?'custom:cl-control-light-memories-card':
-            entity.domain==='cover'?'custom:cl-control-cover-card':
-            entity.domain==='climate'?'custom:cl-control-climate-glass-card':
-            entity.domain==='media_player'?'custom:cl-control-media-card':
-            entity.domain==='switch'&&entity.power_entity?'custom:cl-control-switch-glass-card':'tile';
-          card=helpers.createCardElement({type,entity:entity.entity_id,name:entity.name,
-            ...(entity.power_entity?{power_entity:entity.power_entity}:{})});
+          const config = {
+            type: Object.hasOwn(FAVORITE_CARD_TYPES, entity.domain) ? FAVORITE_CARD_TYPES[entity.domain] : 'tile',
+            entity: entity.entity_id,
+            name: entity.name,
+          };
+          if (entity.power_entity) config.power_entity = entity.power_entity;
+          if (entity.icon && ['switch', 'button', 'input_button'].includes(entity.domain)) config.icon = entity.icon;
+          if (entity.domain === 'switch' && entity.module === 'outlets' && !config.icon) {
+            config.icon = 'mdi:power-socket-eu';
+          }
+          card = helpers.createCardElement(config);
           this._cards.set(entity.entity_id,card);
         }
         card.hass=this._hass;

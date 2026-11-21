@@ -956,14 +956,18 @@ def _entity_card(entity: dict[str, Any]) -> dict[str, Any]:
     if entity.get("domain") in {"input_button", "button"} and entity.get("module") == "commands":
         return {"type": "custom:cl-control-command-glass-card", "entity": entity["entity_id"], "name": entity["name"], "grid_options": {"columns": "full", "rows": "auto"}, **({"icon": entity["icon"]} if entity.get("icon") else {})}
     if entity.get("domain") == "switch" and entity.get("module") in {"switches", "outlets"}:
-        if entity.get("module") == "switches" or entity.get("power_entity"):
-            return {"type": "custom:cl-control-switch-glass-card", "entity": entity["entity_id"],
-                    "name": entity["name"],
-                    **({"power_entity": entity["power_entity"]} if entity.get("power_entity") else {}),
-                    **({"icon": entity["icon"]} if entity.get("icon") else
-                       ({"icon": "mdi:power-socket-eu"} if entity.get("module") == "outlets" else {})),
-                    }
-        return _tile(entity)
+        card = {
+            "type": "custom:cl-control-switch-glass-card",
+            "entity": entity["entity_id"],
+            "name": entity["name"],
+        }
+        if power_entity := entity.get("power_entity"):
+            card["power_entity"] = power_entity
+        if icon := entity.get("icon"):
+            card["icon"] = icon
+        elif entity.get("module") == "outlets":
+            card["icon"] = "mdi:power-socket-eu"
+        return card
     if entity.get("domain") == "climate":
         return {"type": "custom:cl-control-climate-glass-card", "entity": entity["entity_id"], "name": entity["name"]}
     if entity.get("domain") == "cover":
