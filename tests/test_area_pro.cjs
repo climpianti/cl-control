@@ -61,6 +61,8 @@ fs.mkdirSync(out,{recursive:true});
  assert.equal(await value('power'),'0 W');
  await page.evaluate(()=>card.shadowRoot.querySelector('button').click());
  assert.equal(await page.evaluate(()=>location.pathname),'/cl-control/area-camera-da-letto');
+ await page.evaluate(()=>{history.replaceState(null,'','/cl-control');card.shadowRoot.querySelector('button').click()});
+ assert.equal(await page.evaluate(()=>location.pathname),'/cl-control/area-camera-da-letto');
  assert.deepEqual(errors,[]);await browser.close();
  console.log('Pro area UI OK: five widths, all metrics, missing states, zero W and navigation');
 })().catch(e=>{console.error(e);process.exit(1)});
